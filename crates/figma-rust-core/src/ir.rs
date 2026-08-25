@@ -8,7 +8,7 @@ use crate::raw::{
     RawOverride, RawReaction, RawSource, RawStrokeAlign, RawTrigger,
 };
 
-pub const DESIGN_IR_VERSION: u32 = 1;
+pub const DESIGN_IR_VERSION: u32 = 2;
 
 /// Stable, target-neutral normalized document.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -82,7 +82,7 @@ pub enum Layout {
         wrap: bool,
         primary_alignment: RawAlignment,
         counter_alignment: RawAlignment,
-        gap: f64,
+        gap: BoundValue<f64>,
         padding: Edges,
         clips_content: bool,
         scroll: Scroll,
@@ -143,12 +143,12 @@ pub struct Transform {
     pub matrix: [f64; 6],
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Edges {
-    pub top: f64,
-    pub right: f64,
-    pub bottom: f64,
-    pub left: f64,
+    pub top: BoundValue<f64>,
+    pub right: BoundValue<f64>,
+    pub bottom: BoundValue<f64>,
+    pub left: BoundValue<f64>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -206,6 +206,8 @@ pub struct Color {
 pub struct BoundValue<T> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token: Option<TokenRef>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub mode_context: BTreeMap<String, String>,
     pub fallback: T,
 }
 
@@ -236,12 +238,12 @@ pub enum Effect {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Radii {
-    pub top_left: f64,
-    pub top_right: f64,
-    pub bottom_right: f64,
-    pub bottom_left: f64,
+    pub top_left: BoundValue<f64>,
+    pub top_right: BoundValue<f64>,
+    pub bottom_right: BoundValue<f64>,
+    pub bottom_left: BoundValue<f64>,
     pub smoothing: f64,
 }
 
@@ -304,6 +306,7 @@ pub type Action = RawAction;
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Variable {
     pub token: TokenRef,
+    pub mode_context: BTreeMap<String, String>,
     pub value: RawLiteral,
 }
 

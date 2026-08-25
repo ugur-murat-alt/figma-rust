@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 
 import { extractNodes } from "../src/extract";
 import realGroupFixture from "./fixtures/real-group.plugin-api.json";
+import multiModeFixture from "./fixtures/multi-mode-variables.json";
 import realExtractionFixture from "../../fixtures/real-figma/extraction.json";
 
 type Transform = [[number, number, number], [number, number, number]];
@@ -19,14 +20,23 @@ interface TestNode {
   gridColumnAnchorIndex?: number;
   gridRowSpan?: number;
   gridColumnSpan?: number;
+  resolvedVariableModes?: Record<string, string>;
+  fills?: unknown[];
   children?: TestNode[];
 }
+
+const testVariables = new Map<string, unknown>();
+const testCollections = new Map<string, unknown>();
 
 Object.assign(globalThis, {
   figma: {
     fileKey: realGroupFixture.file_key,
     currentPage: { id: "0:1", selection: [] },
     mixed: Symbol("mixed"),
+    variables: {
+      getVariableByIdAsync: async (id: string) => testVariables.get(id) ?? null,
+      getVariableCollectionByIdAsync: async (id: string) => testCollections.get(id) ?? null,
+    },
   },
 });
 
@@ -211,10 +221,369 @@ async function preservesAndValidatesGridPlacements(): Promise<void> {
   );
 }
 
+async function preservesVariableValuesAcrossConsumerModes(): Promise<void> {
+  const collectionId = multiModeFixture.collection_id;
+  const valueCollectionId = `${collectionId}:values`;
+  const lightMode = multiModeFixture.modes.light;
+  const darkMode = multiModeFixture.modes.dark;
+  const aliasId = multiModeFixture.variable_id;
+  const valueId = multiModeFixture.aliased_variable_id;
+  testCollections.set(collectionId, {
+    id: collectionId,
+    defaultModeId: lightMode,
+    modes: [
+      { modeId: lightMode, name: "Light" },
+      { modeId: darkMode, name: "Dark" },
+    ],
+  });
+  testCollections.set(valueCollectionId, {
+    id: valueCollectionId,
+    defaultModeId: lightMode,
+    modes: [
+      { modeId: lightMode, name: "Light" },
+      { modeId: darkMode, name: "Dark" },
+    ],
+  });
+  testVariables.set(aliasId, {
+    id: aliasId,
+    name: "color/alias",
+    variableCollectionId: collectionId,
+    valuesByMode: {
+      [lightMode]: { type: "VARIABLE_ALIAS", id: valueId },
+      [darkMode]: { type: "VARIABLE_ALIAS", id: valueId },
+    },
+    resolveForConsumer: (consumer: TestNode) => ({
+      value: consumer.resolvedVariableModes?.[valueCollectionId] === darkMode
+        ? multiModeFixture.values.dark
+        : multiModeFixture.values.light,
+      resolvedType: "COLOR",
+    }),
+  });
+  testVariables.set(valueId, {
+    id: valueId,
+    name: "color/value",
+    variableCollectionId: valueCollectionId,
+    valuesByMode: {
+      [lightMode]: multiModeFixture.values.light,
+      [darkMode]: multiModeFixture.values.dark,
+    },
+    resolveForConsumer: (consumer: TestNode) => ({
+      value: consumer.resolvedVariableModes?.[valueCollectionId] === darkMode
+        ? multiModeFixture.values.dark
+        : multiModeFixture.values.light,
+      resolvedType: "COLOR",
+    }),
+  });
+
+  const light = rectangle("7:1", [[1, 0, 0], [0, 1, 0]]);
+  light.resolvedVariableModes = {
+    [collectionId]: lightMode,
+    [valueCollectionId]: lightMode,
+  };
+  light.fills = [{
+    type: "SOLID",
+    visible: true,
+    opacity: 1,
+    color: { r: 0.1, g: 0.2, b: 0.3 },
+    boundVariables: { color: { type: "VARIABLE_ALIAS", id: aliasId } },
+  }];
+  const dark = rectangle("7:2", [[1, 0, 30], [0, 1, 0]]);
+  dark.resolvedVariableModes = {
+    [collectionId]: darkMode,
+    [valueCollectionId]: darkMode,
+  };
+  dark.fills = [{
+    type: "SOLID",
+    visible: true,
+    opacity: 1,
+    color: { r: 0.9, g: 0.8, b: 0.7 },
+    boundVariables: { color: { type: "VARIABLE_ALIAS", id: aliasId } },
+  }];
+
+  const mixed = rectangle("7:3", [[1, 0, 60], [0, 1, 0]]);
+  mixed.resolvedVariableModes = {
+    [collectionId]: lightMode,
+    [valueCollectionId]: darkMode,
+  };
+  mixed.fills = [{
+    type: "SOLID",
+    visible: true,
+    opacity: 1,
+    color: { r: 0.9, g: 0.8, b: 0.7 },
+    boundVariables: { color: { type: "VARIABLE_ALIAS", id: aliasId } },
+  }];
+  const defaultModes = rectangle("7:4", [[1, 0, 90], [0, 1, 0]]);
+  defaultModes.fills = [{
+    type: "SOLID",
+    visible: true,
+    opacity: 1,
+    color: { r: 0.1, g: 0.2, b: 0.3 },
+    boundVariables: { color: { type: "VARIABLE_ALIAS", id: aliasId } },
+  }];
+
+  const bundle = await extractNodes([
+    light as unknown as SceneNode,
+    dark as unknown as SceneNode,
+    mixed as unknown as SceneNode,
+    defaultModes as unknown as SceneNode,
+  ]);
+  assert.equal(bundle.schema_version, 2);
+  assert.deepEqual(bundle.roots.map((root) => root.style.fills[0]), [
+    {
+      kind: "SOLID",
+      color: {
+        literal: { r: 0.1, g: 0.2, b: 0.3, a: 1 },
+        token_id: aliasId,
+        mode_context: {
+          [collectionId]: lightMode,
+          [valueCollectionId]: lightMode,
+        },
+      },
+    },
+    {
+      kind: "SOLID",
+      color: {
+        literal: { r: 0.9, g: 0.8, b: 0.7, a: 1 },
+        token_id: aliasId,
+        mode_context: {
+          [collectionId]: darkMode,
+          [valueCollectionId]: darkMode,
+        },
+      },
+    },
+    {
+      kind: "SOLID",
+      color: {
+        literal: { r: 0.9, g: 0.8, b: 0.7, a: 1 },
+        token_id: aliasId,
+        mode_context: {
+          [collectionId]: lightMode,
+          [valueCollectionId]: darkMode,
+        },
+      },
+    },
+    {
+      kind: "SOLID",
+      color: {
+        literal: { r: 0.1, g: 0.2, b: 0.3, a: 1 },
+        token_id: aliasId,
+        mode_context: {
+          [collectionId]: lightMode,
+          [valueCollectionId]: lightMode,
+        },
+      },
+    },
+  ]);
+  assert.deepEqual(bundle.variables, [
+    {
+      id: aliasId,
+      name: "color/alias",
+      collection_id: collectionId,
+      mode_id: darkMode,
+      mode_context: {
+        [collectionId]: darkMode,
+        [valueCollectionId]: darkMode,
+      },
+      source_node_id: "7:2",
+      value: { kind: "COLOR", value: { r: 0.9, g: 0.8, b: 0.7, a: 1 } },
+    },
+    {
+      id: aliasId,
+      name: "color/alias",
+      collection_id: collectionId,
+      mode_id: lightMode,
+      mode_context: {
+        [collectionId]: lightMode,
+        [valueCollectionId]: darkMode,
+      },
+      source_node_id: "7:3",
+      value: { kind: "COLOR", value: { r: 0.9, g: 0.8, b: 0.7, a: 1 } },
+    },
+    {
+      id: aliasId,
+      name: "color/alias",
+      collection_id: collectionId,
+      mode_id: lightMode,
+      mode_context: {
+        [collectionId]: lightMode,
+        [valueCollectionId]: lightMode,
+      },
+      source_node_id: "7:1",
+      value: { kind: "COLOR", value: { r: 0.1, g: 0.2, b: 0.3, a: 1 } },
+    },
+  ]);
+  assert.ok(!bundle.extraction_diagnostics.some(
+    (diagnostic) => diagnostic.code === "FR-TOKEN-MODE-001" || diagnostic.code === "FR-TOKEN-MODE-004",
+  ));
+
+  const reversed = await extractNodes([
+    defaultModes as unknown as SceneNode,
+    mixed as unknown as SceneNode,
+    dark as unknown as SceneNode,
+    light as unknown as SceneNode,
+  ]);
+  assert.deepEqual(reversed.variables, bundle.variables);
+  testVariables.clear();
+  testCollections.clear();
+}
+
+async function keepsAliasCyclesScopedToOneResolution(): Promise<void> {
+  const collectionId = "VariableCollectionId:test:cycle";
+  const modeId = "mode-default";
+  const firstId = "VariableID:test:cycle-a";
+  const secondId = "VariableID:test:cycle-b";
+  testCollections.set(collectionId, {
+    id: collectionId,
+    defaultModeId: modeId,
+    modes: [{ modeId, name: "Default" }],
+  });
+  testVariables.set(firstId, {
+    id: firstId,
+    name: "cycle/a",
+    variableCollectionId: collectionId,
+    valuesByMode: {
+      [modeId]: { type: "VARIABLE_ALIAS", id: secondId },
+    },
+    resolveForConsumer: () => {
+      throw new Error("cycle must be detected before resolved lookup");
+    },
+  });
+  testVariables.set(secondId, {
+    id: secondId,
+    name: "cycle/b",
+    variableCollectionId: collectionId,
+    valuesByMode: {
+      [modeId]: { type: "VARIABLE_ALIAS", id: firstId },
+    },
+    resolveForConsumer: () => {
+      throw new Error("cycle must be detected before resolved lookup");
+    },
+  });
+  const node = rectangle("7:0", [[1, 0, 0], [0, 1, 0]]);
+  node.resolvedVariableModes = { [collectionId]: modeId };
+  node.fills = [{
+    type: "SOLID",
+    color: { r: 0, g: 0, b: 0 },
+    boundVariables: { color: { type: "VARIABLE_ALIAS", id: firstId } },
+  }];
+
+  const bundle = await extractNodes([node as unknown as SceneNode]);
+  assert.ok(bundle.extraction_diagnostics.some(
+    (diagnostic) => diagnostic.code === "FR-TOKEN-CHAIN-001",
+  ));
+  testVariables.clear();
+  testCollections.clear();
+}
+
+async function preservesModeledNumericBindings(): Promise<void> {
+  const collectionId = "VariableCollectionId:test:numbers";
+  const modeId = "mode-default";
+  const values = new Map([
+    ["gap", 8],
+    ["padding", 12],
+    ["radius", 4],
+    ["stroke-top", 1],
+    ["stroke-right", 2],
+    ["stroke-bottom", 3],
+    ["stroke-left", 4],
+    ["unsupported", 0.5],
+  ]);
+  testCollections.set(collectionId, {
+    id: collectionId,
+    defaultModeId: modeId,
+    modes: [{ modeId, name: "Default" }],
+  });
+  for (const [name, value] of values) {
+    const id = `VariableID:test:${name}`;
+    testVariables.set(id, {
+      id,
+      name,
+      variableCollectionId: collectionId,
+      valuesByMode: { [modeId]: value },
+      resolveForConsumer: () => ({ value, resolvedType: "FLOAT" }),
+    });
+  }
+  const alias = (name: string) => ({
+    type: "VARIABLE_ALIAS",
+    id: `VariableID:test:${name}`,
+  });
+  const node = rectangle("8:1", [[1, 0, 0], [0, 1, 0]]) as TestNode & Record<string, unknown>;
+  Object.assign(node, {
+    resolvedVariableModes: { [collectionId]: modeId },
+    layoutMode: "HORIZONTAL",
+    itemSpacing: 8,
+    paddingTop: 12,
+    paddingRight: 12,
+    paddingBottom: 12,
+    paddingLeft: 12,
+    cornerRadius: figma.mixed,
+    topLeftRadius: 4,
+    topRightRadius: 4,
+    bottomRightRadius: 4,
+    bottomLeftRadius: 4,
+    strokeWeight: figma.mixed,
+    strokeTopWeight: 1,
+    strokeRightWeight: 2,
+    strokeBottomWeight: 3,
+    strokeLeftWeight: 4,
+    boundVariables: {
+      itemSpacing: alias("gap"),
+      paddingTop: alias("padding"),
+      paddingRight: alias("padding"),
+      paddingBottom: alias("padding"),
+      paddingLeft: alias("padding"),
+      topLeftRadius: alias("radius"),
+      topRightRadius: alias("radius"),
+      bottomRightRadius: alias("radius"),
+      bottomLeftRadius: alias("radius"),
+      strokeTopWeight: alias("stroke-top"),
+      strokeRightWeight: alias("stroke-right"),
+      strokeBottomWeight: alias("stroke-bottom"),
+      strokeLeftWeight: alias("stroke-left"),
+      opacity: alias("unsupported"),
+    },
+  });
+
+  const bundle = await extractNodes([node as unknown as SceneNode]);
+  const root = bundle.roots[0];
+  const expectedContext = { [collectionId]: modeId };
+  assert.deepEqual(root.layout.gap, {
+    literal: 8,
+    token_id: "VariableID:test:gap",
+    mode_context: expectedContext,
+  });
+  assert.ok(Object.values(root.layout.padding).every(
+    (value) => value.token_id === "VariableID:test:padding" && value.literal === 12,
+  ));
+  assert.ok([
+    root.style.radii.top_left,
+    root.style.radii.top_right,
+    root.style.radii.bottom_right,
+    root.style.radii.bottom_left,
+  ].every((value) => value.token_id === "VariableID:test:radius" && value.literal === 4));
+  assert.deepEqual(Object.values(root.style.stroke_widths).map((value) => value.literal), [1, 2, 3, 4]);
+  assert.equal(bundle.extraction_diagnostics.filter(
+    (diagnostic) => diagnostic.code === "FR-TOKEN-LOSS-003",
+  ).length, 1);
+  assert.ok(bundle.extraction_diagnostics.some(
+    (diagnostic) => diagnostic.code === "FR-TOKEN-LOSS-003"
+      && diagnostic.property_path === "bound_variables.opacity",
+  ));
+  assert.ok(!bundle.extraction_diagnostics.some(
+    (diagnostic) => diagnostic.code === "FR-VALUE-EXTRACT-003"
+      && diagnostic.property_path === "style.stroke_widths",
+  ));
+  testVariables.clear();
+  testCollections.clear();
+}
+
 await extractsGroupLocalCoordinates();
 await extractsNestedGroupLocalCoordinates();
 await extractsRotatedGroupLocalCoordinates();
 await rejectsIllConditionedGroupTransform();
 await ignoresNonGridPlacementSentinels();
 await preservesAndValidatesGridPlacements();
-console.log("group coordinate extraction tests passed");
+await keepsAliasCyclesScopedToOneResolution();
+await preservesVariableValuesAcrossConsumerModes();
+await preservesModeledNumericBindings();
+console.log("extraction tests passed");

@@ -1,9 +1,11 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "source": {
     "file_key": "XRjBi41NCw78G6lkyJjmbV",
     "page_id": "0:1",
-    "selected_node_ids": ["1:4"],
+    "selected_node_ids": [
+      "1:4"
+    ],
     "plugin_api_version": "1.135.0"
   },
   "roots": [
@@ -17,9 +19,17 @@
         "horizontal": "FIXED",
         "vertical": "FIXED"
       },
-      "position": { "x": 160, "y": 180 },
+      "position": {
+        "x": 160,
+        "y": 180
+      },
       "figma_node_type": "GROUP",
-      "figma_absolute_bounding_box": { "x": 160, "y": 180, "width": 100, "height": 60 },
+      "figma_absolute_bounding_box": {
+        "x": 160,
+        "y": 180,
+        "width": 100,
+        "height": 60
+      },
       "children": [
         {
           "id": "1:2",
@@ -31,17 +41,32 @@
             "horizontal": "FIXED",
             "vertical": "FIXED"
           },
-          "position": { "x": 0, "y": 0 },
+          "position": {
+            "x": 0,
+            "y": 0
+          },
           "style": {
             "fills": [
               {
                 "kind": "SOLID",
-                "color": { "literal": { "r": 0.125, "g": 0.251, "b": 0.502, "a": 1 } }
+                "color": {
+                  "literal": {
+                    "r": 0.125,
+                    "g": 0.251,
+                    "b": 0.502,
+                    "a": 1
+                  }
+                }
               }
             ]
           },
           "figma_node_type": "RECTANGLE",
-          "figma_absolute_bounding_box": { "x": 160, "y": 180, "width": 40, "height": 30 }
+          "figma_absolute_bounding_box": {
+            "x": 160,
+            "y": 180,
+            "width": 40,
+            "height": 30
+          }
         },
         {
           "id": "1:3",
@@ -53,17 +78,32 @@
             "horizontal": "FIXED",
             "vertical": "FIXED"
           },
-          "position": { "x": 70, "y": 40 },
+          "position": {
+            "x": 70,
+            "y": 40
+          },
           "style": {
             "fills": [
               {
                 "kind": "SOLID",
-                "color": { "literal": { "r": 0.878, "g": 0.314, "b": 0.251, "a": 1 } }
+                "color": {
+                  "literal": {
+                    "r": 0.878,
+                    "g": 0.314,
+                    "b": 0.251,
+                    "a": 1
+                  }
+                }
               }
             ]
           },
           "figma_node_type": "RECTANGLE",
-          "figma_absolute_bounding_box": { "x": 230, "y": 220, "width": 30, "height": 20 }
+          "figma_absolute_bounding_box": {
+            "x": 230,
+            "y": 220,
+            "width": 30,
+            "height": 20
+          }
         }
       ]
     }

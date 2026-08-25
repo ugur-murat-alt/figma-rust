@@ -17,7 +17,7 @@ use crate::raw::{
     RawPositioning, RawText, RawTextStyle, RawVariable,
 };
 
-pub const EXTRACTION_SCHEMA_VERSION: u32 = 1;
+pub const EXTRACTION_SCHEMA_VERSION: u32 = 2;
 
 #[derive(Debug, Error)]
 #[error("extraction bundle is not valid JSON: {0}")]
@@ -76,7 +76,83 @@ impl NormalizationOutput {
 ///
 /// Returns [`ParseError`] when `input` is not valid JSON for the raw schema.
 pub fn parse_bundle(input: &str) -> Result<ExtractionBundle, ParseError> {
-    serde_json::from_str(input).map_err(ParseError::from)
+    #[derive(Deserialize)]
+    struct SchemaHeader {
+        schema_version: u32,
+    }
+
+    let schema_version = serde_json::from_str::<SchemaHeader>(input)?.schema_version;
+    if schema_version == 1 {
+        let mut value = serde_json::from_str::<serde_json::Value>(input)?;
+        adapt_v1_bound_numbers(&mut value);
+        serde_json::from_value(value).map_err(ParseError::from)
+    } else {
+        serde_json::from_str(input).map_err(ParseError::from)
+    }
+}
+
+fn adapt_v1_bound_numbers(bundle: &mut serde_json::Value) {
+    let Some(roots) = bundle
+        .get_mut("roots")
+        .and_then(serde_json::Value::as_array_mut)
+    else {
+        return;
+    };
+    for root in roots {
+        adapt_v1_node(root);
+    }
+}
+
+fn adapt_v1_node(node: &mut serde_json::Value) {
+    let Some(node) = node.as_object_mut() else {
+        return;
+    };
+    if let Some(layout) = node
+        .get_mut("layout")
+        .and_then(serde_json::Value::as_object_mut)
+    {
+        wrap_v1_bound_number(layout.get_mut("gap"));
+        wrap_v1_bound_edges(layout.get_mut("padding"));
+    }
+    if let Some(style) = node
+        .get_mut("style")
+        .and_then(serde_json::Value::as_object_mut)
+    {
+        wrap_v1_bound_edges(style.get_mut("stroke_widths"));
+        if let Some(radii) = style
+            .get_mut("radii")
+            .and_then(serde_json::Value::as_object_mut)
+        {
+            for key in ["top_left", "top_right", "bottom_right", "bottom_left"] {
+                wrap_v1_bound_number(radii.get_mut(key));
+            }
+        }
+    }
+    if let Some(children) = node
+        .get_mut("children")
+        .and_then(serde_json::Value::as_array_mut)
+    {
+        for child in children {
+            adapt_v1_node(child);
+        }
+    }
+}
+
+fn wrap_v1_bound_edges(edges: Option<&mut serde_json::Value>) {
+    let Some(edges) = edges.and_then(serde_json::Value::as_object_mut) else {
+        return;
+    };
+    for key in ["top", "right", "bottom", "left"] {
+        wrap_v1_bound_number(edges.get_mut(key));
+    }
+}
+
+fn wrap_v1_bound_number(value: Option<&mut serde_json::Value>) {
+    let Some(value) = value else {
+        return;
+    };
+    let literal = value.take();
+    *value = serde_json::json!({ "literal": literal });
 }
 
 /// Parses and normalizes an extraction bundle with an empty component registry.
@@ -119,21 +195,13 @@ pub fn normalize_bundle_with_registry(
     let raw_variables = sorted_variables(bundle, &mut diagnostics);
     let components = sorted_components(bundle, &mut diagnostics);
     let normalized_assets = sorted_assets(bundle, &mut diagnostics);
-    let variables = raw_variables
-        .iter()
-        .copied()
-        .map(|variable| {
-            (
-                variable.id.clone(),
-                TokenRef {
-                    id: variable.id.clone(),
-                    name: Some(variable.name.clone()),
-                    collection_id: Some(variable.collection_id.clone()),
-                    mode_id: Some(variable.mode_id.clone()),
-                },
-            )
-        })
-        .collect::<BTreeMap<_, _>>();
+    let mut variables = BTreeMap::<(String, BTreeMap<String, String>), TokenRef>::new();
+    for variable in &raw_variables {
+        variables.insert(
+            (variable.id.clone(), variable.mode_context.clone()),
+            variable_token(variable),
+        );
+    }
     let assets = bundle
         .assets
         .iter()
@@ -156,15 +224,8 @@ pub fn normalize_bundle_with_registry(
         .iter()
         .copied()
         .map(|variable| Variable {
-            token: variables
-                .get(&variable.id)
-                .cloned()
-                .unwrap_or_else(|| TokenRef {
-                    id: variable.id.clone(),
-                    name: Some(variable.name.clone()),
-                    collection_id: Some(variable.collection_id.clone()),
-                    mode_id: Some(variable.mode_id.clone()),
-                }),
+            token: variable_token(variable),
+            mode_context: variable.mode_context.clone(),
             value: context.normalize_variable_value(variable),
         })
         .collect();
@@ -189,7 +250,7 @@ enum ParentLayout {
 }
 
 struct Context<'a> {
-    variables: &'a BTreeMap<String, TokenRef>,
+    variables: &'a BTreeMap<(String, BTreeMap<String, String>), TokenRef>,
     assets: &'a BTreeSet<&'a str>,
     registry: &'a ComponentRegistry,
     diagnostics: Vec<Diagnostic>,
@@ -402,7 +463,7 @@ impl Context<'_> {
             horizontal: raw.layout.scroll.horizontal,
             vertical: raw.layout.scroll.vertical,
         };
-        let padding = self.normalize_edges(raw, raw.layout.padding, "layout.padding");
+        let padding = self.normalize_edges(raw, &raw.layout.padding, "layout.padding");
         match raw.layout.mode {
             RawLayoutMode::None if raw.children.is_empty() => Layout::Plain {
                 clips_content: raw.layout.clips_content,
@@ -421,7 +482,7 @@ impl Context<'_> {
                 wrap: raw.layout.wrap,
                 primary_alignment: raw.layout.primary_alignment,
                 counter_alignment: raw.layout.counter_alignment,
-                gap: self.finite_non_negative(raw, raw.layout.gap, "layout.gap"),
+                gap: self.normalize_non_negative_number_bound(raw, &raw.layout.gap, "layout.gap"),
                 padding,
                 clips_content: raw.layout.clips_content,
                 scroll,
@@ -497,29 +558,29 @@ impl Context<'_> {
                 .collect(),
             stroke_widths: self.normalize_edges(
                 raw,
-                raw.style.stroke_widths,
+                &raw.style.stroke_widths,
                 "style.stroke_widths",
             ),
             stroke_align: raw.style.stroke_align,
             radii: Radii {
-                top_left: self.finite_non_negative(
+                top_left: self.normalize_non_negative_number_bound(
                     raw,
-                    raw.style.radii.top_left,
+                    &raw.style.radii.top_left,
                     "style.radii.top_left",
                 ),
-                top_right: self.finite_non_negative(
+                top_right: self.normalize_non_negative_number_bound(
                     raw,
-                    raw.style.radii.top_right,
+                    &raw.style.radii.top_right,
                     "style.radii.top_right",
                 ),
-                bottom_right: self.finite_non_negative(
+                bottom_right: self.normalize_non_negative_number_bound(
                     raw,
-                    raw.style.radii.bottom_right,
+                    &raw.style.radii.bottom_right,
                     "style.radii.bottom_right",
                 ),
-                bottom_left: self.finite_non_negative(
+                bottom_left: self.normalize_non_negative_number_bound(
                     raw,
-                    raw.style.radii.bottom_left,
+                    &raw.style.radii.bottom_left,
                     "style.radii.bottom_left",
                 ),
                 smoothing: self.finite_in_range(
@@ -638,7 +699,8 @@ impl Context<'_> {
         path: &str,
     ) -> BoundValue<Color> {
         BoundValue {
-            token: self.resolve_token(raw, value.token_id.as_deref(), path),
+            token: self.resolve_token(raw, value.token_id.as_deref(), &value.mode_context, path),
+            mode_context: value.mode_context.clone(),
             fallback: Color {
                 r: self.finite_in_range(raw, value.literal.r, 0.0, 1.0, path),
                 g: self.finite_in_range(raw, value.literal.g, 0.0, 1.0, path),
@@ -655,8 +717,22 @@ impl Context<'_> {
         path: &str,
     ) -> BoundValue<f64> {
         BoundValue {
-            token: self.resolve_token(raw, value.token_id.as_deref(), path),
+            token: self.resolve_token(raw, value.token_id.as_deref(), &value.mode_context, path),
+            mode_context: value.mode_context.clone(),
             fallback: self.finite_or_zero(raw, value.literal, path),
+        }
+    }
+
+    fn normalize_non_negative_number_bound(
+        &mut self,
+        raw: &RawNode,
+        value: &RawBoundValue<f64>,
+        path: &str,
+    ) -> BoundValue<f64> {
+        BoundValue {
+            token: self.resolve_token(raw, value.token_id.as_deref(), &value.mode_context, path),
+            mode_context: value.mode_context.clone(),
+            fallback: self.finite_non_negative(raw, value.literal, path),
         }
     }
 
@@ -664,24 +740,29 @@ impl Context<'_> {
         &mut self,
         raw: &RawNode,
         token_id: Option<&str>,
+        mode_context: &BTreeMap<String, String>,
         path: &str,
     ) -> Option<TokenRef> {
         token_id.map(|id| {
-            self.variables.get(id).cloned().unwrap_or_else(|| {
+            let key = (id.to_owned(), mode_context.clone());
+            let Some(token) = self.variables.get(&key) else {
                 self.diagnostics.push(Diagnostic::node(
                     Severity::Error,
                     codes::UNRESOLVED_TOKEN,
-                    format!("token {id} is not present in the extraction bundle"),
+                    format!(
+                        "token {id} with mode context {mode_context:?} is not present in the extraction bundle"
+                    ),
                     &raw.id,
                     Some(path),
                 ));
-                TokenRef {
+                return TokenRef {
                     id: id.to_owned(),
                     name: None,
                     collection_id: None,
                     mode_id: None,
-                }
-            })
+                };
+            };
+            token.clone()
         })
     }
 
@@ -913,12 +994,29 @@ impl Context<'_> {
         ));
     }
 
-    fn normalize_edges(&mut self, raw: &RawNode, edges: crate::raw::RawEdges, path: &str) -> Edges {
+    fn normalize_edges(
+        &mut self,
+        raw: &RawNode,
+        edges: &crate::raw::RawEdges,
+        path: &str,
+    ) -> Edges {
         Edges {
-            top: self.finite_non_negative(raw, edges.top, &format!("{path}.top")),
-            right: self.finite_non_negative(raw, edges.right, &format!("{path}.right")),
-            bottom: self.finite_non_negative(raw, edges.bottom, &format!("{path}.bottom")),
-            left: self.finite_non_negative(raw, edges.left, &format!("{path}.left")),
+            top: self.normalize_non_negative_number_bound(raw, &edges.top, &format!("{path}.top")),
+            right: self.normalize_non_negative_number_bound(
+                raw,
+                &edges.right,
+                &format!("{path}.right"),
+            ),
+            bottom: self.normalize_non_negative_number_bound(
+                raw,
+                &edges.bottom,
+                &format!("{path}.bottom"),
+            ),
+            left: self.normalize_non_negative_number_bound(
+                raw,
+                &edges.left,
+                &format!("{path}.left"),
+            ),
         }
     }
 
@@ -1049,11 +1147,32 @@ fn sorted_variables<'a>(
 ) -> Vec<&'a RawVariable> {
     let mut variables = bundle.variables.iter().collect::<Vec<_>>();
     variables.sort_by(|left, right| compare_variables(left, right));
-    for duplicate in variables.windows(2).filter(|pair| pair[0].id == pair[1].id) {
+    for variable in &variables {
+        if bundle.schema_version == EXTRACTION_SCHEMA_VERSION
+            && variable.mode_context.get(&variable.collection_id) != Some(&variable.mode_id)
+        {
+            diagnostics.push(Diagnostic::bundle(
+                Severity::Error,
+                codes::INVALID_VARIABLE_MODE_CONTEXT,
+                format!(
+                    "variable {} mode {} does not match its mode context",
+                    variable.id, variable.mode_id
+                ),
+            ));
+        }
+    }
+    for duplicate in variables.windows(2).filter(|pair| {
+        pair[0].id == pair[1].id
+            && (bundle.schema_version != EXTRACTION_SCHEMA_VERSION
+                || pair[0].mode_context == pair[1].mode_context)
+    }) {
         diagnostics.push(Diagnostic::bundle(
             Severity::Error,
             codes::DUPLICATE_METADATA_ID,
-            format!("duplicate variable ID {}", duplicate[0].id),
+            format!(
+                "duplicate variable ID {} for mode context {:?}",
+                duplicate[0].id, duplicate[0].mode_context
+            ),
         ));
     }
     variables
@@ -1100,8 +1219,18 @@ fn compare_variables(left: &RawVariable, right: &RawVariable) -> Ordering {
         .then_with(|| left.name.cmp(&right.name))
         .then_with(|| left.collection_id.cmp(&right.collection_id))
         .then_with(|| left.mode_id.cmp(&right.mode_id))
+        .then_with(|| left.mode_context.cmp(&right.mode_context))
         .then_with(|| left.source_node_id.cmp(&right.source_node_id))
         .then_with(|| compare_literals(&left.value, &right.value))
+}
+
+fn variable_token(variable: &RawVariable) -> TokenRef {
+    TokenRef {
+        id: variable.id.clone(),
+        name: Some(variable.name.clone()),
+        collection_id: Some(variable.collection_id.clone()),
+        mode_id: Some(variable.mode_id.clone()),
+    }
 }
 
 fn compare_literals(left: &crate::raw::RawLiteral, right: &crate::raw::RawLiteral) -> Ordering {

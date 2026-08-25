@@ -1,4 +1,4 @@
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 export const PLUGIN_TYPINGS_VERSION = "1.135.0";
 
 export type JsonValue =
@@ -49,13 +49,6 @@ export type RawConstraint = "MIN" | "CENTER" | "MAX" | "STRETCH" | "SCALE";
 export type RawStrokeAlign = "INSIDE" | "CENTER" | "OUTSIDE";
 export type RawBlendMode = "NORMAL" | "PASS_THROUGH" | "MULTIPLY" | "SCREEN" | "OVERLAY" | "OTHER";
 
-export interface RawEdges {
-  top: number;
-  right: number;
-  bottom: number;
-  left: number;
-}
-
 export type RawGridTrack =
   | { kind: "FIXED"; value: number }
   | { kind: "FLEX"; value: number }
@@ -85,8 +78,8 @@ export interface RawLayout {
   wrap: boolean;
   primary_alignment: RawAlignment;
   counter_alignment: RawAlignment;
-  gap: number;
-  padding: RawEdges;
+  gap: RawBoundValue<number>;
+  padding: RawBoundEdges;
   grid: RawGrid;
   clips_content: boolean;
   scroll: RawScroll;
@@ -128,6 +121,16 @@ export interface RawColor {
 export interface RawBoundValue<T> {
   literal: T;
   token_id?: string;
+  mode_context?: RawModeContext;
+}
+
+export type RawModeContext = Record<string, string>;
+
+export interface RawBoundEdges {
+  top: RawBoundValue<number>;
+  right: RawBoundValue<number>;
+  bottom: RawBoundValue<number>;
+  left: RawBoundValue<number>;
 }
 
 export type RawGradientKind = "LINEAR" | "RADIAL" | "ANGULAR" | "DIAMOND";
@@ -172,17 +175,17 @@ export type RawEffect =
   | { kind: "SHADER" };
 
 export interface RawRadii {
-  top_left: number;
-  top_right: number;
-  bottom_right: number;
-  bottom_left: number;
+  top_left: RawBoundValue<number>;
+  top_right: RawBoundValue<number>;
+  bottom_right: RawBoundValue<number>;
+  bottom_left: RawBoundValue<number>;
   smoothing: number;
 }
 
 export interface RawStyle {
   fills: RawPaint[];
   strokes: RawPaint[];
-  stroke_widths: RawEdges;
+  stroke_widths: RawBoundEdges;
   stroke_align: RawStrokeAlign;
   radii: RawRadii;
   effects: RawEffect[];
@@ -260,6 +263,7 @@ export interface RawVariable {
   name: string;
   collection_id: string;
   mode_id: string;
+  mode_context: RawModeContext;
   source_node_id?: string;
   value: RawLiteral;
 }

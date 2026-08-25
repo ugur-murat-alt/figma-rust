@@ -5,7 +5,7 @@ use std::fmt;
 
 use figma_rust_core::ir::{
     Axis, AxisSize, AxisSizing, BoundValue, Color, ComponentResolution, DesignDocument, Edges,
-    Effect, Layout, Node, Paint, Positioning, Radii, TextStyle,
+    Effect, Layout, Node, Paint, Positioning, TextStyle, TokenRef,
 };
 use figma_rust_core::raw::{
     RawAlignment, RawBlendMode, RawConstraint, RawNodeKind, RawStrokeAlign,
@@ -208,6 +208,7 @@ fn lower_function(
     let symbol = node_symbol(indexed.ordinal);
     let element = lower_node(indexed, ordinals)?;
     Ok(quote! {
+        #[allow(clippy::too_many_lines)]
         fn #symbol(
             tokens: &impl figma_gpui_runtime::TokenResolver,
         ) -> impl gpui::IntoElement {
@@ -489,11 +490,11 @@ fn lower_layout(mut element: TokenStream, node: &Node) -> Result<TokenStream, Co
             }
             element = lower_primary_alignment(&element, node, *primary_alignment)?;
             element = lower_counter_alignment(&element, node, *counter_alignment)?;
-            let gap = checked_f32(node, "layout.gap", *gap, true)?;
-            if gap != 0.0 {
+            if bound_number_is_visible(gap) {
+                let gap = number_tokens(node, "layout.gap", gap)?;
                 element = quote! { #element.gap(gpui::px(#gap)) };
             }
-            element = lower_padding(element, node, *padding)?;
+            element = lower_padding(element, node, padding)?;
             (*clips_content, *scroll)
         }
         Layout::Grid { .. } => return unsupported(node, "layout", "grid layout"),
@@ -548,28 +549,32 @@ fn lower_counter_alignment(
 fn lower_padding(
     mut element: TokenStream,
     node: &Node,
-    padding: Edges,
+    padding: &Edges,
 ) -> Result<TokenStream, CodegenError> {
-    let top = checked_f32(node, "layout.padding.top", padding.top, true)?;
-    let right = checked_f32(node, "layout.padding.right", padding.right, true)?;
-    let bottom = checked_f32(node, "layout.padding.bottom", padding.bottom, true)?;
-    let left = checked_f32(node, "layout.padding.left", padding.left, true)?;
-    if same_f32(top, right) && same_f32(right, bottom) && same_f32(bottom, left) {
-        if top != 0.0 {
+    if padding.top == padding.right
+        && padding.right == padding.bottom
+        && padding.bottom == padding.left
+    {
+        if bound_number_is_visible(&padding.top) {
+            let top = number_tokens(node, "layout.padding", &padding.top)?;
             element = quote! { #element.p(gpui::px(#top)) };
         }
         return Ok(element);
     }
-    if top != 0.0 {
+    if bound_number_is_visible(&padding.top) {
+        let top = number_tokens(node, "layout.padding.top", &padding.top)?;
         element = quote! { #element.pt(gpui::px(#top)) };
     }
-    if right != 0.0 {
+    if bound_number_is_visible(&padding.right) {
+        let right = number_tokens(node, "layout.padding.right", &padding.right)?;
         element = quote! { #element.pr(gpui::px(#right)) };
     }
-    if bottom != 0.0 {
+    if bound_number_is_visible(&padding.bottom) {
+        let bottom = number_tokens(node, "layout.padding.bottom", &padding.bottom)?;
         element = quote! { #element.pb(gpui::px(#bottom)) };
     }
-    if left != 0.0 {
+    if bound_number_is_visible(&padding.left) {
+        let left = number_tokens(node, "layout.padding.left", &padding.left)?;
         element = quote! { #element.pl(gpui::px(#left)) };
     }
     Ok(element)
@@ -684,19 +689,37 @@ fn lower_stroke(mut element: TokenStream, node: &Node) -> Result<TokenStream, Co
             format!("{:?} stroke alignment", node.style.stroke_align),
         );
     }
-    let Edges {
-        top,
-        right,
-        bottom,
-        left,
-    } = node.style.stroke_widths;
-    if !same_f64(top, right) || !same_f64(right, bottom) || !same_f64(bottom, left) {
-        return unsupported(node, "style.stroke_widths", "non-uniform stroke widths");
-    }
-    let width = checked_f32(node, "style.stroke_widths", top, true)?;
-    if width != 0.0 {
+    let widths = &node.style.stroke_widths;
+    let has_width = [&widths.top, &widths.right, &widths.bottom, &widths.left]
+        .into_iter()
+        .any(bound_number_is_visible);
+    if has_width {
         let color = color_tokens(node, "style.strokes", color)?;
-        element = quote! { #element.border(gpui::px(#width)).border_color(#color) };
+        if widths.top == widths.right
+            && widths.right == widths.bottom
+            && widths.bottom == widths.left
+        {
+            let width = number_tokens(node, "style.stroke_widths", &widths.top)?;
+            element = quote! { #element.border(gpui::px(#width)).border_color(#color) };
+        } else {
+            if bound_number_is_visible(&widths.top) {
+                let width = number_tokens(node, "style.stroke_widths.top", &widths.top)?;
+                element = quote! { #element.border_t(gpui::px(#width)) };
+            }
+            if bound_number_is_visible(&widths.right) {
+                let width = number_tokens(node, "style.stroke_widths.right", &widths.right)?;
+                element = quote! { #element.border_r(gpui::px(#width)) };
+            }
+            if bound_number_is_visible(&widths.bottom) {
+                let width = number_tokens(node, "style.stroke_widths.bottom", &widths.bottom)?;
+                element = quote! { #element.border_b(gpui::px(#width)) };
+            }
+            if bound_number_is_visible(&widths.left) {
+                let width = number_tokens(node, "style.stroke_widths.left", &widths.left)?;
+                element = quote! { #element.border_l(gpui::px(#width)) };
+            }
+            element = quote! { #element.border_color(#color) };
+        }
     }
     Ok(element)
 }
@@ -705,24 +728,34 @@ fn lower_radii(mut element: TokenStream, node: &Node) -> Result<TokenStream, Cod
     if node.style.radii.smoothing != 0.0 {
         return unsupported(node, "style.radii.smoothing", "corner smoothing");
     }
-    let Radii {
-        top_left,
-        top_right,
-        bottom_right,
-        bottom_left,
-        ..
-    } = node.style.radii;
-    if !same_f64(top_left, top_right)
-        || !same_f64(top_right, bottom_right)
-        || !same_f64(bottom_right, bottom_left)
-    {
-        return unsupported(node, "style.radii", "non-uniform corner radii");
-    }
-    let radius = checked_f32(node, "style.radii", top_left, true)?;
+    let radii = &node.style.radii;
     if node.kind == RawNodeKind::Ellipse {
         element = quote! { #element.rounded(gpui::px(9999.0_f32)) };
-    } else if radius != 0.0 {
-        element = quote! { #element.rounded(gpui::px(#radius)) };
+    } else if radii.top_left == radii.top_right
+        && radii.top_right == radii.bottom_right
+        && radii.bottom_right == radii.bottom_left
+    {
+        if bound_number_is_visible(&radii.top_left) {
+            let radius = number_tokens(node, "style.radii", &radii.top_left)?;
+            element = quote! { #element.rounded(gpui::px(#radius)) };
+        }
+    } else {
+        if bound_number_is_visible(&radii.top_left) {
+            let radius = number_tokens(node, "style.radii.top_left", &radii.top_left)?;
+            element = quote! { #element.rounded_tl(gpui::px(#radius)) };
+        }
+        if bound_number_is_visible(&radii.top_right) {
+            let radius = number_tokens(node, "style.radii.top_right", &radii.top_right)?;
+            element = quote! { #element.rounded_tr(gpui::px(#radius)) };
+        }
+        if bound_number_is_visible(&radii.bottom_right) {
+            let radius = number_tokens(node, "style.radii.bottom_right", &radii.bottom_right)?;
+            element = quote! { #element.rounded_br(gpui::px(#radius)) };
+        }
+        if bound_number_is_visible(&radii.bottom_left) {
+            let radius = number_tokens(node, "style.radii.bottom_left", &radii.bottom_left)?;
+            element = quote! { #element.rounded_bl(gpui::px(#radius)) };
+        }
     }
     Ok(element)
 }
@@ -833,11 +866,11 @@ fn color_tokens(
     );
     let fallback = quote! { gpui::rgba(#literal) };
     Ok(if let Some(token) = &color.token {
-        let token_id = &token.id;
+        let context = token_context_tokens(token, &color.mode_context);
         quote! {
-            figma_gpui_runtime::TokenResolver::color(
+            figma_gpui_runtime::TokenResolver::color_with_context(
                 tokens,
-                #token_id,
+                #context,
                 gpui::Hsla::from(#fallback),
             )
         }
@@ -853,13 +886,40 @@ fn number_tokens(
 ) -> Result<TokenStream, CodegenError> {
     let fallback = checked_f32(node, property, number.fallback, true)?;
     Ok(if let Some(token) = &number.token {
-        let token_id = &token.id;
+        let context = token_context_tokens(token, &number.mode_context);
         quote! {
-            figma_gpui_runtime::TokenResolver::number(tokens, #token_id, #fallback)
+            figma_gpui_runtime::TokenResolver::number_with_context(tokens, #context, #fallback)
         }
     } else {
         quote! { #fallback }
     })
+}
+
+fn bound_number_is_visible(number: &BoundValue<f64>) -> bool {
+    number.token.is_some() || number.fallback != 0.0
+}
+
+fn token_context_tokens(token: &TokenRef, mode_context: &BTreeMap<String, String>) -> TokenStream {
+    let id = &token.id;
+    let collection_id = token.collection_id.as_ref().map_or_else(
+        || quote! { None },
+        |collection_id| quote! { Some(#collection_id) },
+    );
+    let mode_id = token
+        .mode_id
+        .as_ref()
+        .map_or_else(|| quote! { None }, |mode_id| quote! { Some(#mode_id) });
+    let modes = mode_context.iter().map(|(collection_id, mode_id)| {
+        quote! { (#collection_id, #mode_id) }
+    });
+    quote! {
+        figma_gpui_runtime::TokenContext {
+            id: #id,
+            collection_id: #collection_id,
+            mode_id: #mode_id,
+            modes: &[#(#modes),*],
+        }
+    }
 }
 
 fn packed_rgba(node: &Node, property: &str, color: Color) -> Result<u32, CodegenError> {
@@ -930,11 +990,18 @@ fn build_source_map(rust: &str, emitted: &[IndexedNode<'_>]) -> Result<SourceMap
 
     let mut nodes = BTreeMap::new();
     for (index, (source_id, symbol, start_line)) in starts.iter().enumerate() {
-        let end_line = starts
+        let search_end = starts
             .get(index + 1)
             .map_or(lines.len(), |(_, _, next_start)| {
                 next_start.saturating_sub(1)
             });
+        let end_line = lines[start_line.saturating_sub(1)..search_end]
+            .iter()
+            .rposition(|line| line.trim() == "}")
+            .map(|offset| start_line + offset)
+            .ok_or_else(|| CodegenError::MissingSourceSpan {
+                symbol: symbol.clone(),
+            })?;
         nodes.insert(
             source_id.clone(),
             SourceMapEntry {
@@ -973,6 +1040,8 @@ fn invalid(node: &Node, property: &str, value: impl Into<String>) -> CodegenErro
 
 #[cfg(test)]
 mod tests {
+    use std::collections::BTreeMap;
+
     use figma_rust_core::ir::{
         Axis, AxisSize, AxisSizing, BoundValue, Color, ComponentResolution, DesignDocument, Edges,
         Effect, Layout, Paint, Positioning, Radii, Scroll, Size, Style, Text,
@@ -983,6 +1052,14 @@ mod tests {
     use serde::Deserialize;
 
     use super::{CodegenError, generate};
+
+    fn number(value: f64) -> BoundValue<f64> {
+        BoundValue {
+            token: None,
+            mode_context: BTreeMap::new(),
+            fallback: value,
+        }
+    }
 
     #[derive(Deserialize)]
     struct GoldenEnvelope {
@@ -1012,12 +1089,12 @@ mod tests {
             wrap: true,
             primary_alignment: RawAlignment::SpaceBetween,
             counter_alignment: RawAlignment::Center,
-            gap: 12.0,
+            gap: number(12.0),
             padding: Edges {
-                top: 4.0,
-                right: 8.0,
-                bottom: 12.0,
-                left: 16.0,
+                top: number(4.0),
+                right: number(8.0),
+                bottom: number(12.0),
+                left: number(16.0),
             },
             clips_content: true,
             scroll: Scroll {
@@ -1029,6 +1106,7 @@ mod tests {
         root.style.strokes = vec![Paint::Solid {
             color: BoundValue {
                 token: None,
+                mode_context: BTreeMap::new(),
                 fallback: Color {
                     r: 1.0,
                     g: 0.0,
@@ -1038,15 +1116,16 @@ mod tests {
             },
         }];
         root.style.stroke_widths = Edges {
-            top: 1.0,
-            right: 1.0,
-            bottom: 1.0,
-            left: 1.0,
+            top: number(1.0),
+            right: number(1.0),
+            bottom: number(1.0),
+            left: number(1.0),
         };
         root.style.effects = vec![Effect::Shadow {
             inset: false,
             color: BoundValue {
                 token: None,
+                mode_context: BTreeMap::new(),
                 fallback: Color {
                     r: 0.0,
                     g: 0.0,
@@ -1066,17 +1145,17 @@ mod tests {
             fills: Vec::new(),
             strokes: Vec::new(),
             stroke_widths: Edges {
-                top: 0.0,
-                right: 0.0,
-                bottom: 0.0,
-                left: 0.0,
+                top: number(0.0),
+                right: number(0.0),
+                bottom: number(0.0),
+                left: number(0.0),
             },
             stroke_align: RawStrokeAlign::Inside,
             radii: Radii {
-                top_left: 0.0,
-                top_right: 0.0,
-                bottom_right: 0.0,
-                bottom_left: 0.0,
+                top_left: number(0.0),
+                top_right: number(0.0),
+                bottom_right: number(0.0),
+                bottom_left: number(0.0),
                 smoothing: 0.0,
             },
             effects: Vec::new(),
@@ -1140,6 +1219,20 @@ mod tests {
         assert!(syn::parse_file(&output.rust).is_ok());
         assert!(output.rust.contains("fn node_0000("));
         assert!(output.rust.contains("TokenResolver::color"));
+        assert!(output.rust.contains("TokenResolver::number_with_context"));
+        assert!(
+            output
+                .rust
+                .contains("modes: &[(\"collection.theme\", \"mode.light\")]")
+        );
+        assert!(output.rust.contains(".border_t("));
+        assert!(output.rust.contains(".border_r("));
+        assert!(output.rust.contains(".border_b("));
+        assert!(output.rust.contains(".border_l("));
+        assert!(output.rust.contains(".rounded_tl("));
+        assert!(output.rust.contains(".rounded_tr("));
+        assert!(output.rust.contains(".rounded_br("));
+        assert!(output.rust.contains(".rounded_bl("));
         assert!(output.rust.contains("gpui::rgba(0x2040_80ff)"));
         assert!(output.rust.contains(".min_w(gpui::px(80f32))"));
         assert!(output.rust.contains(".max_w(gpui::px(240f32))"));
@@ -1229,10 +1322,10 @@ mod tests {
             column_gap: 0.0,
             row_gap: 0.0,
             padding: figma_rust_core::ir::Edges {
-                top: 0.0,
-                right: 0.0,
-                bottom: 0.0,
-                left: 0.0,
+                top: number(0.0),
+                right: number(0.0),
+                bottom: number(0.0),
+                left: number(0.0),
             },
             clips_content: false,
             scroll: figma_rust_core::ir::Scroll {

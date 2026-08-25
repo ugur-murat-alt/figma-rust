@@ -5,6 +5,7 @@ pub fn generated_view(
     let _ = tokens;
     node_0000(tokens)
 }
+#[allow(clippy::too_many_lines)]
 fn node_0000(tokens: &impl figma_gpui_runtime::TokenResolver) -> impl gpui::IntoElement {
     let _ = tokens;
     gpui::div()
@@ -16,6 +17,7 @@ fn node_0000(tokens: &impl figma_gpui_runtime::TokenResolver) -> impl gpui::Into
         .child(node_0001(tokens))
         .child(node_0002(tokens))
 }
+#[allow(clippy::too_many_lines)]
 fn node_0001(tokens: &impl figma_gpui_runtime::TokenResolver) -> impl gpui::IntoElement {
     let _ = tokens;
     gpui::div()
@@ -28,6 +30,7 @@ fn node_0001(tokens: &impl figma_gpui_runtime::TokenResolver) -> impl gpui::Into
         .flex_none()
         .bg(gpui::rgba(0x2040_80ff))
 }
+#[allow(clippy::too_many_lines)]
 fn node_0002(tokens: &impl figma_gpui_runtime::TokenResolver) -> impl gpui::IntoElement {
     let _ = tokens;
     gpui::div()

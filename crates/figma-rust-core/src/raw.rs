@@ -99,7 +99,7 @@ pub struct RawLayout {
     #[serde(default)]
     pub counter_alignment: RawAlignment,
     #[serde(default)]
-    pub gap: f64,
+    pub gap: RawBoundValue<f64>,
     #[serde(default)]
     pub padding: RawEdges,
     #[serde(default)]
@@ -117,7 +117,7 @@ impl Default for RawLayout {
             wrap: false,
             primary_alignment: RawAlignment::Start,
             counter_alignment: RawAlignment::Start,
-            gap: 0.0,
+            gap: RawBoundValue::default(),
             padding: RawEdges::default(),
             grid: RawGrid::default(),
             clips_content: false,
@@ -148,16 +148,16 @@ pub enum RawAlignment {
     Stretch,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct RawEdges {
     #[serde(default)]
-    pub top: f64,
+    pub top: RawBoundValue<f64>,
     #[serde(default)]
-    pub right: f64,
+    pub right: RawBoundValue<f64>,
     #[serde(default)]
-    pub bottom: f64,
+    pub bottom: RawBoundValue<f64>,
     #[serde(default)]
-    pub left: f64,
+    pub left: RawBoundValue<f64>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
@@ -368,11 +368,13 @@ pub struct RawColor {
     pub a: f64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct RawBoundValue<T> {
     pub literal: T,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub token_id: Option<String>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub mode_context: BTreeMap<String, String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -426,16 +428,16 @@ pub enum RawBlendMode {
     Other,
 }
 
-#[derive(Debug, Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct RawRadii {
     #[serde(default)]
-    pub top_left: f64,
+    pub top_left: RawBoundValue<f64>,
     #[serde(default)]
-    pub top_right: f64,
+    pub top_right: RawBoundValue<f64>,
     #[serde(default)]
-    pub bottom_right: f64,
+    pub bottom_right: RawBoundValue<f64>,
     #[serde(default)]
-    pub bottom_left: f64,
+    pub bottom_left: RawBoundValue<f64>,
     #[serde(default)]
     pub smoothing: f64,
 }
@@ -539,6 +541,8 @@ pub struct RawVariable {
     pub name: String,
     pub collection_id: String,
     pub mode_id: String,
+    #[serde(default)]
+    pub mode_context: BTreeMap<String, String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source_node_id: Option<String>,
     pub value: RawLiteral,

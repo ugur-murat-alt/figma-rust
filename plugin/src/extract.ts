@@ -25,6 +25,7 @@ import {
   type RawLayout,
   type RawLayoutMode,
   type RawLiteral,
+  type RawModeContext,
   type RawNode,
   type RawNodeKind,
   type RawPaint,
@@ -81,6 +82,7 @@ interface VariableReference {
 interface ExtractionContext {
   diagnostics: ExtractionDiagnostic[];
   variableReferences: Map<string, VariableReference[]>;
+  boundValues: Map<string, Array<{ mode_context?: RawModeContext }>>;
   components: Map<string, RawComponent>;
   assets: Map<string, RawAsset>;
   assetChecks: Map<string, Promise<void>>;
@@ -130,6 +132,7 @@ export async function extractNodes(
   const context: ExtractionContext = {
     diagnostics: [],
     variableReferences: new Map(),
+    boundValues: new Map(),
     components: new Map(),
     assets: new Map(),
     assetChecks: new Map(),
@@ -541,12 +544,12 @@ function extractLayout(
     wrap: layoutWrap === "WRAP",
     primary_alignment: primaryAlignment,
     counter_alignment: counterAlignment,
-    gap: itemSpacing,
+    gap: boundNumberFromRecord(record, "itemSpacing", itemSpacing, nodeId, "layout.gap", context),
     padding: {
-      top: numberValue(field(record, "paddingTop"), 0, nodeId, "layout.padding.top", context),
-      right: numberValue(field(record, "paddingRight"), 0, nodeId, "layout.padding.right", context),
-      bottom: numberValue(field(record, "paddingBottom"), 0, nodeId, "layout.padding.bottom", context),
-      left: numberValue(field(record, "paddingLeft"), 0, nodeId, "layout.padding.left", context),
+      top: boundNumberFromRecord(record, "paddingTop", numberValue(field(record, "paddingTop"), 0, nodeId, "layout.padding.top", context), nodeId, "layout.padding.top", context),
+      right: boundNumberFromRecord(record, "paddingRight", numberValue(field(record, "paddingRight"), 0, nodeId, "layout.padding.right", context), nodeId, "layout.padding.right", context),
+      bottom: boundNumberFromRecord(record, "paddingBottom", numberValue(field(record, "paddingBottom"), 0, nodeId, "layout.padding.bottom", context), nodeId, "layout.padding.bottom", context),
+      left: boundNumberFromRecord(record, "paddingLeft", numberValue(field(record, "paddingLeft"), 0, nodeId, "layout.padding.left", context), nodeId, "layout.padding.left", context),
     },
     grid,
     clips_content: booleanValue(field(record, "clipsContent"), false, nodeId, "layout.clips_content", context),
@@ -810,20 +813,28 @@ function extractStyle(
   context: ExtractionContext,
   extensions: RawExtensions,
 ): RawStyle {
-  const strokeWeight = optionalNumber(field(record, "strokeWeight"), nodeId, "style.stroke_widths", context);
+  const strokeWeightValue = field(record, "strokeWeight");
+  const strokeWeight = isMixed(strokeWeightValue)
+    ? undefined
+    : optionalNumber(strokeWeightValue, nodeId, "style.stroke_widths", context);
+  const strokeToken = registerAliasFromRecord(record, "strokeWeight", nodeId, "style.stroke_widths", context);
   const strokeWidths = {
-    top: optionalNumber(field(record, "strokeTopWeight"), nodeId, "style.stroke_widths.top", context) ?? strokeWeight ?? 0,
-    right: optionalNumber(field(record, "strokeRightWeight"), nodeId, "style.stroke_widths.right", context) ?? strokeWeight ?? 0,
-    bottom: optionalNumber(field(record, "strokeBottomWeight"), nodeId, "style.stroke_widths.bottom", context) ?? strokeWeight ?? 0,
-    left: optionalNumber(field(record, "strokeLeftWeight"), nodeId, "style.stroke_widths.left", context) ?? strokeWeight ?? 0,
+    top: boundNumberFromRecord(record, "strokeTopWeight", optionalNumber(field(record, "strokeTopWeight"), nodeId, "style.stroke_widths.top", context) ?? strokeWeight ?? 0, nodeId, "style.stroke_widths.top", context, strokeToken),
+    right: boundNumberFromRecord(record, "strokeRightWeight", optionalNumber(field(record, "strokeRightWeight"), nodeId, "style.stroke_widths.right", context) ?? strokeWeight ?? 0, nodeId, "style.stroke_widths.right", context, strokeToken),
+    bottom: boundNumberFromRecord(record, "strokeBottomWeight", optionalNumber(field(record, "strokeBottomWeight"), nodeId, "style.stroke_widths.bottom", context) ?? strokeWeight ?? 0, nodeId, "style.stroke_widths.bottom", context, strokeToken),
+    left: boundNumberFromRecord(record, "strokeLeftWeight", optionalNumber(field(record, "strokeLeftWeight"), nodeId, "style.stroke_widths.left", context) ?? strokeWeight ?? 0, nodeId, "style.stroke_widths.left", context, strokeToken),
   };
 
-  const cornerRadius = optionalNumber(field(record, "cornerRadius"), nodeId, "style.radii", context);
+  const cornerRadiusValue = field(record, "cornerRadius");
+  const cornerRadius = isMixed(cornerRadiusValue)
+    ? undefined
+    : optionalNumber(cornerRadiusValue, nodeId, "style.radii", context);
+  const cornerToken = registerAliasFromRecord(record, "cornerRadius", nodeId, "style.radii", context);
   const radii: RawRadii = {
-    top_left: optionalNumber(field(record, "topLeftRadius"), nodeId, "style.radii.top_left", context) ?? cornerRadius ?? 0,
-    top_right: optionalNumber(field(record, "topRightRadius"), nodeId, "style.radii.top_right", context) ?? cornerRadius ?? 0,
-    bottom_right: optionalNumber(field(record, "bottomRightRadius"), nodeId, "style.radii.bottom_right", context) ?? cornerRadius ?? 0,
-    bottom_left: optionalNumber(field(record, "bottomLeftRadius"), nodeId, "style.radii.bottom_left", context) ?? cornerRadius ?? 0,
+    top_left: boundNumberFromRecord(record, "topLeftRadius", optionalNumber(field(record, "topLeftRadius"), nodeId, "style.radii.top_left", context) ?? cornerRadius ?? 0, nodeId, "style.radii.top_left", context, cornerToken),
+    top_right: boundNumberFromRecord(record, "topRightRadius", optionalNumber(field(record, "topRightRadius"), nodeId, "style.radii.top_right", context) ?? cornerRadius ?? 0, nodeId, "style.radii.top_right", context, cornerToken),
+    bottom_right: boundNumberFromRecord(record, "bottomRightRadius", optionalNumber(field(record, "bottomRightRadius"), nodeId, "style.radii.bottom_right", context) ?? cornerRadius ?? 0, nodeId, "style.radii.bottom_right", context, cornerToken),
+    bottom_left: boundNumberFromRecord(record, "bottomLeftRadius", optionalNumber(field(record, "bottomLeftRadius"), nodeId, "style.radii.bottom_left", context) ?? cornerRadius ?? 0, nodeId, "style.radii.bottom_left", context, cornerToken),
     smoothing: numberValue(field(record, "cornerSmoothing"), 0, nodeId, "style.radii.smoothing", context),
   };
 
@@ -933,7 +944,7 @@ function extractPaint(
       const literal = extractColor(field(value, "color"), opacity, nodeId, `${propertyPath}.color`, context);
       if (literal === undefined) return undefined;
       const tokenId = registerPaintVariable(value, "color", nodeId, `${propertyPath}.color`, context);
-      return { kind: "SOLID", color: boundValue(literal, tokenId) };
+      return { kind: "SOLID", color: boundValue(literal, tokenId, nodeId, context) };
     }
     case "GRADIENT_LINEAR":
     case "GRADIENT_RADIAL":
@@ -969,7 +980,7 @@ function extractPaint(
         const position = optionalNumber(field(stop, "position"), nodeId, `${propertyPath}.gradientStops[${stopIndex}].position`, context);
         if (color === undefined || position === undefined) continue;
         const tokenId = registerPaintVariable(stop, "color", nodeId, `${propertyPath}.gradientStops[${stopIndex}].color`, context);
-        stops.push({ position, color: boundValue(color, tokenId) });
+        stops.push({ position, color: boundValue(color, tokenId, nodeId, context) });
       }
       return { kind: "GRADIENT", gradient_kind: gradientKind, stops };
     }
@@ -1055,7 +1066,7 @@ function extractEffects(
       }
       const tokenId = registerPaintVariable(effect, "color", nodeId, `${path}.color`, context);
       const shadow = {
-        color: boundValue(color, tokenId),
+        color: boundValue(color, tokenId, nodeId, context),
         offset_x: numberValue(field(offset, "x"), 0, nodeId, `${path}.offset.x`, context),
         offset_y: numberValue(field(offset, "y"), 0, nodeId, `${path}.offset.y`, context),
         blur: numberValue(field(effect, "radius"), 0, nodeId, `${path}.radius`, context),
@@ -1161,7 +1172,7 @@ function extractTextStyle(
   } else if (fontName !== undefined && !isMixed(fontName)) {
     addDiagnostic(context, "ERROR", "FR-TEXT-EXTRACT-003", "Text font name is not a Figma font object.", nodeId, `${propertyPath}.font_family`);
   }
-  if (fontSize !== undefined) style.font_size = boundValue(fontSize, fontSizeToken);
+  if (fontSize !== undefined) style.font_size = boundValue(fontSize, fontSizeToken, nodeId, context);
   const fontWeight = optionalUnsignedInteger(field(segment, "fontWeight"), 65_535, nodeId, `${propertyPath}.font_weight`, context);
   if (fontWeight !== undefined) style.font_weight = fontWeight;
   if (lineHeight !== undefined) style.line_height = lineHeight;
@@ -1197,7 +1208,7 @@ function extractTextColor(
     const color = extractColor(field(paint, "color"), opacity, nodeId, `${propertyPath}[${index}].color`, context);
     if (color === undefined) continue;
     const tokenId = registerPaintVariable(paint, "color", nodeId, `${propertyPath}[${index}].color`, context);
-    if (result === undefined) result = boundValue(color, tokenId);
+    if (result === undefined) result = boundValue(color, tokenId, nodeId, context);
   }
   if (visiblePaintCount > 1) {
     addDiagnostic(context, "WARNING", "FR-TEXT-COLOR-003", "Multiple visible text paints were reduced to the first solid color.", nodeId, propertyPath);
@@ -1498,7 +1509,28 @@ function extractAction(value: unknown, nodeId: string, propertyPath: string, con
 function diagnoseNodeVariableBindings(record: UnknownRecord, node: SceneNode, context: ExtractionContext): void {
   const bindings = field(record, "boundVariables");
   if (!isRecord(bindings)) return;
-  const supportedNodeFields = new Set(["fills", "strokes", "effects", "textRangeFills", "fontSize"]);
+  const supportedNodeFields = new Set([
+    "fills",
+    "strokes",
+    "effects",
+    "textRangeFills",
+    "fontSize",
+    "itemSpacing",
+    "paddingLeft",
+    "paddingRight",
+    "paddingTop",
+    "paddingBottom",
+    "cornerRadius",
+    "topLeftRadius",
+    "topRightRadius",
+    "bottomLeftRadius",
+    "bottomRightRadius",
+    "strokeWeight",
+    "strokeTopWeight",
+    "strokeRightWeight",
+    "strokeBottomWeight",
+    "strokeLeftWeight",
+  ]);
   for (const [fieldName, value] of Object.entries(bindings)) {
     const aliases = collectAliasPaths(value, `bound_variables.${fieldName}`);
     for (const alias of aliases) {
@@ -1541,33 +1573,51 @@ async function resolveVariables(context: ExtractionContext): Promise<RawVariable
       addDiagnostic(context, "ERROR", "FR-TOKEN-MODE-002", `Variable collection ${variable.variableCollectionId} could not be resolved.`, references[0].node.id, references[0].propertyPath);
       continue;
     }
-    const modeId = variableModeId(variable, collection, references[0].node);
-    if (modeId === undefined) {
-      addDiagnostic(context, "ERROR", "FR-TOKEN-MODE-003", `No resolved mode is available for variable ${id}.`, references[0].node.id, references[0].propertyPath);
-      continue;
-    }
-    const literal = await resolveVariableLiteral(variable, references[0].node, references[0].node.id, references[0].propertyPath, context, new Set());
-    if (literal === undefined) continue;
-
-    for (const reference of references.slice(1)) {
-      const referenceModeId = variableModeId(variable, collection, reference.node);
-      if (referenceModeId !== modeId) {
-        addDiagnostic(context, "ERROR", "FR-TOKEN-MODE-001", `Variable ${id} is used with conflicting resolved variable modes; the first deterministic mode was selected.`, reference.node.id, reference.propertyPath);
+    const valuesByContext = new Map<string, {
+      modeContext: RawModeContext;
+      literal: RawLiteral;
+      reference: VariableReference;
+    }>();
+    for (const reference of references) {
+      const modeContext = extractVariableModes(reference.node);
+      const literal = await resolveVariableLiteral(
+        variable,
+        reference.node,
+        reference.node.id,
+        reference.propertyPath,
+        context,
+        modeContext,
+        collection,
+      );
+      if (literal === undefined) continue;
+      const resolvedModeContext = canonicalModeContext(modeContext);
+      const modeId = resolvedModeContext[variable.variableCollectionId];
+      if (modeId === undefined) continue;
+      assignBoundModeContext(context, id, reference.node.id, resolvedModeContext);
+      const contextKey = JSON.stringify(resolvedModeContext);
+      const previous = valuesByContext.get(contextKey);
+      if (previous === undefined) {
+        valuesByContext.set(contextKey, { modeContext: resolvedModeContext, literal, reference });
+      } else if (JSON.stringify(previous.literal) !== JSON.stringify(literal)) {
+        addDiagnostic(context, "ERROR", "FR-TOKEN-MODE-004", `Variable ${id} resolves to conflicting values for consumers in the same mode context.`, reference.node.id, reference.propertyPath);
       }
-      const referenceLiteral = await resolveVariableLiteral(variable, reference.node, reference.node.id, reference.propertyPath, context, new Set());
-      if (referenceLiteral !== undefined && JSON.stringify(referenceLiteral) !== JSON.stringify(literal)) {
-        addDiagnostic(context, "ERROR", "FR-TOKEN-MODE-004", `Variable ${id} resolves to conflicting values for different consumers; the first deterministic value was selected.`, reference.node.id, reference.propertyPath);
-      }
     }
 
-    variables.push({
-      id: variable.id,
-      name: variable.name,
-      collection_id: variable.variableCollectionId,
-      mode_id: modeId,
-      source_node_id: references[0].node.id,
-      value: literal,
-    });
+    for (const contextKey of [...valuesByContext.keys()].sort(compareStrings)) {
+      const resolved = valuesByContext.get(contextKey);
+      if (resolved === undefined) continue;
+      const modeId = resolved.modeContext[variable.variableCollectionId];
+      if (modeId === undefined) continue;
+      variables.push({
+        id: variable.id,
+        name: variable.name,
+        collection_id: variable.variableCollectionId,
+        mode_id: modeId,
+        mode_context: resolved.modeContext,
+        source_node_id: resolved.reference.node.id,
+        value: resolved.literal,
+      });
+    }
   }
   return variables;
 }
@@ -1578,14 +1628,20 @@ async function resolveVariableLiteral(
   nodeId: string,
   propertyPath: string,
   context: ExtractionContext,
-  seen: Set<string>,
+  modeContext: RawModeContext,
+  collection: VariableCollection,
 ): Promise<RawLiteral | undefined> {
   assertWithinDeadline(context.deadline);
-  if (seen.has(variable.id)) {
-    addDiagnostic(context, "ERROR", "FR-TOKEN-CHAIN-001", `Variable alias cycle detected at ${variable.id}.`, nodeId, propertyPath);
-    return undefined;
-  }
-  seen.add(variable.id);
+  const hasCompleteContext = await collectVariableModeContext(
+    variable,
+    nodeId,
+    propertyPath,
+    context,
+    new Set(),
+    modeContext,
+    collection,
+  );
+  if (!hasCompleteContext) return undefined;
   let resolved: { value: VariableValue; resolvedType: VariableResolvedDataType };
   try {
     resolved = variable.resolveForConsumer(consumer);
@@ -1593,22 +1649,74 @@ async function resolveVariableLiteral(
     addDiagnostic(context, "ERROR", "FR-TOKEN-CHAIN-002", `Variable ${variable.id} could not be resolved for the selected node: ${errorMessage(error)}`, nodeId, propertyPath);
     return undefined;
   }
-  const alias = variableAlias(resolved.value);
-  if (alias !== undefined) {
-    let target: Variable | null = null;
+  return rawLiteral(resolved.value, resolved.resolvedType, nodeId, propertyPath, context);
+}
+
+async function collectVariableModeContext(
+  variable: Variable,
+  nodeId: string,
+  propertyPath: string,
+  context: ExtractionContext,
+  seen: Set<string>,
+  modeContext: RawModeContext,
+  collection?: VariableCollection,
+): Promise<boolean> {
+  assertWithinDeadline(context.deadline);
+  if (seen.has(variable.id)) {
+    addDiagnostic(context, "ERROR", "FR-TOKEN-CHAIN-001", `Variable alias cycle detected at ${variable.id}.`, nodeId, propertyPath);
+    return false;
+  }
+  seen.add(variable.id);
+  let resolvedCollection = collection;
+  if (resolvedCollection === undefined) {
     try {
-      target = await awaitWithOptionalDeadline(figma.variables.getVariableByIdAsync(alias), context.deadline);
+      resolvedCollection = await awaitWithOptionalDeadline(
+        figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId),
+        context.deadline,
+      ) ?? undefined;
     } catch (error) {
       if (isDeadlineError(error)) throw error;
-      addDiagnostic(context, "ERROR", "FR-TOKEN-CHAIN-003", `Aliased variable ${alias} could not be loaded: ${errorMessage(error)}`, nodeId, propertyPath);
+      addDiagnostic(context, "ERROR", "FR-TOKEN-MODE-002", `Variable collection ${variable.variableCollectionId} could not be resolved: ${errorMessage(error)}`, nodeId, propertyPath);
+      return false;
     }
-    if (target === null) {
-      addDiagnostic(context, "ERROR", "FR-TOKEN-CHAIN-003", `Aliased variable ${alias} could not be loaded.`, nodeId, propertyPath);
-      return undefined;
-    }
-    return resolveVariableLiteral(target, consumer, nodeId, propertyPath, context, seen);
   }
-  return rawLiteral(resolved.value, resolved.resolvedType, nodeId, propertyPath, context);
+  if (resolvedCollection === undefined) {
+    addDiagnostic(context, "ERROR", "FR-TOKEN-MODE-002", `Variable collection ${variable.variableCollectionId} could not be resolved.`, nodeId, propertyPath);
+    return false;
+  }
+  const modeId = modeContext[variable.variableCollectionId] ?? resolvedCollection.defaultModeId;
+  if (!resolvedCollection.modes.some((mode) => mode.modeId === modeId)) {
+    addDiagnostic(context, "ERROR", "FR-TOKEN-MODE-003", `No resolved mode is available for variable ${variable.id}.`, nodeId, propertyPath);
+    return false;
+  }
+  modeContext[variable.variableCollectionId] = modeId;
+  const unresolvedValue = variable.valuesByMode[modeId];
+  if (unresolvedValue === undefined) {
+    addDiagnostic(context, "ERROR", "FR-TOKEN-MODE-003", `Variable ${variable.id} has no value for resolved mode ${modeId}.`, nodeId, propertyPath);
+    return false;
+  }
+  const alias = variableAlias(unresolvedValue);
+  if (alias === undefined) return true;
+
+  let target: Variable | null = null;
+  try {
+    target = await awaitWithOptionalDeadline(figma.variables.getVariableByIdAsync(alias), context.deadline);
+  } catch (error) {
+    if (isDeadlineError(error)) throw error;
+    addDiagnostic(context, "ERROR", "FR-TOKEN-CHAIN-003", `Aliased variable ${alias} could not be loaded: ${errorMessage(error)}`, nodeId, propertyPath);
+  }
+  if (target === null) {
+    addDiagnostic(context, "ERROR", "FR-TOKEN-CHAIN-003", `Aliased variable ${alias} could not be loaded.`, nodeId, propertyPath);
+    return false;
+  }
+  return collectVariableModeContext(
+    target,
+    nodeId,
+    propertyPath,
+    context,
+    seen,
+    modeContext,
+  );
 }
 
 function rawLiteral(
@@ -1729,8 +1837,36 @@ function registerImageAsset(imageHash: string, nodeId: string, propertyPath: str
   context.assetChecks.set(imageHash, check);
 }
 
-function boundValue<T>(literal: T, tokenId: string | undefined): RawBoundValue<T> {
-  return tokenId === undefined ? { literal } : { literal, token_id: tokenId };
+function boundValue<T>(
+  literal: T,
+  tokenId: string | undefined,
+  nodeId: string,
+  context: ExtractionContext,
+): RawBoundValue<T> {
+  if (tokenId === undefined) return { literal };
+  const value: RawBoundValue<T> = {
+    literal,
+    token_id: tokenId,
+  };
+  const key = boundValueKey(nodeId, tokenId);
+  const values = context.boundValues.get(key) ?? [];
+  values.push(value);
+  context.boundValues.set(key, values);
+  return value;
+}
+
+function boundNumberFromRecord(
+  record: UnknownRecord,
+  fieldName: string,
+  literal: number,
+  nodeId: string,
+  propertyPath: string,
+  context: ExtractionContext,
+  fallbackTokenId?: string,
+): RawBoundValue<number> {
+  const tokenId = registerAliasFromRecord(record, fieldName, nodeId, propertyPath, context)
+    ?? fallbackTokenId;
+  return boundValue(literal, tokenId, nodeId, context);
 }
 
 function registerPaintVariable(record: UnknownRecord, fieldName: string, nodeId: string, propertyPath: string, context: ExtractionContext): string | undefined {
@@ -1829,12 +1965,36 @@ function colorValue(value: unknown): RawColor | undefined {
   return { r: r as number, g: g as number, b: b as number, a: typeof a === "number" && Number.isFinite(a) ? a : 1 };
 }
 
-function variableModeId(variable: Variable, collection: VariableCollection, node: SceneNode): string | undefined {
-  const resolvedModes = node.resolvedVariableModes;
-  const modeId = typeof resolvedModes[variable.variableCollectionId] === "string"
-    ? resolvedModes[variable.variableCollectionId]
-    : collection.defaultModeId;
-  return collection.modes.some((mode) => mode.modeId === modeId) ? modeId : undefined;
+function boundValueKey(nodeId: string, tokenId: string): string {
+  return `${nodeId}\0${tokenId}`;
+}
+
+function assignBoundModeContext(
+  context: ExtractionContext,
+  tokenId: string,
+  nodeId: string,
+  modeContext: RawModeContext,
+): void {
+  for (const value of context.boundValues.get(boundValueKey(nodeId, tokenId)) ?? []) {
+    value.mode_context = { ...modeContext };
+  }
+}
+
+function canonicalModeContext(modeContext: RawModeContext): RawModeContext {
+  return Object.fromEntries(
+    Object.keys(modeContext)
+      .sort(compareStrings)
+      .map((collectionId) => [collectionId, modeContext[collectionId]]),
+  );
+}
+
+function extractVariableModes(node: SceneNode): RawModeContext {
+  const modes = node.resolvedVariableModes ?? {};
+  return Object.fromEntries(
+    Object.keys(modes)
+      .sort(compareStrings)
+      .flatMap((collectionId) => typeof modes[collectionId] === "string" ? [[collectionId, modes[collectionId]]] : []),
+  );
 }
 
 function componentSetKey(record: UnknownRecord): string | undefined {

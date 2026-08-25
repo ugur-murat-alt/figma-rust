@@ -1,9 +1,11 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "source": {
     "file_key": "fixture-file",
     "page_id": "0:1",
-    "selected_node_ids": ["1:1"],
+    "selected_node_ids": [
+      "1:1"
+    ],
     "plugin_api_version": "1.135.0"
   },
   "roots": [
@@ -19,21 +21,140 @@
         "min_width": 80.0,
         "max_width": 240.0
       },
+      "layout": {
+        "mode": "HORIZONTAL",
+        "gap": {
+          "literal": 8.0,
+          "token_id": "number.layout",
+          "mode_context": {
+            "collection.theme": "mode.light"
+          }
+        },
+        "padding": {
+          "top": {
+            "literal": 8.0,
+            "token_id": "number.layout",
+            "mode_context": {
+              "collection.theme": "mode.light"
+            }
+          },
+          "right": {
+            "literal": 8.0,
+            "token_id": "number.layout",
+            "mode_context": {
+              "collection.theme": "mode.light"
+            }
+          },
+          "bottom": {
+            "literal": 8.0,
+            "token_id": "number.layout",
+            "mode_context": {
+              "collection.theme": "mode.light"
+            }
+          },
+          "left": {
+            "literal": 8.0,
+            "token_id": "number.layout",
+            "mode_context": {
+              "collection.theme": "mode.light"
+            }
+          }
+        }
+      },
       "style": {
         "fills": [
           {
             "kind": "SOLID",
             "color": {
-              "literal": {"r": 0.125, "g": 0.25, "b": 0.5, "a": 1.0},
-              "token_id": "color.brand"
+              "literal": {
+                "r": 0.125,
+                "g": 0.25,
+                "b": 0.5,
+                "a": 1.0
+              },
+              "token_id": "color.brand",
+              "mode_context": {
+                "collection.theme": "mode.light"
+              }
             }
           }
         ],
+        "strokes": [
+          {
+            "kind": "SOLID",
+            "color": {
+              "literal": {
+                "r": 0.125,
+                "g": 0.25,
+                "b": 0.5,
+                "a": 1.0
+              },
+              "token_id": "color.brand",
+              "mode_context": {
+                "collection.theme": "mode.light"
+              }
+            }
+          }
+        ],
+        "stroke_widths": {
+          "top": {
+            "literal": 1.0,
+            "token_id": "stroke.top",
+            "mode_context": {
+              "collection.theme": "mode.light"
+            }
+          },
+          "right": {
+            "literal": 2.0,
+            "token_id": "stroke.right",
+            "mode_context": {
+              "collection.theme": "mode.light"
+            }
+          },
+          "bottom": {
+            "literal": 3.0,
+            "token_id": "stroke.bottom",
+            "mode_context": {
+              "collection.theme": "mode.light"
+            }
+          },
+          "left": {
+            "literal": 4.0,
+            "token_id": "stroke.left",
+            "mode_context": {
+              "collection.theme": "mode.light"
+            }
+          }
+        },
         "radii": {
-          "top_left": 8.0,
-          "top_right": 8.0,
-          "bottom_right": 8.0,
-          "bottom_left": 8.0
+          "top_left": {
+            "literal": 8.0,
+            "token_id": "radius.top-left",
+            "mode_context": {
+              "collection.theme": "mode.light"
+            }
+          },
+          "top_right": {
+            "literal": 6.0,
+            "token_id": "radius.top-right",
+            "mode_context": {
+              "collection.theme": "mode.light"
+            }
+          },
+          "bottom_right": {
+            "literal": 4.0,
+            "token_id": "radius.bottom-right",
+            "mode_context": {
+              "collection.theme": "mode.light"
+            }
+          },
+          "bottom_left": {
+            "literal": 2.0,
+            "token_id": "radius.bottom-left",
+            "mode_context": {
+              "collection.theme": "mode.light"
+            }
+          }
         }
       },
       "future_node_field": "retained-by-raw-model"
@@ -47,7 +168,132 @@
       "mode_id": "mode.light",
       "value": {
         "kind": "COLOR",
-        "value": {"r": 0.125, "g": 0.25, "b": 0.5, "a": 1.0}
+        "value": {
+          "r": 0.125,
+          "g": 0.25,
+          "b": 0.5,
+          "a": 1.0
+        }
+      },
+      "mode_context": {
+        "collection.theme": "mode.light"
+      }
+    },
+    {
+      "id": "number.layout",
+      "name": "Layout/Default",
+      "collection_id": "collection.theme",
+      "mode_id": "mode.light",
+      "value": {
+        "kind": "NUMBER",
+        "value": 8.0
+      },
+      "mode_context": {
+        "collection.theme": "mode.light"
+      }
+    },
+    {
+      "id": "stroke.top",
+      "name": "Stroke/Top",
+      "collection_id": "collection.theme",
+      "mode_id": "mode.light",
+      "value": {
+        "kind": "NUMBER",
+        "value": 1.0
+      },
+      "mode_context": {
+        "collection.theme": "mode.light"
+      }
+    },
+    {
+      "id": "radius.top-left",
+      "name": "Radius/Top Left",
+      "collection_id": "collection.theme",
+      "mode_id": "mode.light",
+      "value": {
+        "kind": "NUMBER",
+        "value": 8.0
+      },
+      "mode_context": {
+        "collection.theme": "mode.light"
+      }
+    },
+    {
+      "id": "radius.top-right",
+      "name": "Radius/Top Right",
+      "collection_id": "collection.theme",
+      "mode_id": "mode.light",
+      "value": {
+        "kind": "NUMBER",
+        "value": 6.0
+      },
+      "mode_context": {
+        "collection.theme": "mode.light"
+      }
+    },
+    {
+      "id": "radius.bottom-right",
+      "name": "Radius/Bottom Right",
+      "collection_id": "collection.theme",
+      "mode_id": "mode.light",
+      "value": {
+        "kind": "NUMBER",
+        "value": 4.0
+      },
+      "mode_context": {
+        "collection.theme": "mode.light"
+      }
+    },
+    {
+      "id": "radius.bottom-left",
+      "name": "Radius/Bottom Left",
+      "collection_id": "collection.theme",
+      "mode_id": "mode.light",
+      "value": {
+        "kind": "NUMBER",
+        "value": 2.0
+      },
+      "mode_context": {
+        "collection.theme": "mode.light"
+      }
+    },
+    {
+      "id": "stroke.right",
+      "name": "Stroke/Right",
+      "collection_id": "collection.theme",
+      "mode_id": "mode.light",
+      "value": {
+        "kind": "NUMBER",
+        "value": 2.0
+      },
+      "mode_context": {
+        "collection.theme": "mode.light"
+      }
+    },
+    {
+      "id": "stroke.bottom",
+      "name": "Stroke/Bottom",
+      "collection_id": "collection.theme",
+      "mode_id": "mode.light",
+      "value": {
+        "kind": "NUMBER",
+        "value": 3.0
+      },
+      "mode_context": {
+        "collection.theme": "mode.light"
+      }
+    },
+    {
+      "id": "stroke.left",
+      "name": "Stroke/Left",
+      "collection_id": "collection.theme",
+      "mode_id": "mode.light",
+      "value": {
+        "kind": "NUMBER",
+        "value": 4.0
+      },
+      "mode_context": {
+        "collection.theme": "mode.light"
       }
     }
   ],

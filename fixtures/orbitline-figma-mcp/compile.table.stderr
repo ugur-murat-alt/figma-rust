@@ -1,17 +1,8 @@
-[Error] FR-TOKEN-LOSS-003 node=516:223 property=bound_variables.bottomLeftRadius: Variable binding for bottomLeftRadius is not represented by the raw model.
-[Error] FR-TOKEN-LOSS-003 node=516:223 property=bound_variables.bottomRightRadius: Variable binding for bottomRightRadius is not represented by the raw model.
-[Error] FR-TOKEN-LOSS-003 node=516:223 property=bound_variables.topLeftRadius: Variable binding for topLeftRadius is not represented by the raw model.
-[Error] FR-TOKEN-LOSS-003 node=516:223 property=bound_variables.topRightRadius: Variable binding for topRightRadius is not represented by the raw model.
 [Warning] FR-EXTRACT-LOSS-001 node=653:777 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
-[Error] FR-VALUE-EXTRACT-003 node=653:777 property=style.stroke_widths: Value Symbol(figma.mixed) is not a finite number.
 [Warning] FR-EXTRACT-LOSS-001 node=653:790 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
-[Error] FR-VALUE-EXTRACT-003 node=653:790 property=style.stroke_widths: Value Symbol(figma.mixed) is not a finite number.
 [Warning] FR-EXTRACT-LOSS-001 node=653:803 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
-[Error] FR-VALUE-EXTRACT-003 node=653:803 property=style.stroke_widths: Value Symbol(figma.mixed) is not a finite number.
 [Warning] FR-EXTRACT-LOSS-001 node=653:816 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
-[Error] FR-VALUE-EXTRACT-003 node=653:816 property=style.stroke_widths: Value Symbol(figma.mixed) is not a finite number.
 [Warning] FR-EXTRACT-LOSS-001 node=653:829 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
-[Error] FR-VALUE-EXTRACT-003 node=653:829 property=style.stroke_widths: Value Symbol(figma.mixed) is not a finite number.
 [Warning] FR-EXTRACT-LOSS-001 node=I653:777;653:673 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
 [Warning] FR-EXTRACT-LOSS-001 node=I653:777;653:674 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
 [Warning] FR-EXTRACT-LOSS-001 node=I653:777;653:675 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
@@ -143,4 +134,5 @@
 [Info] FR-ASSET-001 node=I653:829;653:695 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
 [Info] FR-ASSET-001 node=I653:829;653:696 property=asset_decision: node requires runtime lowering: pass-through compositing
 [Info] FR-ASSET-001 node=I653:829;653:697 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
-compile failed: normalization failed
+[Error] FR-CODEGEN-001 node=516:223 property=asset_decision.route: unsupported GPUI lowering at node=516:223 property=asset_decision.route: Runtime asset route
+compile failed: unsupported GPUI lowering at node=516:223 property=asset_decision.route: Runtime asset route
