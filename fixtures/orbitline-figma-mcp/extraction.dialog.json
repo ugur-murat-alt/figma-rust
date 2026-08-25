@@ -1,0 +1,2536 @@
+{
+  "schema_version": 1,
+  "source": {
+    "file_key": "AShHVrUqsKDWavqH8D4S09",
+    "page_id": "184:6",
+    "selected_node_ids": [
+      "518:96"
+    ],
+    "plugin_api_version": "1.135.0"
+  },
+  "roots": [
+    {
+      "id": "518:96",
+      "name": "Kind=Confirm, State=Ready",
+      "figma_node_type": "COMPONENT",
+      "figma_locked": false,
+      "kind": "COMPONENT",
+      "visible": true,
+      "opacity": 1,
+      "layout": {
+        "mode": "VERTICAL",
+        "wrap": false,
+        "primary_alignment": "START",
+        "counter_alignment": "START",
+        "gap": 10,
+        "padding": {
+          "top": 14,
+          "right": 16,
+          "bottom": 14,
+          "left": 16
+        },
+        "grid": {
+          "columns": [],
+          "rows": [],
+          "column_gap": 0,
+          "row_gap": 0
+        },
+        "clips_content": true,
+        "scroll": {
+          "horizontal": false,
+          "vertical": false
+        }
+      },
+      "size": {
+        "width": 460,
+        "height": 220,
+        "horizontal": "FIXED",
+        "vertical": "FIXED"
+      },
+      "position": {
+        "positioning": "AUTO",
+        "x": 24,
+        "y": 24,
+        "horizontal_constraint": "MIN",
+        "vertical_constraint": "MIN",
+        "transform": {
+          "matrix": [
+            1,
+            0,
+            0,
+            1,
+            0,
+            0
+          ]
+        }
+      },
+      "style": {
+        "fills": [
+          {
+            "kind": "SOLID",
+            "color": {
+              "literal": {
+                "r": 0.08235294371843338,
+                "g": 0.10588235408067703,
+                "b": 0.12941177189350128,
+                "a": 1
+              },
+              "token_id": "VariableID:185:57"
+            }
+          }
+        ],
+        "strokes": [],
+        "stroke_widths": {
+          "top": 0,
+          "right": 0,
+          "bottom": 0,
+          "left": 0
+        },
+        "stroke_align": "INSIDE",
+        "radii": {
+          "top_left": 0,
+          "top_right": 0,
+          "bottom_right": 0,
+          "bottom_left": 0,
+          "smoothing": 0
+        },
+        "effects": [],
+        "blend_mode": "PASS_THROUGH",
+        "is_mask": false
+      },
+      "component": {
+        "role": "COMPONENT",
+        "component_key": "a02105857689eafb784f7ba975966a1e1885cd6b",
+        "component_set_key": "4c7503fb4669a6b8fc802a4e6c07fcd2edce0948",
+        "variants": {
+          "Kind": "Confirm",
+          "State": "Ready"
+        },
+        "properties": {},
+        "overrides": []
+      },
+      "reactions": [],
+      "children": [
+        {
+          "id": "518:79",
+          "name": "THYAO Analiz workspace’inde kaydedilmemiş panel boyutları ve gösterge değişiklikleri bulunuyor.",
+          "figma_node_type": "TEXT",
+          "figma_locked": false,
+          "kind": "TEXT",
+          "visible": true,
+          "opacity": 1,
+          "layout": {
+            "mode": "NONE",
+            "wrap": false,
+            "primary_alignment": "START",
+            "counter_alignment": "START",
+            "gap": 0,
+            "padding": {
+              "top": 0,
+              "right": 0,
+              "bottom": 0,
+              "left": 0
+            },
+            "grid": {
+              "columns": [],
+              "rows": [],
+              "column_gap": 0,
+              "row_gap": 0
+            },
+            "clips_content": false,
+            "scroll": {
+              "horizontal": false,
+              "vertical": false
+            }
+          },
+          "size": {
+            "width": 428,
+            "height": 16,
+            "horizontal": "FIXED",
+            "vertical": "FIXED"
+          },
+          "position": {
+            "positioning": "AUTO",
+            "x": 16,
+            "y": 14,
+            "horizontal_constraint": "MIN",
+            "vertical_constraint": "MIN",
+            "transform": {
+              "matrix": [
+                1,
+                0,
+                0,
+                1,
+                0,
+                0
+              ]
+            }
+          },
+          "style": {
+            "fills": [
+              {
+                "kind": "SOLID",
+                "color": {
+                  "literal": {
+                    "r": 0.6313725709915161,
+                    "g": 0.6705882549285889,
+                    "b": 0.7098039388656616,
+                    "a": 1
+                  },
+                  "token_id": "VariableID:185:60"
+                }
+              }
+            ],
+            "strokes": [],
+            "stroke_widths": {
+              "top": 1,
+              "right": 1,
+              "bottom": 1,
+              "left": 1
+            },
+            "stroke_align": "OUTSIDE",
+            "radii": {
+              "top_left": 0,
+              "top_right": 0,
+              "bottom_right": 0,
+              "bottom_left": 0,
+              "smoothing": 0
+            },
+            "effects": [],
+            "blend_mode": "PASS_THROUGH",
+            "is_mask": false
+          },
+          "text": {
+            "characters": "THYAO Analiz workspace’inde kaydedilmemiş panel boyutları ve gösterge değişiklikleri bulunuyor.",
+            "runs": [
+              {
+                "start_utf16": 0,
+                "end_utf16": 95,
+                "style": {
+                  "font_family": "Inter",
+                  "font_style": "Regular",
+                  "font_size": {
+                    "literal": 10
+                  },
+                  "font_weight": 400,
+                  "line_height": 13,
+                  "letter_spacing": 0,
+                  "color": {
+                    "literal": {
+                      "r": 0.6313725709915161,
+                      "g": 0.6705882549285889,
+                      "b": 0.7098039388656616,
+                      "a": 1
+                    },
+                    "token_id": "VariableID:185:60"
+                  }
+                }
+              }
+            ]
+          },
+          "reactions": [],
+          "children": [],
+          "figma_absolute_bounding_box": {
+            "x": 84,
+            "y": 2928,
+            "width": 428,
+            "height": 16
+          },
+          "figma_bound_variables": {
+            "fills": [
+              {
+                "type": "VARIABLE_ALIAS",
+                "id": "VariableID:185:60"
+              }
+            ]
+          },
+          "figma_paint_bound_variables": [
+            {
+              "color": {
+                "type": "VARIABLE_ALIAS",
+                "id": "VariableID:185:60"
+              }
+            }
+          ],
+          "figma_text_metadata": [
+            {
+              "has_missing_font": false,
+              "text_auto_resize": "NONE",
+              "text_align_horizontal": "LEFT",
+              "text_align_vertical": "TOP",
+              "text_truncation": "DISABLED",
+              "max_lines": null
+            }
+          ]
+        },
+        {
+          "id": "518:80",
+          "name": "Change summary",
+          "figma_node_type": "FRAME",
+          "figma_locked": false,
+          "kind": "FRAME",
+          "visible": true,
+          "opacity": 1,
+          "layout": {
+            "mode": "VERTICAL",
+            "wrap": false,
+            "primary_alignment": "START",
+            "counter_alignment": "START",
+            "gap": 5,
+            "padding": {
+              "top": 10,
+              "right": 10,
+              "bottom": 10,
+              "left": 10
+            },
+            "grid": {
+              "columns": [],
+              "rows": [],
+              "column_gap": 0,
+              "row_gap": 0
+            },
+            "clips_content": true,
+            "scroll": {
+              "horizontal": false,
+              "vertical": false
+            }
+          },
+          "size": {
+            "width": 428,
+            "height": 96,
+            "horizontal": "FIXED",
+            "vertical": "FIXED"
+          },
+          "position": {
+            "positioning": "AUTO",
+            "x": 16,
+            "y": 40,
+            "horizontal_constraint": "MIN",
+            "vertical_constraint": "MIN",
+            "transform": {
+              "matrix": [
+                1,
+                0,
+                0,
+                1,
+                0,
+                0
+              ]
+            }
+          },
+          "style": {
+            "fills": [
+              {
+                "kind": "SOLID",
+                "color": {
+                  "literal": {
+                    "r": 0.027450980618596077,
+                    "g": 0.03529411926865578,
+                    "b": 0.04313725605607033,
+                    "a": 1
+                  },
+                  "token_id": "VariableID:185:54"
+                }
+              }
+            ],
+            "strokes": [
+              {
+                "kind": "SOLID",
+                "color": {
+                  "literal": {
+                    "r": 0.10196078568696976,
+                    "g": 0.13333334028720856,
+                    "b": 0.16470588743686676,
+                    "a": 1
+                  },
+                  "token_id": "VariableID:185:64"
+                }
+              }
+            ],
+            "stroke_widths": {
+              "top": 1,
+              "right": 1,
+              "bottom": 1,
+              "left": 1
+            },
+            "stroke_align": "INSIDE",
+            "radii": {
+              "top_left": 2,
+              "top_right": 2,
+              "bottom_right": 2,
+              "bottom_left": 2,
+              "smoothing": 0
+            },
+            "effects": [],
+            "blend_mode": "PASS_THROUGH",
+            "is_mask": false
+          },
+          "reactions": [],
+          "children": [
+            {
+              "id": "518:81",
+              "name": "Metric/Panel bölünmesi",
+              "figma_node_type": "FRAME",
+              "figma_locked": false,
+              "kind": "FRAME",
+              "visible": true,
+              "opacity": 1,
+              "layout": {
+                "mode": "HORIZONTAL",
+                "wrap": false,
+                "primary_alignment": "START",
+                "counter_alignment": "START",
+                "gap": 0,
+                "padding": {
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "left": 0
+                },
+                "grid": {
+                  "columns": [],
+                  "rows": [],
+                  "column_gap": 0,
+                  "row_gap": 0
+                },
+                "clips_content": true,
+                "scroll": {
+                  "horizontal": false,
+                  "vertical": false
+                }
+              },
+              "size": {
+                "width": 408,
+                "height": 24,
+                "horizontal": "FIXED",
+                "vertical": "FIXED"
+              },
+              "position": {
+                "positioning": "AUTO",
+                "x": 10,
+                "y": 10,
+                "horizontal_constraint": "MIN",
+                "vertical_constraint": "MIN",
+                "transform": {
+                  "matrix": [
+                    1,
+                    0,
+                    0,
+                    1,
+                    0,
+                    0
+                  ]
+                }
+              },
+              "style": {
+                "fills": [],
+                "strokes": [],
+                "stroke_widths": {
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "left": 0
+                },
+                "stroke_align": "INSIDE",
+                "radii": {
+                  "top_left": 0,
+                  "top_right": 0,
+                  "bottom_right": 0,
+                  "bottom_left": 0,
+                  "smoothing": 0
+                },
+                "effects": [],
+                "blend_mode": "PASS_THROUGH",
+                "is_mask": false
+              },
+              "reactions": [],
+              "children": [
+                {
+                  "id": "518:82",
+                  "name": "Panel bölünmesi",
+                  "figma_node_type": "TEXT",
+                  "figma_locked": false,
+                  "kind": "TEXT",
+                  "visible": true,
+                  "opacity": 1,
+                  "layout": {
+                    "mode": "NONE",
+                    "wrap": false,
+                    "primary_alignment": "START",
+                    "counter_alignment": "START",
+                    "gap": 0,
+                    "padding": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "grid": {
+                      "columns": [],
+                      "rows": [],
+                      "column_gap": 0,
+                      "row_gap": 0
+                    },
+                    "clips_content": false,
+                    "scroll": {
+                      "horizontal": false,
+                      "vertical": false
+                    }
+                  },
+                  "size": {
+                    "width": 70,
+                    "height": 12,
+                    "horizontal": "HUG",
+                    "vertical": "HUG"
+                  },
+                  "position": {
+                    "positioning": "AUTO",
+                    "x": 0,
+                    "y": 0,
+                    "horizontal_constraint": "MIN",
+                    "vertical_constraint": "MIN",
+                    "transform": {
+                      "matrix": [
+                        1,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0
+                      ]
+                    }
+                  },
+                  "style": {
+                    "fills": [
+                      {
+                        "kind": "SOLID",
+                        "color": {
+                          "literal": {
+                            "r": 0.48235294222831726,
+                            "g": 0.529411792755127,
+                            "b": 0.5764706134796143,
+                            "a": 1
+                          },
+                          "token_id": "VariableID:185:61"
+                        }
+                      }
+                    ],
+                    "strokes": [],
+                    "stroke_widths": {
+                      "top": 1,
+                      "right": 1,
+                      "bottom": 1,
+                      "left": 1
+                    },
+                    "stroke_align": "OUTSIDE",
+                    "radii": {
+                      "top_left": 0,
+                      "top_right": 0,
+                      "bottom_right": 0,
+                      "bottom_left": 0,
+                      "smoothing": 0
+                    },
+                    "effects": [],
+                    "blend_mode": "PASS_THROUGH",
+                    "is_mask": false
+                  },
+                  "text": {
+                    "characters": "Panel bölünmesi",
+                    "runs": [
+                      {
+                        "start_utf16": 0,
+                        "end_utf16": 15,
+                        "style": {
+                          "font_family": "Inter",
+                          "font_style": "Regular",
+                          "font_size": {
+                            "literal": 9
+                          },
+                          "font_weight": 400,
+                          "line_height": 12,
+                          "letter_spacing": 0,
+                          "color": {
+                            "literal": {
+                              "r": 0.48235294222831726,
+                              "g": 0.529411792755127,
+                              "b": 0.5764706134796143,
+                              "a": 1
+                            },
+                            "token_id": "VariableID:185:61"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "reactions": [],
+                  "children": [],
+                  "figma_absolute_bounding_box": {
+                    "x": 94,
+                    "y": 2964,
+                    "width": 70,
+                    "height": 12
+                  },
+                  "figma_bound_variables": {
+                    "fills": [
+                      {
+                        "type": "VARIABLE_ALIAS",
+                        "id": "VariableID:185:61"
+                      }
+                    ]
+                  },
+                  "figma_paint_bound_variables": [
+                    {
+                      "color": {
+                        "type": "VARIABLE_ALIAS",
+                        "id": "VariableID:185:61"
+                      }
+                    }
+                  ],
+                  "figma_text_metadata": [
+                    {
+                      "has_missing_font": false,
+                      "text_auto_resize": "WIDTH_AND_HEIGHT",
+                      "text_align_horizontal": "LEFT",
+                      "text_align_vertical": "TOP",
+                      "text_truncation": "DISABLED",
+                      "max_lines": null
+                    }
+                  ]
+                },
+                {
+                  "id": "518:83",
+                  "name": "Spacer",
+                  "figma_node_type": "FRAME",
+                  "figma_locked": false,
+                  "kind": "FRAME",
+                  "visible": true,
+                  "opacity": 1,
+                  "layout": {
+                    "mode": "HORIZONTAL",
+                    "wrap": false,
+                    "primary_alignment": "START",
+                    "counter_alignment": "START",
+                    "gap": 0,
+                    "padding": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "grid": {
+                      "columns": [],
+                      "rows": [],
+                      "column_gap": 0,
+                      "row_gap": 0
+                    },
+                    "clips_content": true,
+                    "scroll": {
+                      "horizontal": false,
+                      "vertical": false
+                    }
+                  },
+                  "size": {
+                    "width": 300,
+                    "height": 12,
+                    "horizontal": "FILL",
+                    "vertical": "FIXED"
+                  },
+                  "position": {
+                    "positioning": "AUTO",
+                    "x": 70,
+                    "y": 0,
+                    "horizontal_constraint": "MIN",
+                    "vertical_constraint": "MIN",
+                    "transform": {
+                      "matrix": [
+                        1,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0
+                      ]
+                    }
+                  },
+                  "style": {
+                    "fills": [],
+                    "strokes": [],
+                    "stroke_widths": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "stroke_align": "INSIDE",
+                    "radii": {
+                      "top_left": 0,
+                      "top_right": 0,
+                      "bottom_right": 0,
+                      "bottom_left": 0,
+                      "smoothing": 0
+                    },
+                    "effects": [],
+                    "blend_mode": "PASS_THROUGH",
+                    "is_mask": false
+                  },
+                  "reactions": [],
+                  "children": [],
+                  "figma_absolute_bounding_box": {
+                    "x": 164,
+                    "y": 2964,
+                    "width": 300,
+                    "height": 12
+                  },
+                  "figma_bound_variables": {},
+                  "figma_layout_grow": [
+                    1
+                  ]
+                },
+                {
+                  "id": "518:84",
+                  "name": "3 modül",
+                  "figma_node_type": "TEXT",
+                  "figma_locked": false,
+                  "kind": "TEXT",
+                  "visible": true,
+                  "opacity": 1,
+                  "layout": {
+                    "mode": "NONE",
+                    "wrap": false,
+                    "primary_alignment": "START",
+                    "counter_alignment": "START",
+                    "gap": 0,
+                    "padding": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "grid": {
+                      "columns": [],
+                      "rows": [],
+                      "column_gap": 0,
+                      "row_gap": 0
+                    },
+                    "clips_content": false,
+                    "scroll": {
+                      "horizontal": false,
+                      "vertical": false
+                    }
+                  },
+                  "size": {
+                    "width": 38,
+                    "height": 12,
+                    "horizontal": "HUG",
+                    "vertical": "HUG"
+                  },
+                  "position": {
+                    "positioning": "AUTO",
+                    "x": 370,
+                    "y": 0,
+                    "horizontal_constraint": "MIN",
+                    "vertical_constraint": "MIN",
+                    "transform": {
+                      "matrix": [
+                        1,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0
+                      ]
+                    }
+                  },
+                  "style": {
+                    "fills": [
+                      {
+                        "kind": "SOLID",
+                        "color": {
+                          "literal": {
+                            "r": 0.9098039269447327,
+                            "g": 0.9215686321258545,
+                            "b": 0.9333333373069763,
+                            "a": 1
+                          },
+                          "token_id": "VariableID:185:59"
+                        }
+                      }
+                    ],
+                    "strokes": [],
+                    "stroke_widths": {
+                      "top": 1,
+                      "right": 1,
+                      "bottom": 1,
+                      "left": 1
+                    },
+                    "stroke_align": "OUTSIDE",
+                    "radii": {
+                      "top_left": 0,
+                      "top_right": 0,
+                      "bottom_right": 0,
+                      "bottom_left": 0,
+                      "smoothing": 0
+                    },
+                    "effects": [],
+                    "blend_mode": "PASS_THROUGH",
+                    "is_mask": false
+                  },
+                  "text": {
+                    "characters": "3 modül",
+                    "runs": [
+                      {
+                        "start_utf16": 0,
+                        "end_utf16": 7,
+                        "style": {
+                          "font_family": "JetBrains Mono",
+                          "font_style": "Medium",
+                          "font_size": {
+                            "literal": 9
+                          },
+                          "font_weight": 500,
+                          "line_height": 12,
+                          "letter_spacing": 0,
+                          "color": {
+                            "literal": {
+                              "r": 0.9098039269447327,
+                              "g": 0.9215686321258545,
+                              "b": 0.9333333373069763,
+                              "a": 1
+                            },
+                            "token_id": "VariableID:185:59"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "reactions": [],
+                  "children": [],
+                  "figma_absolute_bounding_box": {
+                    "x": 464,
+                    "y": 2964,
+                    "width": 38,
+                    "height": 12
+                  },
+                  "figma_bound_variables": {
+                    "fills": [
+                      {
+                        "type": "VARIABLE_ALIAS",
+                        "id": "VariableID:185:59"
+                      }
+                    ]
+                  },
+                  "figma_paint_bound_variables": [
+                    {
+                      "color": {
+                        "type": "VARIABLE_ALIAS",
+                        "id": "VariableID:185:59"
+                      }
+                    }
+                  ],
+                  "figma_text_metadata": [
+                    {
+                      "has_missing_font": false,
+                      "text_auto_resize": "WIDTH_AND_HEIGHT",
+                      "text_align_horizontal": "LEFT",
+                      "text_align_vertical": "TOP",
+                      "text_truncation": "DISABLED",
+                      "max_lines": null
+                    }
+                  ]
+                }
+              ],
+              "figma_absolute_bounding_box": {
+                "x": 94,
+                "y": 2964,
+                "width": 408,
+                "height": 24
+              },
+              "figma_bound_variables": {}
+            },
+            {
+              "id": "518:85",
+              "name": "Metric/Gösterge değişikliği",
+              "figma_node_type": "FRAME",
+              "figma_locked": false,
+              "kind": "FRAME",
+              "visible": true,
+              "opacity": 1,
+              "layout": {
+                "mode": "HORIZONTAL",
+                "wrap": false,
+                "primary_alignment": "START",
+                "counter_alignment": "START",
+                "gap": 0,
+                "padding": {
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "left": 0
+                },
+                "grid": {
+                  "columns": [],
+                  "rows": [],
+                  "column_gap": 0,
+                  "row_gap": 0
+                },
+                "clips_content": true,
+                "scroll": {
+                  "horizontal": false,
+                  "vertical": false
+                }
+              },
+              "size": {
+                "width": 408,
+                "height": 24,
+                "horizontal": "FIXED",
+                "vertical": "FIXED"
+              },
+              "position": {
+                "positioning": "AUTO",
+                "x": 10,
+                "y": 39,
+                "horizontal_constraint": "MIN",
+                "vertical_constraint": "MIN",
+                "transform": {
+                  "matrix": [
+                    1,
+                    0,
+                    0,
+                    1,
+                    0,
+                    0
+                  ]
+                }
+              },
+              "style": {
+                "fills": [],
+                "strokes": [],
+                "stroke_widths": {
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "left": 0
+                },
+                "stroke_align": "INSIDE",
+                "radii": {
+                  "top_left": 0,
+                  "top_right": 0,
+                  "bottom_right": 0,
+                  "bottom_left": 0,
+                  "smoothing": 0
+                },
+                "effects": [],
+                "blend_mode": "PASS_THROUGH",
+                "is_mask": false
+              },
+              "reactions": [],
+              "children": [
+                {
+                  "id": "518:86",
+                  "name": "Gösterge değişikliği",
+                  "figma_node_type": "TEXT",
+                  "figma_locked": false,
+                  "kind": "TEXT",
+                  "visible": true,
+                  "opacity": 1,
+                  "layout": {
+                    "mode": "NONE",
+                    "wrap": false,
+                    "primary_alignment": "START",
+                    "counter_alignment": "START",
+                    "gap": 0,
+                    "padding": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "grid": {
+                      "columns": [],
+                      "rows": [],
+                      "column_gap": 0,
+                      "row_gap": 0
+                    },
+                    "clips_content": false,
+                    "scroll": {
+                      "horizontal": false,
+                      "vertical": false
+                    }
+                  },
+                  "size": {
+                    "width": 84,
+                    "height": 12,
+                    "horizontal": "HUG",
+                    "vertical": "HUG"
+                  },
+                  "position": {
+                    "positioning": "AUTO",
+                    "x": 0,
+                    "y": 0,
+                    "horizontal_constraint": "MIN",
+                    "vertical_constraint": "MIN",
+                    "transform": {
+                      "matrix": [
+                        1,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0
+                      ]
+                    }
+                  },
+                  "style": {
+                    "fills": [
+                      {
+                        "kind": "SOLID",
+                        "color": {
+                          "literal": {
+                            "r": 0.48235294222831726,
+                            "g": 0.529411792755127,
+                            "b": 0.5764706134796143,
+                            "a": 1
+                          },
+                          "token_id": "VariableID:185:61"
+                        }
+                      }
+                    ],
+                    "strokes": [],
+                    "stroke_widths": {
+                      "top": 1,
+                      "right": 1,
+                      "bottom": 1,
+                      "left": 1
+                    },
+                    "stroke_align": "OUTSIDE",
+                    "radii": {
+                      "top_left": 0,
+                      "top_right": 0,
+                      "bottom_right": 0,
+                      "bottom_left": 0,
+                      "smoothing": 0
+                    },
+                    "effects": [],
+                    "blend_mode": "PASS_THROUGH",
+                    "is_mask": false
+                  },
+                  "text": {
+                    "characters": "Gösterge değişikliği",
+                    "runs": [
+                      {
+                        "start_utf16": 0,
+                        "end_utf16": 20,
+                        "style": {
+                          "font_family": "Inter",
+                          "font_style": "Regular",
+                          "font_size": {
+                            "literal": 9
+                          },
+                          "font_weight": 400,
+                          "line_height": 12,
+                          "letter_spacing": 0,
+                          "color": {
+                            "literal": {
+                              "r": 0.48235294222831726,
+                              "g": 0.529411792755127,
+                              "b": 0.5764706134796143,
+                              "a": 1
+                            },
+                            "token_id": "VariableID:185:61"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "reactions": [],
+                  "children": [],
+                  "figma_absolute_bounding_box": {
+                    "x": 94,
+                    "y": 2993,
+                    "width": 84,
+                    "height": 12
+                  },
+                  "figma_bound_variables": {
+                    "fills": [
+                      {
+                        "type": "VARIABLE_ALIAS",
+                        "id": "VariableID:185:61"
+                      }
+                    ]
+                  },
+                  "figma_paint_bound_variables": [
+                    {
+                      "color": {
+                        "type": "VARIABLE_ALIAS",
+                        "id": "VariableID:185:61"
+                      }
+                    }
+                  ],
+                  "figma_text_metadata": [
+                    {
+                      "has_missing_font": false,
+                      "text_auto_resize": "WIDTH_AND_HEIGHT",
+                      "text_align_horizontal": "LEFT",
+                      "text_align_vertical": "TOP",
+                      "text_truncation": "DISABLED",
+                      "max_lines": null
+                    }
+                  ]
+                },
+                {
+                  "id": "518:87",
+                  "name": "Spacer",
+                  "figma_node_type": "FRAME",
+                  "figma_locked": false,
+                  "kind": "FRAME",
+                  "visible": true,
+                  "opacity": 1,
+                  "layout": {
+                    "mode": "HORIZONTAL",
+                    "wrap": false,
+                    "primary_alignment": "START",
+                    "counter_alignment": "START",
+                    "gap": 0,
+                    "padding": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "grid": {
+                      "columns": [],
+                      "rows": [],
+                      "column_gap": 0,
+                      "row_gap": 0
+                    },
+                    "clips_content": true,
+                    "scroll": {
+                      "horizontal": false,
+                      "vertical": false
+                    }
+                  },
+                  "size": {
+                    "width": 264,
+                    "height": 12,
+                    "horizontal": "FILL",
+                    "vertical": "FIXED"
+                  },
+                  "position": {
+                    "positioning": "AUTO",
+                    "x": 84,
+                    "y": 0,
+                    "horizontal_constraint": "MIN",
+                    "vertical_constraint": "MIN",
+                    "transform": {
+                      "matrix": [
+                        1,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0
+                      ]
+                    }
+                  },
+                  "style": {
+                    "fills": [],
+                    "strokes": [],
+                    "stroke_widths": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "stroke_align": "INSIDE",
+                    "radii": {
+                      "top_left": 0,
+                      "top_right": 0,
+                      "bottom_right": 0,
+                      "bottom_left": 0,
+                      "smoothing": 0
+                    },
+                    "effects": [],
+                    "blend_mode": "PASS_THROUGH",
+                    "is_mask": false
+                  },
+                  "reactions": [],
+                  "children": [],
+                  "figma_absolute_bounding_box": {
+                    "x": 178,
+                    "y": 2993,
+                    "width": 264,
+                    "height": 12
+                  },
+                  "figma_bound_variables": {},
+                  "figma_layout_grow": [
+                    1
+                  ]
+                },
+                {
+                  "id": "518:88",
+                  "name": "EMA 20 → 34",
+                  "figma_node_type": "TEXT",
+                  "figma_locked": false,
+                  "kind": "TEXT",
+                  "visible": true,
+                  "opacity": 1,
+                  "layout": {
+                    "mode": "NONE",
+                    "wrap": false,
+                    "primary_alignment": "START",
+                    "counter_alignment": "START",
+                    "gap": 0,
+                    "padding": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "grid": {
+                      "columns": [],
+                      "rows": [],
+                      "column_gap": 0,
+                      "row_gap": 0
+                    },
+                    "clips_content": false,
+                    "scroll": {
+                      "horizontal": false,
+                      "vertical": false
+                    }
+                  },
+                  "size": {
+                    "width": 60,
+                    "height": 12,
+                    "horizontal": "HUG",
+                    "vertical": "HUG"
+                  },
+                  "position": {
+                    "positioning": "AUTO",
+                    "x": 348,
+                    "y": 0,
+                    "horizontal_constraint": "MIN",
+                    "vertical_constraint": "MIN",
+                    "transform": {
+                      "matrix": [
+                        1,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0
+                      ]
+                    }
+                  },
+                  "style": {
+                    "fills": [
+                      {
+                        "kind": "SOLID",
+                        "color": {
+                          "literal": {
+                            "r": 0.9098039269447327,
+                            "g": 0.9215686321258545,
+                            "b": 0.9333333373069763,
+                            "a": 1
+                          },
+                          "token_id": "VariableID:185:59"
+                        }
+                      }
+                    ],
+                    "strokes": [],
+                    "stroke_widths": {
+                      "top": 1,
+                      "right": 1,
+                      "bottom": 1,
+                      "left": 1
+                    },
+                    "stroke_align": "OUTSIDE",
+                    "radii": {
+                      "top_left": 0,
+                      "top_right": 0,
+                      "bottom_right": 0,
+                      "bottom_left": 0,
+                      "smoothing": 0
+                    },
+                    "effects": [],
+                    "blend_mode": "PASS_THROUGH",
+                    "is_mask": false
+                  },
+                  "text": {
+                    "characters": "EMA 20 → 34",
+                    "runs": [
+                      {
+                        "start_utf16": 0,
+                        "end_utf16": 11,
+                        "style": {
+                          "font_family": "JetBrains Mono",
+                          "font_style": "Medium",
+                          "font_size": {
+                            "literal": 9
+                          },
+                          "font_weight": 500,
+                          "line_height": 12,
+                          "letter_spacing": 0,
+                          "color": {
+                            "literal": {
+                              "r": 0.9098039269447327,
+                              "g": 0.9215686321258545,
+                              "b": 0.9333333373069763,
+                              "a": 1
+                            },
+                            "token_id": "VariableID:185:59"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "reactions": [],
+                  "children": [],
+                  "figma_absolute_bounding_box": {
+                    "x": 442,
+                    "y": 2993,
+                    "width": 60,
+                    "height": 12
+                  },
+                  "figma_bound_variables": {
+                    "fills": [
+                      {
+                        "type": "VARIABLE_ALIAS",
+                        "id": "VariableID:185:59"
+                      }
+                    ]
+                  },
+                  "figma_paint_bound_variables": [
+                    {
+                      "color": {
+                        "type": "VARIABLE_ALIAS",
+                        "id": "VariableID:185:59"
+                      }
+                    }
+                  ],
+                  "figma_text_metadata": [
+                    {
+                      "has_missing_font": false,
+                      "text_auto_resize": "WIDTH_AND_HEIGHT",
+                      "text_align_horizontal": "LEFT",
+                      "text_align_vertical": "TOP",
+                      "text_truncation": "DISABLED",
+                      "max_lines": null
+                    }
+                  ]
+                }
+              ],
+              "figma_absolute_bounding_box": {
+                "x": 94,
+                "y": 2993,
+                "width": 408,
+                "height": 24
+              },
+              "figma_bound_variables": {}
+            },
+            {
+              "id": "518:89",
+              "name": "Metric/Çizim taslağı",
+              "figma_node_type": "FRAME",
+              "figma_locked": false,
+              "kind": "FRAME",
+              "visible": true,
+              "opacity": 1,
+              "layout": {
+                "mode": "HORIZONTAL",
+                "wrap": false,
+                "primary_alignment": "START",
+                "counter_alignment": "START",
+                "gap": 0,
+                "padding": {
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "left": 0
+                },
+                "grid": {
+                  "columns": [],
+                  "rows": [],
+                  "column_gap": 0,
+                  "row_gap": 0
+                },
+                "clips_content": true,
+                "scroll": {
+                  "horizontal": false,
+                  "vertical": false
+                }
+              },
+              "size": {
+                "width": 408,
+                "height": 24,
+                "horizontal": "FIXED",
+                "vertical": "FIXED"
+              },
+              "position": {
+                "positioning": "AUTO",
+                "x": 10,
+                "y": 68,
+                "horizontal_constraint": "MIN",
+                "vertical_constraint": "MIN",
+                "transform": {
+                  "matrix": [
+                    1,
+                    0,
+                    0,
+                    1,
+                    0,
+                    0
+                  ]
+                }
+              },
+              "style": {
+                "fills": [],
+                "strokes": [],
+                "stroke_widths": {
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "left": 0
+                },
+                "stroke_align": "INSIDE",
+                "radii": {
+                  "top_left": 0,
+                  "top_right": 0,
+                  "bottom_right": 0,
+                  "bottom_left": 0,
+                  "smoothing": 0
+                },
+                "effects": [],
+                "blend_mode": "PASS_THROUGH",
+                "is_mask": false
+              },
+              "reactions": [],
+              "children": [
+                {
+                  "id": "518:90",
+                  "name": "Çizim taslağı",
+                  "figma_node_type": "TEXT",
+                  "figma_locked": false,
+                  "kind": "TEXT",
+                  "visible": true,
+                  "opacity": 1,
+                  "layout": {
+                    "mode": "NONE",
+                    "wrap": false,
+                    "primary_alignment": "START",
+                    "counter_alignment": "START",
+                    "gap": 0,
+                    "padding": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "grid": {
+                      "columns": [],
+                      "rows": [],
+                      "column_gap": 0,
+                      "row_gap": 0
+                    },
+                    "clips_content": false,
+                    "scroll": {
+                      "horizontal": false,
+                      "vertical": false
+                    }
+                  },
+                  "size": {
+                    "width": 54,
+                    "height": 12,
+                    "horizontal": "HUG",
+                    "vertical": "HUG"
+                  },
+                  "position": {
+                    "positioning": "AUTO",
+                    "x": 0,
+                    "y": 0,
+                    "horizontal_constraint": "MIN",
+                    "vertical_constraint": "MIN",
+                    "transform": {
+                      "matrix": [
+                        1,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0
+                      ]
+                    }
+                  },
+                  "style": {
+                    "fills": [
+                      {
+                        "kind": "SOLID",
+                        "color": {
+                          "literal": {
+                            "r": 0.48235294222831726,
+                            "g": 0.529411792755127,
+                            "b": 0.5764706134796143,
+                            "a": 1
+                          },
+                          "token_id": "VariableID:185:61"
+                        }
+                      }
+                    ],
+                    "strokes": [],
+                    "stroke_widths": {
+                      "top": 1,
+                      "right": 1,
+                      "bottom": 1,
+                      "left": 1
+                    },
+                    "stroke_align": "OUTSIDE",
+                    "radii": {
+                      "top_left": 0,
+                      "top_right": 0,
+                      "bottom_right": 0,
+                      "bottom_left": 0,
+                      "smoothing": 0
+                    },
+                    "effects": [],
+                    "blend_mode": "PASS_THROUGH",
+                    "is_mask": false
+                  },
+                  "text": {
+                    "characters": "Çizim taslağı",
+                    "runs": [
+                      {
+                        "start_utf16": 0,
+                        "end_utf16": 13,
+                        "style": {
+                          "font_family": "Inter",
+                          "font_style": "Regular",
+                          "font_size": {
+                            "literal": 9
+                          },
+                          "font_weight": 400,
+                          "line_height": 12,
+                          "letter_spacing": 0,
+                          "color": {
+                            "literal": {
+                              "r": 0.48235294222831726,
+                              "g": 0.529411792755127,
+                              "b": 0.5764706134796143,
+                              "a": 1
+                            },
+                            "token_id": "VariableID:185:61"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "reactions": [],
+                  "children": [],
+                  "figma_absolute_bounding_box": {
+                    "x": 94,
+                    "y": 3022,
+                    "width": 54,
+                    "height": 12
+                  },
+                  "figma_bound_variables": {
+                    "fills": [
+                      {
+                        "type": "VARIABLE_ALIAS",
+                        "id": "VariableID:185:61"
+                      }
+                    ]
+                  },
+                  "figma_paint_bound_variables": [
+                    {
+                      "color": {
+                        "type": "VARIABLE_ALIAS",
+                        "id": "VariableID:185:61"
+                      }
+                    }
+                  ],
+                  "figma_text_metadata": [
+                    {
+                      "has_missing_font": false,
+                      "text_auto_resize": "WIDTH_AND_HEIGHT",
+                      "text_align_horizontal": "LEFT",
+                      "text_align_vertical": "TOP",
+                      "text_truncation": "DISABLED",
+                      "max_lines": null
+                    }
+                  ]
+                },
+                {
+                  "id": "518:91",
+                  "name": "Spacer",
+                  "figma_node_type": "FRAME",
+                  "figma_locked": false,
+                  "kind": "FRAME",
+                  "visible": true,
+                  "opacity": 1,
+                  "layout": {
+                    "mode": "HORIZONTAL",
+                    "wrap": false,
+                    "primary_alignment": "START",
+                    "counter_alignment": "START",
+                    "gap": 0,
+                    "padding": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "grid": {
+                      "columns": [],
+                      "rows": [],
+                      "column_gap": 0,
+                      "row_gap": 0
+                    },
+                    "clips_content": true,
+                    "scroll": {
+                      "horizontal": false,
+                      "vertical": false
+                    }
+                  },
+                  "size": {
+                    "width": 273,
+                    "height": 12,
+                    "horizontal": "FILL",
+                    "vertical": "FIXED"
+                  },
+                  "position": {
+                    "positioning": "AUTO",
+                    "x": 54,
+                    "y": 0,
+                    "horizontal_constraint": "MIN",
+                    "vertical_constraint": "MIN",
+                    "transform": {
+                      "matrix": [
+                        1,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0
+                      ]
+                    }
+                  },
+                  "style": {
+                    "fills": [],
+                    "strokes": [],
+                    "stroke_widths": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "stroke_align": "INSIDE",
+                    "radii": {
+                      "top_left": 0,
+                      "top_right": 0,
+                      "bottom_right": 0,
+                      "bottom_left": 0,
+                      "smoothing": 0
+                    },
+                    "effects": [],
+                    "blend_mode": "PASS_THROUGH",
+                    "is_mask": false
+                  },
+                  "reactions": [],
+                  "children": [],
+                  "figma_absolute_bounding_box": {
+                    "x": 148,
+                    "y": 3022,
+                    "width": 273,
+                    "height": 12
+                  },
+                  "figma_bound_variables": {},
+                  "figma_layout_grow": [
+                    1
+                  ]
+                },
+                {
+                  "id": "518:92",
+                  "name": "1 trend çizgisi",
+                  "figma_node_type": "TEXT",
+                  "figma_locked": false,
+                  "kind": "TEXT",
+                  "visible": true,
+                  "opacity": 1,
+                  "layout": {
+                    "mode": "NONE",
+                    "wrap": false,
+                    "primary_alignment": "START",
+                    "counter_alignment": "START",
+                    "gap": 0,
+                    "padding": {
+                      "top": 0,
+                      "right": 0,
+                      "bottom": 0,
+                      "left": 0
+                    },
+                    "grid": {
+                      "columns": [],
+                      "rows": [],
+                      "column_gap": 0,
+                      "row_gap": 0
+                    },
+                    "clips_content": false,
+                    "scroll": {
+                      "horizontal": false,
+                      "vertical": false
+                    }
+                  },
+                  "size": {
+                    "width": 81,
+                    "height": 12,
+                    "horizontal": "HUG",
+                    "vertical": "HUG"
+                  },
+                  "position": {
+                    "positioning": "AUTO",
+                    "x": 327,
+                    "y": 0,
+                    "horizontal_constraint": "MIN",
+                    "vertical_constraint": "MIN",
+                    "transform": {
+                      "matrix": [
+                        1,
+                        0,
+                        0,
+                        1,
+                        0,
+                        0
+                      ]
+                    }
+                  },
+                  "style": {
+                    "fills": [
+                      {
+                        "kind": "SOLID",
+                        "color": {
+                          "literal": {
+                            "r": 0.9098039269447327,
+                            "g": 0.9215686321258545,
+                            "b": 0.9333333373069763,
+                            "a": 1
+                          },
+                          "token_id": "VariableID:185:59"
+                        }
+                      }
+                    ],
+                    "strokes": [],
+                    "stroke_widths": {
+                      "top": 1,
+                      "right": 1,
+                      "bottom": 1,
+                      "left": 1
+                    },
+                    "stroke_align": "OUTSIDE",
+                    "radii": {
+                      "top_left": 0,
+                      "top_right": 0,
+                      "bottom_right": 0,
+                      "bottom_left": 0,
+                      "smoothing": 0
+                    },
+                    "effects": [],
+                    "blend_mode": "PASS_THROUGH",
+                    "is_mask": false
+                  },
+                  "text": {
+                    "characters": "1 trend çizgisi",
+                    "runs": [
+                      {
+                        "start_utf16": 0,
+                        "end_utf16": 15,
+                        "style": {
+                          "font_family": "JetBrains Mono",
+                          "font_style": "Medium",
+                          "font_size": {
+                            "literal": 9
+                          },
+                          "font_weight": 500,
+                          "line_height": 12,
+                          "letter_spacing": 0,
+                          "color": {
+                            "literal": {
+                              "r": 0.9098039269447327,
+                              "g": 0.9215686321258545,
+                              "b": 0.9333333373069763,
+                              "a": 1
+                            },
+                            "token_id": "VariableID:185:59"
+                          }
+                        }
+                      }
+                    ]
+                  },
+                  "reactions": [],
+                  "children": [],
+                  "figma_absolute_bounding_box": {
+                    "x": 421,
+                    "y": 3022,
+                    "width": 81,
+                    "height": 12
+                  },
+                  "figma_bound_variables": {
+                    "fills": [
+                      {
+                        "type": "VARIABLE_ALIAS",
+                        "id": "VariableID:185:59"
+                      }
+                    ]
+                  },
+                  "figma_paint_bound_variables": [
+                    {
+                      "color": {
+                        "type": "VARIABLE_ALIAS",
+                        "id": "VariableID:185:59"
+                      }
+                    }
+                  ],
+                  "figma_text_metadata": [
+                    {
+                      "has_missing_font": false,
+                      "text_auto_resize": "WIDTH_AND_HEIGHT",
+                      "text_align_horizontal": "LEFT",
+                      "text_align_vertical": "TOP",
+                      "text_truncation": "DISABLED",
+                      "max_lines": null
+                    }
+                  ]
+                }
+              ],
+              "figma_absolute_bounding_box": {
+                "x": 94,
+                "y": 3022,
+                "width": 408,
+                "height": 24
+              },
+              "figma_bound_variables": {}
+            }
+          ],
+          "figma_absolute_bounding_box": {
+            "x": 84,
+            "y": 2954,
+            "width": 428,
+            "height": 96
+          },
+          "figma_bound_variables": {
+            "fills": [
+              {
+                "type": "VARIABLE_ALIAS",
+                "id": "VariableID:185:54"
+              }
+            ],
+            "strokes": [
+              {
+                "type": "VARIABLE_ALIAS",
+                "id": "VariableID:185:64"
+              }
+            ]
+          },
+          "figma_paint_bound_variables": [
+            {
+              "color": {
+                "type": "VARIABLE_ALIAS",
+                "id": "VariableID:185:54"
+              }
+            },
+            {
+              "color": {
+                "type": "VARIABLE_ALIAS",
+                "id": "VariableID:185:64"
+              }
+            }
+          ]
+        },
+        {
+          "id": "518:93",
+          "name": "Remember option",
+          "figma_node_type": "FRAME",
+          "figma_locked": false,
+          "kind": "FRAME",
+          "visible": true,
+          "opacity": 1,
+          "layout": {
+            "mode": "HORIZONTAL",
+            "wrap": false,
+            "primary_alignment": "START",
+            "counter_alignment": "START",
+            "gap": 8,
+            "padding": {
+              "top": 5,
+              "right": 8,
+              "bottom": 5,
+              "left": 8
+            },
+            "grid": {
+              "columns": [],
+              "rows": [],
+              "column_gap": 0,
+              "row_gap": 0
+            },
+            "clips_content": true,
+            "scroll": {
+              "horizontal": false,
+              "vertical": false
+            }
+          },
+          "size": {
+            "width": 428,
+            "height": 34,
+            "horizontal": "FIXED",
+            "vertical": "FIXED"
+          },
+          "position": {
+            "positioning": "AUTO",
+            "x": 16,
+            "y": 146,
+            "horizontal_constraint": "MIN",
+            "vertical_constraint": "MIN",
+            "transform": {
+              "matrix": [
+                1,
+                0,
+                0,
+                1,
+                0,
+                0
+              ]
+            }
+          },
+          "style": {
+            "fills": [
+              {
+                "kind": "SOLID",
+                "color": {
+                  "literal": {
+                    "r": 0.05098039284348488,
+                    "g": 0.06666667014360428,
+                    "b": 0.08235294371843338,
+                    "a": 1
+                  },
+                  "token_id": "VariableID:185:52"
+                }
+              }
+            ],
+            "strokes": [
+              {
+                "kind": "SOLID",
+                "color": {
+                  "literal": {
+                    "r": 0.10196078568696976,
+                    "g": 0.13333334028720856,
+                    "b": 0.16470588743686676,
+                    "a": 1
+                  },
+                  "token_id": "VariableID:185:64"
+                }
+              }
+            ],
+            "stroke_widths": {
+              "top": 1,
+              "right": 1,
+              "bottom": 1,
+              "left": 1
+            },
+            "stroke_align": "INSIDE",
+            "radii": {
+              "top_left": 2,
+              "top_right": 2,
+              "bottom_right": 2,
+              "bottom_left": 2,
+              "smoothing": 0
+            },
+            "effects": [],
+            "blend_mode": "PASS_THROUGH",
+            "is_mask": false
+          },
+          "reactions": [],
+          "children": [
+            {
+              "id": "518:94",
+              "name": "Checkbox",
+              "figma_node_type": "FRAME",
+              "figma_locked": false,
+              "kind": "FRAME",
+              "visible": true,
+              "opacity": 1,
+              "layout": {
+                "mode": "HORIZONTAL",
+                "wrap": false,
+                "primary_alignment": "START",
+                "counter_alignment": "START",
+                "gap": 0,
+                "padding": {
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "left": 0
+                },
+                "grid": {
+                  "columns": [],
+                  "rows": [],
+                  "column_gap": 0,
+                  "row_gap": 0
+                },
+                "clips_content": true,
+                "scroll": {
+                  "horizontal": false,
+                  "vertical": false
+                }
+              },
+              "size": {
+                "width": 16,
+                "height": 16,
+                "horizontal": "FIXED",
+                "vertical": "FIXED"
+              },
+              "position": {
+                "positioning": "AUTO",
+                "x": 8,
+                "y": 5,
+                "horizontal_constraint": "MIN",
+                "vertical_constraint": "MIN",
+                "transform": {
+                  "matrix": [
+                    1,
+                    0,
+                    0,
+                    1,
+                    0,
+                    0
+                  ]
+                }
+              },
+              "style": {
+                "fills": [
+                  {
+                    "kind": "SOLID",
+                    "color": {
+                      "literal": {
+                        "r": 0.06666667014360428,
+                        "g": 0.08627451211214066,
+                        "b": 0.10588235408067703,
+                        "a": 1
+                      },
+                      "token_id": "VariableID:185:55"
+                    }
+                  }
+                ],
+                "strokes": [
+                  {
+                    "kind": "SOLID",
+                    "color": {
+                      "literal": {
+                        "r": 0.1568627506494522,
+                        "g": 0.20000000298023224,
+                        "b": 0.24313725531101227,
+                        "a": 1
+                      },
+                      "token_id": "VariableID:185:65"
+                    }
+                  }
+                ],
+                "stroke_widths": {
+                  "top": 1,
+                  "right": 1,
+                  "bottom": 1,
+                  "left": 1
+                },
+                "stroke_align": "INSIDE",
+                "radii": {
+                  "top_left": 2,
+                  "top_right": 2,
+                  "bottom_right": 2,
+                  "bottom_left": 2,
+                  "smoothing": 0
+                },
+                "effects": [],
+                "blend_mode": "PASS_THROUGH",
+                "is_mask": false
+              },
+              "reactions": [],
+              "children": [],
+              "figma_absolute_bounding_box": {
+                "x": 92,
+                "y": 3065,
+                "width": 16,
+                "height": 16
+              },
+              "figma_bound_variables": {
+                "fills": [
+                  {
+                    "type": "VARIABLE_ALIAS",
+                    "id": "VariableID:185:55"
+                  }
+                ],
+                "strokes": [
+                  {
+                    "type": "VARIABLE_ALIAS",
+                    "id": "VariableID:185:65"
+                  }
+                ]
+              },
+              "figma_paint_bound_variables": [
+                {
+                  "color": {
+                    "type": "VARIABLE_ALIAS",
+                    "id": "VariableID:185:55"
+                  }
+                },
+                {
+                  "color": {
+                    "type": "VARIABLE_ALIAS",
+                    "id": "VariableID:185:65"
+                  }
+                }
+              ]
+            },
+            {
+              "id": "518:95",
+              "name": "Bu workspace için bir daha sorma",
+              "figma_node_type": "TEXT",
+              "figma_locked": false,
+              "kind": "TEXT",
+              "visible": true,
+              "opacity": 1,
+              "layout": {
+                "mode": "NONE",
+                "wrap": false,
+                "primary_alignment": "START",
+                "counter_alignment": "START",
+                "gap": 0,
+                "padding": {
+                  "top": 0,
+                  "right": 0,
+                  "bottom": 0,
+                  "left": 0
+                },
+                "grid": {
+                  "columns": [],
+                  "rows": [],
+                  "column_gap": 0,
+                  "row_gap": 0
+                },
+                "clips_content": false,
+                "scroll": {
+                  "horizontal": false,
+                  "vertical": false
+                }
+              },
+              "size": {
+                "width": 145,
+                "height": 12,
+                "horizontal": "HUG",
+                "vertical": "HUG"
+              },
+              "position": {
+                "positioning": "AUTO",
+                "x": 32,
+                "y": 5,
+                "horizontal_constraint": "MIN",
+                "vertical_constraint": "MIN",
+                "transform": {
+                  "matrix": [
+                    1,
+                    0,
+                    0,
+                    1,
+                    0,
+                    0
+                  ]
+                }
+              },
+              "style": {
+                "fills": [
+                  {
+                    "kind": "SOLID",
+                    "color": {
+                      "literal": {
+                        "r": 0.6313725709915161,
+                        "g": 0.6705882549285889,
+                        "b": 0.7098039388656616,
+                        "a": 1
+                      },
+                      "token_id": "VariableID:185:60"
+                    }
+                  }
+                ],
+                "strokes": [],
+                "stroke_widths": {
+                  "top": 1,
+                  "right": 1,
+                  "bottom": 1,
+                  "left": 1
+                },
+                "stroke_align": "OUTSIDE",
+                "radii": {
+                  "top_left": 0,
+                  "top_right": 0,
+                  "bottom_right": 0,
+                  "bottom_left": 0,
+                  "smoothing": 0
+                },
+                "effects": [],
+                "blend_mode": "PASS_THROUGH",
+                "is_mask": false
+              },
+              "text": {
+                "characters": "Bu workspace için bir daha sorma",
+                "runs": [
+                  {
+                    "start_utf16": 0,
+                    "end_utf16": 32,
+                    "style": {
+                      "font_family": "Inter",
+                      "font_style": "Medium",
+                      "font_size": {
+                        "literal": 9
+                      },
+                      "font_weight": 500,
+                      "line_height": 12,
+                      "letter_spacing": 0,
+                      "color": {
+                        "literal": {
+                          "r": 0.6313725709915161,
+                          "g": 0.6705882549285889,
+                          "b": 0.7098039388656616,
+                          "a": 1
+                        },
+                        "token_id": "VariableID:185:60"
+                      }
+                    }
+                  }
+                ]
+              },
+              "reactions": [],
+              "children": [],
+              "figma_absolute_bounding_box": {
+                "x": 116,
+                "y": 3065,
+                "width": 145,
+                "height": 12
+              },
+              "figma_bound_variables": {
+                "fills": [
+                  {
+                    "type": "VARIABLE_ALIAS",
+                    "id": "VariableID:185:60"
+                  }
+                ]
+              },
+              "figma_paint_bound_variables": [
+                {
+                  "color": {
+                    "type": "VARIABLE_ALIAS",
+                    "id": "VariableID:185:60"
+                  }
+                }
+              ],
+              "figma_text_metadata": [
+                {
+                  "has_missing_font": false,
+                  "text_auto_resize": "WIDTH_AND_HEIGHT",
+                  "text_align_horizontal": "LEFT",
+                  "text_align_vertical": "TOP",
+                  "text_truncation": "DISABLED",
+                  "max_lines": null
+                }
+              ]
+            }
+          ],
+          "figma_absolute_bounding_box": {
+            "x": 84,
+            "y": 3060,
+            "width": 428,
+            "height": 34
+          },
+          "figma_bound_variables": {
+            "fills": [
+              {
+                "type": "VARIABLE_ALIAS",
+                "id": "VariableID:185:52"
+              }
+            ],
+            "strokes": [
+              {
+                "type": "VARIABLE_ALIAS",
+                "id": "VariableID:185:64"
+              }
+            ]
+          },
+          "figma_paint_bound_variables": [
+            {
+              "color": {
+                "type": "VARIABLE_ALIAS",
+                "id": "VariableID:185:52"
+              }
+            },
+            {
+              "color": {
+                "type": "VARIABLE_ALIAS",
+                "id": "VariableID:185:64"
+              }
+            }
+          ]
+        }
+      ],
+      "figma_absolute_bounding_box": {
+        "x": 68,
+        "y": 2914,
+        "width": 460,
+        "height": 220
+      },
+      "figma_bound_variables": {
+        "fills": [
+          {
+            "type": "VARIABLE_ALIAS",
+            "id": "VariableID:185:57"
+          }
+        ]
+      },
+      "figma_paint_bound_variables": [
+        {
+          "color": {
+            "type": "VARIABLE_ALIAS",
+            "id": "VariableID:185:57"
+          }
+        }
+      ]
+    }
+  ],
+  "variables": [
+    {
+      "id": "VariableID:185:52",
+      "name": "surface/module",
+      "collection_id": "VariableCollectionId:185:3",
+      "mode_id": "185:1",
+      "source_node_id": "518:93",
+      "value": {
+        "kind": "COLOR",
+        "value": {
+          "r": 0.05098039284348488,
+          "g": 0.06666667014360428,
+          "b": 0.08235294371843338,
+          "a": 1
+        }
+      }
+    },
+    {
+      "id": "VariableID:185:54",
+      "name": "surface/sunken",
+      "collection_id": "VariableCollectionId:185:3",
+      "mode_id": "185:1",
+      "source_node_id": "518:80",
+      "value": {
+        "kind": "COLOR",
+        "value": {
+          "r": 0.027450980618596077,
+          "g": 0.03529411926865578,
+          "b": 0.04313725605607033,
+          "a": 1
+        }
+      }
+    },
+    {
+      "id": "VariableID:185:55",
+      "name": "surface/input",
+      "collection_id": "VariableCollectionId:185:3",
+      "mode_id": "185:1",
+      "source_node_id": "518:94",
+      "value": {
+        "kind": "COLOR",
+        "value": {
+          "r": 0.06666667014360428,
+          "g": 0.08627451211214066,
+          "b": 0.10588235408067703,
+          "a": 1
+        }
+      }
+    },
+    {
+      "id": "VariableID:185:57",
+      "name": "surface/popover",
+      "collection_id": "VariableCollectionId:185:3",
+      "mode_id": "185:1",
+      "source_node_id": "518:96",
+      "value": {
+        "kind": "COLOR",
+        "value": {
+          "r": 0.08235294371843338,
+          "g": 0.10588235408067703,
+          "b": 0.12941177189350128,
+          "a": 1
+        }
+      }
+    },
+    {
+      "id": "VariableID:185:59",
+      "name": "text/primary",
+      "collection_id": "VariableCollectionId:185:3",
+      "mode_id": "185:1",
+      "source_node_id": "518:84",
+      "value": {
+        "kind": "COLOR",
+        "value": {
+          "r": 0.9098039269447327,
+          "g": 0.9215686321258545,
+          "b": 0.9333333373069763,
+          "a": 1
+        }
+      }
+    },
+    {
+      "id": "VariableID:185:60",
+      "name": "text/secondary",
+      "collection_id": "VariableCollectionId:185:3",
+      "mode_id": "185:1",
+      "source_node_id": "518:79",
+      "value": {
+        "kind": "COLOR",
+        "value": {
+          "r": 0.6313725709915161,
+          "g": 0.6705882549285889,
+          "b": 0.7098039388656616,
+          "a": 1
+        }
+      }
+    },
+    {
+      "id": "VariableID:185:61",
+      "name": "text/muted",
+      "collection_id": "VariableCollectionId:185:3",
+      "mode_id": "185:1",
+      "source_node_id": "518:82",
+      "value": {
+        "kind": "COLOR",
+        "value": {
+          "r": 0.48235294222831726,
+          "g": 0.529411792755127,
+          "b": 0.5764706134796143,
+          "a": 1
+        }
+      }
+    },
+    {
+      "id": "VariableID:185:64",
+      "name": "border/subtle",
+      "collection_id": "VariableCollectionId:185:3",
+      "mode_id": "185:1",
+      "source_node_id": "518:80",
+      "value": {
+        "kind": "COLOR",
+        "value": {
+          "r": 0.10196078568696976,
+          "g": 0.13333334028720856,
+          "b": 0.16470588743686676,
+          "a": 1
+        }
+      }
+    },
+    {
+      "id": "VariableID:185:65",
+      "name": "border/default",
+      "collection_id": "VariableCollectionId:185:3",
+      "mode_id": "185:1",
+      "source_node_id": "518:94",
+      "value": {
+        "kind": "COLOR",
+        "value": {
+          "r": 0.1568627506494522,
+          "g": 0.20000000298023224,
+          "b": 0.24313725531101227,
+          "a": 1
+        }
+      }
+    }
+  ],
+  "components": [
+    {
+      "key": "a02105857689eafb784f7ba975966a1e1885cd6b",
+      "name": "Kind=Confirm, State=Ready",
+      "set_key": "4c7503fb4669a6b8fc802a4e6c07fcd2edce0948",
+      "property_definitions": {}
+    }
+  ],
+  "assets": [],
+  "extraction_diagnostics": [
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:79",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:82",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Child layout growth is not represented independently of axis sizing.",
+      "node_id": "518:83",
+      "property_path": "layout.layout_grow"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:84",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:86",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Child layout growth is not represented independently of axis sizing.",
+      "node_id": "518:87",
+      "property_path": "layout.layout_grow"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:88",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:90",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Child layout growth is not represented independently of axis sizing.",
+      "node_id": "518:91",
+      "property_path": "layout.layout_grow"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:92",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:95",
+      "property_path": "text"
+    }
+  ]
+}

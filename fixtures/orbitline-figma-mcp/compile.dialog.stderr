@@ -1,0 +1,31 @@
+[Warning] FR-EXTRACT-LOSS-001 node=518:79 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=518:82 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=518:83 property=layout.layout_grow: Child layout growth is not represented independently of axis sizing.
+[Warning] FR-EXTRACT-LOSS-001 node=518:84 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=518:86 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=518:87 property=layout.layout_grow: Child layout growth is not represented independently of axis sizing.
+[Warning] FR-EXTRACT-LOSS-001 node=518:88 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=518:90 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=518:91 property=layout.layout_grow: Child layout growth is not represented independently of axis sizing.
+[Warning] FR-EXTRACT-LOSS-001 node=518:92 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=518:95 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Info] FR-ASSET-001 node=518:96 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=518:79 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=518:80 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=518:81 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=518:82 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=518:83 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=518:84 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=518:85 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=518:86 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=518:87 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=518:88 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=518:89 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=518:90 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=518:91 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=518:92 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=518:93 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=518:94 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=518:95 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Error] FR-CODEGEN-001 node=518:96 property=asset_decision.route: unsupported GPUI lowering at node=518:96 property=asset_decision.route: Runtime asset route
+compile failed: unsupported GPUI lowering at node=518:96 property=asset_decision.route: Runtime asset route

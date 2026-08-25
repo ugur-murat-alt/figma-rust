@@ -1,0 +1,42 @@
+[package]
+name = "figma-generated-gpui-fixture"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[features]
+capture-real-window = [
+    "dep:base64",
+    "dep:gpui_platform",
+    "dep:image",
+    "dep:serde_json",
+    "dep:sha2",
+    "gpui/test-support",
+]
+
+[dependencies]
+base64 = { workspace = true, optional = true }
+figma-gpui-runtime = { path = "../../crates/figma-gpui-runtime" }
+gpui.workspace = true
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "5631830c564afa89b3aba679f45d9c3345f9460f", default-features = false, features = ["font-kit", "wayland"], optional = true }
+image = { workspace = true, optional = true }
+serde_json = { workspace = true, optional = true }
+sha2 = { workspace = true, optional = true }
+
+[dev-dependencies]
+gpui = { workspace = true, features = ["test-support"] }
+serde_json.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "capture-real-group"
+path = "src/bin/capture_real_group.rs"
+required-features = ["capture-real-window"]
+
+[[bin]]
+name = "orbitline-mcp-proof"
+path = "src/bin/orbitline_mcp_proof.rs"
+required-features = ["capture-real-window"]

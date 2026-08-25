@@ -1,0 +1,1527 @@
+{
+  "schema_version": 1,
+  "root_count": 1,
+  "node_count": 66,
+  "diagnostic_summary": {
+    "info": 66,
+    "warnings": 70,
+    "errors": 9
+  },
+  "tree": [
+    {
+      "id": "516:223",
+      "name": "Variant=Windowed, State=Ready",
+      "kind": "COMPONENT",
+      "visible": true,
+      "children": [
+        {
+          "id": "653:777",
+          "name": "OL/Market Table Row",
+          "kind": "INSTANCE",
+          "visible": true,
+          "children": [
+            {
+              "id": "I653:777;653:673",
+              "name": "Table Cell / 1",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:777;653:674",
+                  "name": "Symbol",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:777;653:675",
+              "name": "Table Cell / 2",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:777;653:676",
+                  "name": "Name",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:777;653:677",
+              "name": "Table Cell / 3",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:777;653:678",
+                  "name": "Price",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:777;653:679",
+              "name": "Table Cell / 4",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:777;653:680",
+                  "name": "Change",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:777;653:681",
+              "name": "Table Cell / 5",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:777;653:682",
+                  "name": "Volume",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:777;653:683",
+              "name": "Table Cell / 6",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:777;653:684",
+                  "name": "Mkt Cap",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "653:790",
+          "name": "OL/Market Table Row",
+          "kind": "INSTANCE",
+          "visible": true,
+          "children": [
+            {
+              "id": "I653:790;653:686",
+              "name": "Table Cell / 1",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:790;653:687",
+                  "name": "AAPL",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:790;653:688",
+              "name": "Table Cell / 2",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:790;653:689",
+                  "name": "Apple Inc.",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:790;653:690",
+              "name": "Table Cell / 3",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:790;653:691",
+                  "name": "$189.84",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:790;653:692",
+              "name": "Table Cell / 4",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:790;653:693",
+                  "name": "+1.25%",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:790;653:694",
+              "name": "Table Cell / 5",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:790;653:695",
+                  "name": "52.3M",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:790;653:696",
+              "name": "Table Cell / 6",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:790;653:697",
+                  "name": "$2.98T",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "653:803",
+          "name": "OL/Market Table Row",
+          "kind": "INSTANCE",
+          "visible": true,
+          "children": [
+            {
+              "id": "I653:803;653:686",
+              "name": "Table Cell / 1",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:803;653:687",
+                  "name": "AAPL",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:803;653:688",
+              "name": "Table Cell / 2",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:803;653:689",
+                  "name": "Apple Inc.",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:803;653:690",
+              "name": "Table Cell / 3",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:803;653:691",
+                  "name": "$189.84",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:803;653:692",
+              "name": "Table Cell / 4",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:803;653:693",
+                  "name": "+1.25%",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:803;653:694",
+              "name": "Table Cell / 5",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:803;653:695",
+                  "name": "52.3M",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:803;653:696",
+              "name": "Table Cell / 6",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:803;653:697",
+                  "name": "$2.98T",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "653:816",
+          "name": "OL/Market Table Row",
+          "kind": "INSTANCE",
+          "visible": true,
+          "children": [
+            {
+              "id": "I653:816;653:686",
+              "name": "Table Cell / 1",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:816;653:687",
+                  "name": "AAPL",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:816;653:688",
+              "name": "Table Cell / 2",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:816;653:689",
+                  "name": "Apple Inc.",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:816;653:690",
+              "name": "Table Cell / 3",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:816;653:691",
+                  "name": "$189.84",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:816;653:692",
+              "name": "Table Cell / 4",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:816;653:693",
+                  "name": "+1.25%",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:816;653:694",
+              "name": "Table Cell / 5",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:816;653:695",
+                  "name": "52.3M",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:816;653:696",
+              "name": "Table Cell / 6",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:816;653:697",
+                  "name": "$2.98T",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "653:829",
+          "name": "OL/Market Table Row",
+          "kind": "INSTANCE",
+          "visible": true,
+          "children": [
+            {
+              "id": "I653:829;653:686",
+              "name": "Table Cell / 1",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:829;653:687",
+                  "name": "AAPL",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:829;653:688",
+              "name": "Table Cell / 2",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:829;653:689",
+                  "name": "Apple Inc.",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:829;653:690",
+              "name": "Table Cell / 3",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:829;653:691",
+                  "name": "$189.84",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:829;653:692",
+              "name": "Table Cell / 4",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:829;653:693",
+                  "name": "+1.25%",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:829;653:694",
+              "name": "Table Cell / 5",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:829;653:695",
+                  "name": "52.3M",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "I653:829;653:696",
+              "name": "Table Cell / 6",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "I653:829;653:697",
+                  "name": "$2.98T",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "diagnostics": [
+    {
+      "severity": "ERROR",
+      "code": "FR-TOKEN-LOSS-003",
+      "message": "Variable binding for bottomLeftRadius is not represented by the raw model.",
+      "node_id": "516:223",
+      "property_path": "bound_variables.bottomLeftRadius"
+    },
+    {
+      "severity": "ERROR",
+      "code": "FR-TOKEN-LOSS-003",
+      "message": "Variable binding for bottomRightRadius is not represented by the raw model.",
+      "node_id": "516:223",
+      "property_path": "bound_variables.bottomRightRadius"
+    },
+    {
+      "severity": "ERROR",
+      "code": "FR-TOKEN-LOSS-003",
+      "message": "Variable binding for topLeftRadius is not represented by the raw model.",
+      "node_id": "516:223",
+      "property_path": "bound_variables.topLeftRadius"
+    },
+    {
+      "severity": "ERROR",
+      "code": "FR-TOKEN-LOSS-003",
+      "message": "Variable binding for topRightRadius is not represented by the raw model.",
+      "node_id": "516:223",
+      "property_path": "bound_variables.topRightRadius"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "653:777",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "ERROR",
+      "code": "FR-VALUE-EXTRACT-003",
+      "message": "Value Symbol(figma.mixed) is not a finite number.",
+      "node_id": "653:777",
+      "property_path": "style.stroke_widths"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "653:790",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "ERROR",
+      "code": "FR-VALUE-EXTRACT-003",
+      "message": "Value Symbol(figma.mixed) is not a finite number.",
+      "node_id": "653:790",
+      "property_path": "style.stroke_widths"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "653:803",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "ERROR",
+      "code": "FR-VALUE-EXTRACT-003",
+      "message": "Value Symbol(figma.mixed) is not a finite number.",
+      "node_id": "653:803",
+      "property_path": "style.stroke_widths"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "653:816",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "ERROR",
+      "code": "FR-VALUE-EXTRACT-003",
+      "message": "Value Symbol(figma.mixed) is not a finite number.",
+      "node_id": "653:816",
+      "property_path": "style.stroke_widths"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "653:829",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "ERROR",
+      "code": "FR-VALUE-EXTRACT-003",
+      "message": "Value Symbol(figma.mixed) is not a finite number.",
+      "node_id": "653:829",
+      "property_path": "style.stroke_widths"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:777;653:673",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:777;653:674",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:777;653:675",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:777;653:676",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:777;653:677",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:777;653:678",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:777;653:679",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:777;653:680",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:777;653:681",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:777;653:682",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:777;653:683",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:777;653:684",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:790;653:686",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:790;653:687",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:790;653:688",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:790;653:689",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:790;653:690",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:790;653:691",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:790;653:692",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:790;653:693",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:790;653:694",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:790;653:695",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:790;653:696",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:790;653:697",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:803;653:686",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:803;653:687",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:803;653:688",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:803;653:689",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:803;653:690",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:803;653:691",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:803;653:692",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:803;653:693",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:803;653:694",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:803;653:695",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:803;653:696",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:803;653:697",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:816;653:686",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:816;653:687",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:816;653:688",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:816;653:689",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:816;653:690",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:816;653:691",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:816;653:692",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:816;653:693",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:816;653:694",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:816;653:695",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:816;653:696",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:816;653:697",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:829;653:686",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:829;653:687",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:829;653:688",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:829;653:689",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:829;653:690",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:829;653:691",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:829;653:692",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:829;653:693",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:829;653:694",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:829;653:695",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:829;653:696",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:829;653:697",
+      "property_path": "text"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "516:223",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-COMPONENT-001",
+      "message": "component 72f97ad3da2b889d55e0efe6d732a9e8f2f133a7 has no semantic mapping; structural children are retained",
+      "node_id": "653:777",
+      "property_path": "component.component_key"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "653:777",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:777;653:673",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:777;653:674",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:777;653:675",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:777;653:676",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:777;653:677",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:777;653:678",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:777;653:679",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:777;653:680",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:777;653:681",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:777;653:682",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:777;653:683",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:777;653:684",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-COMPONENT-001",
+      "message": "component 08a4d6ac0a96394e47599bf76f315111c5195f7c has no semantic mapping; structural children are retained",
+      "node_id": "653:790",
+      "property_path": "component.component_key"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "653:790",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:790;653:686",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:790;653:687",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:790;653:688",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:790;653:689",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:790;653:690",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:790;653:691",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:790;653:692",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:790;653:693",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:790;653:694",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:790;653:695",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:790;653:696",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:790;653:697",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-COMPONENT-001",
+      "message": "component 08a4d6ac0a96394e47599bf76f315111c5195f7c has no semantic mapping; structural children are retained",
+      "node_id": "653:803",
+      "property_path": "component.component_key"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "653:803",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:803;653:686",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:803;653:687",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:803;653:688",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:803;653:689",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:803;653:690",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:803;653:691",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:803;653:692",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:803;653:693",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:803;653:694",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:803;653:695",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:803;653:696",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:803;653:697",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-COMPONENT-001",
+      "message": "component 08a4d6ac0a96394e47599bf76f315111c5195f7c has no semantic mapping; structural children are retained",
+      "node_id": "653:816",
+      "property_path": "component.component_key"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "653:816",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:816;653:686",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:816;653:687",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:816;653:688",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:816;653:689",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:816;653:690",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:816;653:691",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:816;653:692",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:816;653:693",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:816;653:694",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:816;653:695",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:816;653:696",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:816;653:697",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-COMPONENT-001",
+      "message": "component 08a4d6ac0a96394e47599bf76f315111c5195f7c has no semantic mapping; structural children are retained",
+      "node_id": "653:829",
+      "property_path": "component.component_key"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "653:829",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:829;653:686",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:829;653:687",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:829;653:688",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:829;653:689",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:829;653:690",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:829;653:691",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:829;653:692",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:829;653:693",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:829;653:694",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:829;653:695",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:829;653:696",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:829;653:697",
+      "property_path": "asset_decision"
+    }
+  ]
+}

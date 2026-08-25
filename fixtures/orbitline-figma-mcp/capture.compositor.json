@@ -1,0 +1,174 @@
+{
+  "schema_version": 2,
+  "capture_protocol": "readiness-window-registry-screencast-v1",
+  "session_type": "wayland",
+  "wayland_display": "wayland-0",
+  "captures": [
+    {
+      "readiness": {
+        "schema_version": 1,
+        "event": "ready",
+        "pid": 91883,
+        "target": "table",
+        "figma_file_key": "AShHVrUqsKDWavqH8D4S09",
+        "figma_node_id": "516:223",
+        "window_title": "figma-rust-orbitline-table-ready",
+        "wm_class": "figma-rust-orbitline-mcp",
+        "logical_width": 520,
+        "logical_height": 176,
+        "gpui_revision": "5631830c564afa89b3aba679f45d9c3345f9460f"
+      },
+      "window": {
+        "window_id": 1227739716,
+        "title": "figma-rust-orbitline-table-ready",
+        "app_id": "window:482",
+        "wm_class": "figma-rust-orbitline-mcp",
+        "pid": 91883,
+        "bounds": {
+          "x": 2620,
+          "y": 428,
+          "width": 520,
+          "height": 176
+        },
+        "workspace": 0,
+        "focused": true,
+        "hidden": false,
+        "client_type": "wayland",
+        "backend": "gnome-shell-extension"
+      },
+      "activation": {
+        "type": "bs",
+        "data": [
+          true,
+          "Activated window_id 1227739716"
+        ]
+      },
+      "capture": {
+        "engine": "org.gnome.Shell.Screencast",
+        "started_at_unix_ms": 1787677951994,
+        "completed_at_unix_ms": 1787677953172,
+        "frame_selection": "first-frame-after-readiness",
+        "start_result": "(true, '/tmp/opencode/orbitline-table-recapture.webm')",
+        "stop_result": "(false,)",
+        "stop_result_interpretation": "not treated as success; the retained WebM and decoded PNG are validated independently",
+        "source_artifact": {
+          "path": "capture.table.webm",
+          "sha256": "9410e1cd8e2a22c3038971016da4e2ccf582f6dfb4477b4105b69eb109784d56",
+          "bytes": 11541,
+          "ffprobe": {
+            "programs": [],
+            "streams": [
+              {
+                "codec_name": "vp8",
+                "width": 520,
+                "height": 176
+              }
+            ],
+            "format": {
+              "size": "11541"
+            }
+          }
+        },
+        "decode": {
+          "tool": "ffmpeg 6.1.1-3ubuntu5",
+          "arguments": [
+            "-i",
+            "capture.table.webm",
+            "-frames:v",
+            "1",
+            "actual.table.png"
+          ],
+          "exit_code": 0,
+          "output_sha256": "b23c04c72ca2b611c563b808457df8b98a6b939bebb67058deee18871a1d9fa6"
+        }
+      },
+      "actual": {
+        "path": "actual.table.png",
+        "sha256": "b23c04c72ca2b611c563b808457df8b98a6b939bebb67058deee18871a1d9fa6"
+      }
+    },
+    {
+      "readiness": {
+        "schema_version": 1,
+        "event": "ready",
+        "pid": 92183,
+        "target": "dialog",
+        "figma_file_key": "AShHVrUqsKDWavqH8D4S09",
+        "figma_node_id": "518:96",
+        "window_title": "figma-rust-orbitline-dialog-ready",
+        "wm_class": "figma-rust-orbitline-mcp",
+        "logical_width": 460,
+        "logical_height": 220,
+        "gpui_revision": "5631830c564afa89b3aba679f45d9c3345f9460f"
+      },
+      "window": {
+        "window_id": 1227739718,
+        "title": "figma-rust-orbitline-dialog-ready",
+        "app_id": "window:484",
+        "wm_class": "figma-rust-orbitline-mcp",
+        "pid": 92183,
+        "bounds": {
+          "x": 2650,
+          "y": 406,
+          "width": 460,
+          "height": 220
+        },
+        "workspace": 0,
+        "focused": true,
+        "hidden": false,
+        "client_type": "wayland",
+        "backend": "gnome-shell-extension"
+      },
+      "activation": {
+        "type": "bs",
+        "data": [
+          true,
+          "Activated window_id 1227739718"
+        ]
+      },
+      "capture": {
+        "engine": "org.gnome.Shell.Screencast",
+        "started_at_unix_ms": 1787677954198,
+        "completed_at_unix_ms": 1787677955272,
+        "frame_selection": "first-frame-after-readiness",
+        "start_result": "(true, '/tmp/opencode/orbitline-dialog-recapture.webm')",
+        "stop_result": "(false,)",
+        "stop_result_interpretation": "not treated as success; the retained WebM and decoded PNG are validated independently",
+        "source_artifact": {
+          "path": "capture.dialog.webm",
+          "sha256": "935a8abbd6d3d05fbe2b9b57138c2a8161b992073ad6937d03ae0ba84a3a9640",
+          "bytes": 8925,
+          "ffprobe": {
+            "programs": [],
+            "streams": [
+              {
+                "codec_name": "vp8",
+                "width": 460,
+                "height": 220
+              }
+            ],
+            "format": {
+              "size": "8925"
+            }
+          }
+        },
+        "decode": {
+          "tool": "ffmpeg 6.1.1-3ubuntu5",
+          "arguments": [
+            "-i",
+            "capture.dialog.webm",
+            "-frames:v",
+            "1",
+            "actual.dialog.png"
+          ],
+          "exit_code": 0,
+          "output_sha256": "92c1928c9a7b8608a771b0abcfe0093ca893db8d77188e48ca36b0558ea7c787"
+        }
+      },
+      "actual": {
+        "path": "actual.dialog.png",
+        "sha256": "92c1928c9a7b8608a771b0abcfe0093ca893db8d77188e48ca36b0558ea7c787"
+      }
+    }
+  ]
+}

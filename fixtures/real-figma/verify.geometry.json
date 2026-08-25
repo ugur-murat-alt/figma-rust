@@ -1,0 +1,10 @@
+{
+  "reference_geometry": "reference.geometry.json",
+  "actual_geometry": "actual.geometry.json",
+  "reference_image": null,
+  "actual_image": null,
+  "thresholds": {
+    "geometry_absolute_px": 0.0,
+    "geometry_relative": 0.0
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "nodes": {
+    "1:2": {
+      "symbol": "node_0001",
+      "start_line": 19,
+      "end_line": 30
+    },
+    "1:3": {
+      "symbol": "node_0002",
+      "start_line": 31,
+      "end_line": 42
+    },
+    "1:4": {
+      "symbol": "node_0000",
+      "start_line": 8,
+      "end_line": 18
+    }
+  }
+}

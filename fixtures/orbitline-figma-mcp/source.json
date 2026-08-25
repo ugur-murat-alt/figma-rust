@@ -1,0 +1,38 @@
+{
+  "figma_file_key": "AShHVrUqsKDWavqH8D4S09",
+  "plugin_api_version": "1.135.0",
+  "targets": [
+    {
+      "name": "DataTable / Ready",
+      "node_id": "516:223",
+      "page_id": "632:8",
+      "width": 520,
+      "height": 176,
+      "reference": "reference.table.png",
+      "reference_sha256": "0bb74b7441db1d8155fb64427867a13a78535f913917f85e61cc4aa6f00aabde",
+      "extraction": "extraction.table.json",
+      "extraction_sha256": "3f8d6093c20df7ccd78266f194b5da93157c7cf358fe81d5719eb834f25b45ca",
+      "actual": "actual.table.png",
+      "actual_sha256": "b23c04c72ca2b611c563b808457df8b98a6b939bebb67058deee18871a1d9fa6"
+    },
+    {
+      "name": "DialogBody / Confirm",
+      "node_id": "518:96",
+      "page_id": "184:6",
+      "width": 460,
+      "height": 220,
+      "reference": "reference.dialog.png",
+      "reference_sha256": "da12170ca3551bb981f2e9f5558b4403c0be37e32fc19904155ce45174e4582a",
+      "extraction": "extraction.dialog.json",
+      "extraction_sha256": "f2d4c453498e96aab4c1ad986e7df156341d0a7d10714864294d907eb6031d02",
+      "actual": "actual.dialog.png",
+      "actual_sha256": "92c1928c9a7b8608a771b0abcfe0093ca893db8d77188e48ca36b0558ea7c787"
+    }
+  ],
+  "gpui_revision": "5631830c564afa89b3aba679f45d9c3345f9460f",
+  "reference_source": "figma-mcp-get-screenshot",
+  "extraction_source": "figma-plugin-api-extractNodes",
+  "capture": "capture.compositor.json",
+  "proof": "proof.png",
+  "proof_sha256": "92663922f6b98fdc2cc43a40206e7624ef09d48c0149d12184ce13675cc2f6f4"
+}

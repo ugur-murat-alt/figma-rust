@@ -1,0 +1,16 @@
+{
+  "name": "figma-rust-plugin",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "tsc --noEmit",
+    "test": "node test.mjs"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "1.135.0",
+    "esbuild": "0.28.2",
+    "typescript": "7.0.2"
+  }
+}

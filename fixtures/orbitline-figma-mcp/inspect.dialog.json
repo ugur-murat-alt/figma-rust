@@ -1,0 +1,349 @@
+{
+  "schema_version": 1,
+  "root_count": 1,
+  "node_count": 18,
+  "diagnostic_summary": {
+    "info": 18,
+    "warnings": 11,
+    "errors": 0
+  },
+  "tree": [
+    {
+      "id": "518:96",
+      "name": "Kind=Confirm, State=Ready",
+      "kind": "COMPONENT",
+      "visible": true,
+      "children": [
+        {
+          "id": "518:79",
+          "name": "THYAO Analiz workspace’inde kaydedilmemiş panel boyutları ve gösterge değişiklikleri bulunuyor.",
+          "kind": "TEXT",
+          "visible": true,
+          "children": []
+        },
+        {
+          "id": "518:80",
+          "name": "Change summary",
+          "kind": "FRAME",
+          "visible": true,
+          "children": [
+            {
+              "id": "518:81",
+              "name": "Metric/Panel bölünmesi",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "518:82",
+                  "name": "Panel bölünmesi",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                },
+                {
+                  "id": "518:83",
+                  "name": "Spacer",
+                  "kind": "FRAME",
+                  "visible": true,
+                  "children": []
+                },
+                {
+                  "id": "518:84",
+                  "name": "3 modül",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "518:85",
+              "name": "Metric/Gösterge değişikliği",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "518:86",
+                  "name": "Gösterge değişikliği",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                },
+                {
+                  "id": "518:87",
+                  "name": "Spacer",
+                  "kind": "FRAME",
+                  "visible": true,
+                  "children": []
+                },
+                {
+                  "id": "518:88",
+                  "name": "EMA 20 → 34",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            },
+            {
+              "id": "518:89",
+              "name": "Metric/Çizim taslağı",
+              "kind": "FRAME",
+              "visible": true,
+              "children": [
+                {
+                  "id": "518:90",
+                  "name": "Çizim taslağı",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                },
+                {
+                  "id": "518:91",
+                  "name": "Spacer",
+                  "kind": "FRAME",
+                  "visible": true,
+                  "children": []
+                },
+                {
+                  "id": "518:92",
+                  "name": "1 trend çizgisi",
+                  "kind": "TEXT",
+                  "visible": true,
+                  "children": []
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "518:93",
+          "name": "Remember option",
+          "kind": "FRAME",
+          "visible": true,
+          "children": [
+            {
+              "id": "518:94",
+              "name": "Checkbox",
+              "kind": "FRAME",
+              "visible": true,
+              "children": []
+            },
+            {
+              "id": "518:95",
+              "name": "Bu workspace için bir daha sorma",
+              "kind": "TEXT",
+              "visible": true,
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "diagnostics": [
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:79",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:82",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Child layout growth is not represented independently of axis sizing.",
+      "node_id": "518:83",
+      "property_path": "layout.layout_grow"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:84",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:86",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Child layout growth is not represented independently of axis sizing.",
+      "node_id": "518:87",
+      "property_path": "layout.layout_grow"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:88",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:90",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Child layout growth is not represented independently of axis sizing.",
+      "node_id": "518:91",
+      "property_path": "layout.layout_grow"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:92",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:95",
+      "property_path": "text"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:96",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "518:79",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:80",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:81",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "518:82",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:83",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "518:84",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:85",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "518:86",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:87",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "518:88",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:89",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "518:90",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:91",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "518:92",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:93",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:94",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "518:95",
+      "property_path": "asset_decision"
+    }
+  ]
+}

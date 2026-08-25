@@ -1,0 +1,6 @@
+---
+blank_issues_enabled: false
+contact_links:
+  - name: Private security report
+    url: https://github.com/ugur-murat-alt/figma-rust/security/advisories/new
+    about: Report vulnerabilities and security-sensitive findings privately.

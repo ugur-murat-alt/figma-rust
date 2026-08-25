@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root { color-scheme: light dark; font: 12px/1.45 Inter, sans-serif; }
+      body { margin: 0; padding: 18px; color: var(--figma-color-text); background: var(--figma-color-bg); }
+      h1 { margin: 0 0 4px; font-size: 16px; }
+      p { margin: 0 0 14px; color: var(--figma-color-text-secondary); }
+      .actions { display: flex; gap: 8px; margin-bottom: 14px; }
+      button { border: 1px solid var(--figma-color-border); border-radius: 6px; padding: 7px 11px; background: var(--figma-color-bg-secondary); color: inherit; cursor: pointer; }
+      button.primary { border-color: var(--figma-color-bg-brand); background: var(--figma-color-bg-brand); color: var(--figma-color-text-onbrand); }
+      #status { padding: 10px; border: 1px solid var(--figma-color-border); border-radius: 6px; white-space: pre-wrap; max-height: 360px; overflow: auto; }
+      .error { color: var(--figma-color-text-danger); }
+    </style>
+  </head>
+  <body>
+    <h1>figma-rust</h1>
+    <p>Structural Figma extraction and GPUI compiler diagnostics.</p>
+    <div class="actions">
+      <button id="extract" class="primary">Export JSON</button>
+      <button id="lint">Lint selection</button>
+    </div>
+    <div id="status">Select a frame or component.</div>
+    <script>
+      const status = document.getElementById("status");
+      document.getElementById("extract").onclick = () => parent.postMessage({ pluginMessage: { type: "extract" } }, "*");
+      document.getElementById("lint").onclick = () => parent.postMessage({ pluginMessage: { type: "lint" } }, "*");
+      onmessage = ({ data }) => {
+        const message = data.pluginMessage;
+        if (!message) return;
+        if (message.type === "bundle") {
+          const json = JSON.stringify(message.bundle, null, 2);
+          const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
+          const link = document.createElement("a");
+          link.href = url;
+          link.download = "figma-rust-extraction.json";
+          link.click();
+          URL.revokeObjectURL(url);
+          status.textContent = `${message.bundle.roots.length} root node exported\n${message.bundle.extraction_diagnostics.length} extraction diagnostics`;
+        } else if (message.type === "bundle-preview") {
+          status.textContent = message.bundle.extraction_diagnostics.length
+            ? message.bundle.extraction_diagnostics.map((item) => `[${item.severity}] ${item.code}: ${item.message}`).join("\n")
+            : `${message.bundle.roots.length} selected root node(s) ready`;
+        } else if (message.type === "lint-result") {
+          status.textContent = JSON.stringify(message.result, null, 2);
+        } else if (message.type === "error") {
+          status.textContent = message.message;
+          status.className = "error";
+        }
+      };
+    </script>
+  </body>
+</html>

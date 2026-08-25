@@ -1,0 +1,24 @@
+[package]
+name = "figma-rust-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "figma-rust"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+figma-rust-codegen = { path = "../figma-rust-codegen" }
+figma-rust-core = { path = "../figma-rust-core" }
+image.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tiny_http.workspace = true
+
+[lints]
+workspace = true

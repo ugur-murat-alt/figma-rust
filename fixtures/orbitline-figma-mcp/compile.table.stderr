@@ -1,0 +1,146 @@
+[Error] FR-TOKEN-LOSS-003 node=516:223 property=bound_variables.bottomLeftRadius: Variable binding for bottomLeftRadius is not represented by the raw model.
+[Error] FR-TOKEN-LOSS-003 node=516:223 property=bound_variables.bottomRightRadius: Variable binding for bottomRightRadius is not represented by the raw model.
+[Error] FR-TOKEN-LOSS-003 node=516:223 property=bound_variables.topLeftRadius: Variable binding for topLeftRadius is not represented by the raw model.
+[Error] FR-TOKEN-LOSS-003 node=516:223 property=bound_variables.topRightRadius: Variable binding for topRightRadius is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=653:777 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Error] FR-VALUE-EXTRACT-003 node=653:777 property=style.stroke_widths: Value Symbol(figma.mixed) is not a finite number.
+[Warning] FR-EXTRACT-LOSS-001 node=653:790 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Error] FR-VALUE-EXTRACT-003 node=653:790 property=style.stroke_widths: Value Symbol(figma.mixed) is not a finite number.
+[Warning] FR-EXTRACT-LOSS-001 node=653:803 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Error] FR-VALUE-EXTRACT-003 node=653:803 property=style.stroke_widths: Value Symbol(figma.mixed) is not a finite number.
+[Warning] FR-EXTRACT-LOSS-001 node=653:816 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Error] FR-VALUE-EXTRACT-003 node=653:816 property=style.stroke_widths: Value Symbol(figma.mixed) is not a finite number.
+[Warning] FR-EXTRACT-LOSS-001 node=653:829 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Error] FR-VALUE-EXTRACT-003 node=653:829 property=style.stroke_widths: Value Symbol(figma.mixed) is not a finite number.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:777;653:673 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:777;653:674 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:777;653:675 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:777;653:676 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:777;653:677 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:777;653:678 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:777;653:679 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:777;653:680 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:777;653:681 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:777;653:682 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:777;653:683 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:777;653:684 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:790;653:686 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:790;653:687 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:790;653:688 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:790;653:689 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:790;653:690 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:790;653:691 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:790;653:692 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:790;653:693 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:790;653:694 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:790;653:695 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:790;653:696 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:790;653:697 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:803;653:686 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:803;653:687 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:803;653:688 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:803;653:689 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:803;653:690 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:803;653:691 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:803;653:692 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:803;653:693 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:803;653:694 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:803;653:695 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:803;653:696 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:803;653:697 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:816;653:686 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:816;653:687 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:816;653:688 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:816;653:689 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:816;653:690 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:816;653:691 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:816;653:692 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:816;653:693 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:816;653:694 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:816;653:695 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:816;653:696 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:816;653:697 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:829;653:686 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:829;653:687 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:829;653:688 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:829;653:689 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:829;653:690 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:829;653:691 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:829;653:692 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:829;653:693 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:829;653:694 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:829;653:695 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:829;653:696 property=layout.strokes_included_in_layout: Stroke inclusion in auto-layout calculations is not represented by the raw model.
+[Warning] FR-EXTRACT-LOSS-001 node=I653:829;653:697 property=text: Text layout metadata outside characters and styled runs is retained only as a source extension.
+[Info] FR-ASSET-001 node=516:223 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Warning] FR-COMPONENT-001 node=653:777 property=component.component_key: component 72f97ad3da2b889d55e0efe6d732a9e8f2f133a7 has no semantic mapping; structural children are retained
+[Info] FR-ASSET-001 node=653:777 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:777;653:673 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:777;653:674 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:777;653:675 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:777;653:676 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:777;653:677 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:777;653:678 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:777;653:679 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:777;653:680 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:777;653:681 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:777;653:682 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:777;653:683 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:777;653:684 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Warning] FR-COMPONENT-001 node=653:790 property=component.component_key: component 08a4d6ac0a96394e47599bf76f315111c5195f7c has no semantic mapping; structural children are retained
+[Info] FR-ASSET-001 node=653:790 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:790;653:686 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:790;653:687 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:790;653:688 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:790;653:689 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:790;653:690 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:790;653:691 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:790;653:692 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:790;653:693 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:790;653:694 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:790;653:695 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:790;653:696 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:790;653:697 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Warning] FR-COMPONENT-001 node=653:803 property=component.component_key: component 08a4d6ac0a96394e47599bf76f315111c5195f7c has no semantic mapping; structural children are retained
+[Info] FR-ASSET-001 node=653:803 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:803;653:686 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:803;653:687 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:803;653:688 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:803;653:689 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:803;653:690 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:803;653:691 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:803;653:692 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:803;653:693 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:803;653:694 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:803;653:695 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:803;653:696 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:803;653:697 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Warning] FR-COMPONENT-001 node=653:816 property=component.component_key: component 08a4d6ac0a96394e47599bf76f315111c5195f7c has no semantic mapping; structural children are retained
+[Info] FR-ASSET-001 node=653:816 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:816;653:686 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:816;653:687 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:816;653:688 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:816;653:689 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:816;653:690 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:816;653:691 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:816;653:692 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:816;653:693 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:816;653:694 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:816;653:695 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:816;653:696 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:816;653:697 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Warning] FR-COMPONENT-001 node=653:829 property=component.component_key: component 08a4d6ac0a96394e47599bf76f315111c5195f7c has no semantic mapping; structural children are retained
+[Info] FR-ASSET-001 node=653:829 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:829;653:686 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:829;653:687 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:829;653:688 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:829;653:689 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:829;653:690 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:829;653:691 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:829;653:692 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:829;653:693 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:829;653:694 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:829;653:695 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+[Info] FR-ASSET-001 node=I653:829;653:696 property=asset_decision: node requires runtime lowering: pass-through compositing
+[Info] FR-ASSET-001 node=I653:829;653:697 property=asset_decision: node requires runtime lowering: center/outside stroke alignment, pass-through compositing
+compile failed: normalization failed

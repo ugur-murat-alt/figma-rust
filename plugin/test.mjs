@@ -1,0 +1,14 @@
+import { build } from "esbuild";
+
+const result = await build({
+  entryPoints: ["tests/extract.test.ts"],
+  bundle: true,
+  format: "esm",
+  platform: "node",
+  target: "node22",
+  write: false,
+  logLevel: "silent",
+});
+
+const source = result.outputFiles[0].text;
+await import(`data:text/javascript;base64,${Buffer.from(source).toString("base64")}`);

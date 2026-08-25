@@ -1,0 +1,126 @@
+{
+  "document": {
+    "ir_version": 1,
+    "source": {
+      "file_key": "fixture-file",
+      "page_id": "0:1",
+      "selected_node_ids": [
+        "1:1"
+      ],
+      "plugin_api_version": "1.135.0"
+    },
+    "roots": [
+      {
+        "source_id": "1:1",
+        "name": "Card",
+        "kind": "RECTANGLE",
+        "visible": true,
+        "opacity": 1.0,
+        "size": {
+          "horizontal": {
+            "sizing": {
+              "kind": "FIXED",
+              "value": 120.0
+            },
+            "min": 80.0,
+            "max": 240.0
+          },
+          "vertical": {
+            "sizing": {
+              "kind": "FIXED",
+              "value": 48.0
+            }
+          }
+        },
+        "layout": {
+          "kind": "PLAIN",
+          "clips_content": false,
+          "scroll": {
+            "horizontal": false,
+            "vertical": false
+          }
+        },
+        "positioning": {
+          "kind": "AUTO",
+          "transform": {
+            "matrix": [
+              1.0,
+              0.0,
+              0.0,
+              1.0,
+              0.0,
+              0.0
+            ]
+          }
+        },
+        "style": {
+          "fills": [
+            {
+              "kind": "SOLID",
+              "color": {
+                "token": {
+                  "id": "color.brand",
+                  "name": "Brand/Primary",
+                  "collection_id": "collection.theme",
+                  "mode_id": "mode.light"
+                },
+                "fallback": {
+                  "r": 0.125,
+                  "g": 0.25,
+                  "b": 0.5,
+                  "a": 1.0
+                }
+              }
+            }
+          ],
+          "strokes": [],
+          "stroke_widths": {
+            "top": 0.0,
+            "right": 0.0,
+            "bottom": 0.0,
+            "left": 0.0
+          },
+          "stroke_align": "INSIDE",
+          "radii": {
+            "top_left": 8.0,
+            "top_right": 8.0,
+            "bottom_right": 8.0,
+            "bottom_left": 8.0,
+            "smoothing": 0.0
+          },
+          "effects": [],
+          "blend_mode": "NORMAL",
+          "is_mask": false
+        },
+        "reactions": [],
+        "asset_decision": {
+          "route": "NATIVE",
+          "reasons": []
+        },
+        "children": []
+      }
+    ],
+    "variables": [
+      {
+        "token": {
+          "id": "color.brand",
+          "name": "Brand/Primary",
+          "collection_id": "collection.theme",
+          "mode_id": "mode.light"
+        },
+        "value": {
+          "kind": "COLOR",
+          "value": {
+            "r": 0.125,
+            "g": 0.25,
+            "b": 0.5,
+            "a": 1.0
+          }
+        }
+      }
+    ],
+    "components": [],
+    "assets": []
+  },
+  "diagnostics": []
+}

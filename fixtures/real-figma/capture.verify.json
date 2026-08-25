@@ -1,0 +1,18 @@
+{
+  "passed": true,
+  "inputs": {
+    "manifest": "76d8320e68277546a8a01b69b405f49c0c7197c22db7734bcc56371401c01d90",
+    "reference_geometry": "974f54312902aec38dcf1f9179073bf24f5fd001e7c313739cdce45449e63d1c",
+    "actual_geometry": "d44de9f49c459457ed9248af9af3e781fa14fbe49b1c0606359d14b1382c8cc2",
+    "reference_image": "00b870f8e967362deb405959a68758d31f10615aa949eb44e7cfa6cdad84db89",
+    "actual_image": "3cdadaa6e0a29756eaf467632e9dab30e771491aa46af89ba2fab054ca99ac83"
+  },
+  "geometry_differences": [],
+  "image_metrics": {
+    "mean_absolute_error": 0.0,
+    "changed_pixel_ratio": 0.0,
+    "edge_error": 0.0,
+    "ssim": 1.0
+  },
+  "failures": []
+}

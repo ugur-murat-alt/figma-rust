@@ -1,0 +1,43 @@
+[workspace]
+members = [
+    "crates/figma-rust-core",
+    "crates/figma-rust-codegen",
+    "crates/figma-gpui-runtime",
+    "crates/figma-rust-cli",
+    "fixtures/generated-gpui",
+]
+resolver = "3"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+publish = false
+
+[workspace.dependencies]
+base64 = "0.23.1"
+clap = { version = "4.6.6", features = ["derive"] }
+image = { version = "0.25.10", default-features = false, features = ["png"] }
+indexmap = { version = "2.14.0", features = ["serde"] }
+prettyplease = "0.3.0"
+proc-macro2 = "1.0.107"
+quote = "1.0.47"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+sha2 = "0.11.0"
+syn = { version = "3.0.4", features = ["full"] }
+thiserror = "2.0.20"
+tiny_http = "0.12.0"
+
+# Keep every GPUI package in one exact source/type universe.
+gpui = { git = "https://github.com/zed-industries/zed", rev = "5631830c564afa89b3aba679f45d9c3345f9460f" }
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "5631830c564afa89b3aba679f45d9c3345f9460f", features = ["font-kit", "wayland", "x11"] }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+module_name_repetitions = "allow"
+must_use_candidate = "allow"

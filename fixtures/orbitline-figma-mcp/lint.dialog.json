@@ -1,0 +1,212 @@
+{
+  "summary": {
+    "info": 18,
+    "warnings": 11,
+    "errors": 0
+  },
+  "diagnostics": [
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:79",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:82",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Child layout growth is not represented independently of axis sizing.",
+      "node_id": "518:83",
+      "property_path": "layout.layout_grow"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:84",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:86",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Child layout growth is not represented independently of axis sizing.",
+      "node_id": "518:87",
+      "property_path": "layout.layout_grow"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:88",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:90",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Child layout growth is not represented independently of axis sizing.",
+      "node_id": "518:91",
+      "property_path": "layout.layout_grow"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:92",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "518:95",
+      "property_path": "text"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:96",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "518:79",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:80",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:81",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "518:82",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:83",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "518:84",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:85",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "518:86",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:87",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "518:88",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:89",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "518:90",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:91",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "518:92",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:93",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "518:94",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "518:95",
+      "property_path": "asset_decision"
+    }
+  ]
+}

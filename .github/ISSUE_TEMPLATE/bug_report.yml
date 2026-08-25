@@ -1,0 +1,92 @@
+---
+name: Bug report
+description: Report reproducible wrong behavior in figma-rust
+title: "[Bug] "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search open and closed issues first. Do not include secrets, private Figma content, customer data, or security vulnerabilities.
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Affected layer
+      options:
+        - Figma plugin/extraction
+        - Core/Design IR
+        - GPUI code generation
+        - GPUI runtime
+        - CLI/server
+        - Verification
+        - Capture/provenance
+        - OpenCode2 skill
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: Describe the observed wrong behavior and its impact.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Include commit SHA, figma-rust version, GPUI revision, Plugin API version, OS/session, Rust/Cargo, Node/npm, and relevant scale/font/capture details.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Sanitized reproduction
+      description: Provide deterministic steps, minimal fixture/input, safe Figma node/property identity, exact command/API action, exit code, and whether it reproduces twice.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Diagnostics and evidence
+      description: Include diagnostic codes/messages, relevant hashes, verifier metrics, provenance, and sanitized logs.
+    validations:
+      required: true
+  - type: textarea
+    id: checks
+    attributes:
+      label: Checks performed
+      description: List plugin/Rust/fixture checks and their exact outcomes.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: State the observable conditions that would close this defect.
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched open and closed issues for duplicates.
+          required: true
+        - label: I removed secrets, credentials, private Figma URLs/content, customer data, and proprietary artifacts.
+          required: true
+        - label: This is not a security vulnerability.
+          required: true

@@ -1,0 +1,1024 @@
+{
+  "summary": {
+    "info": 66,
+    "warnings": 70,
+    "errors": 9
+  },
+  "diagnostics": [
+    {
+      "severity": "ERROR",
+      "code": "FR-TOKEN-LOSS-003",
+      "message": "Variable binding for bottomLeftRadius is not represented by the raw model.",
+      "node_id": "516:223",
+      "property_path": "bound_variables.bottomLeftRadius"
+    },
+    {
+      "severity": "ERROR",
+      "code": "FR-TOKEN-LOSS-003",
+      "message": "Variable binding for bottomRightRadius is not represented by the raw model.",
+      "node_id": "516:223",
+      "property_path": "bound_variables.bottomRightRadius"
+    },
+    {
+      "severity": "ERROR",
+      "code": "FR-TOKEN-LOSS-003",
+      "message": "Variable binding for topLeftRadius is not represented by the raw model.",
+      "node_id": "516:223",
+      "property_path": "bound_variables.topLeftRadius"
+    },
+    {
+      "severity": "ERROR",
+      "code": "FR-TOKEN-LOSS-003",
+      "message": "Variable binding for topRightRadius is not represented by the raw model.",
+      "node_id": "516:223",
+      "property_path": "bound_variables.topRightRadius"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "653:777",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "ERROR",
+      "code": "FR-VALUE-EXTRACT-003",
+      "message": "Value Symbol(figma.mixed) is not a finite number.",
+      "node_id": "653:777",
+      "property_path": "style.stroke_widths"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "653:790",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "ERROR",
+      "code": "FR-VALUE-EXTRACT-003",
+      "message": "Value Symbol(figma.mixed) is not a finite number.",
+      "node_id": "653:790",
+      "property_path": "style.stroke_widths"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "653:803",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "ERROR",
+      "code": "FR-VALUE-EXTRACT-003",
+      "message": "Value Symbol(figma.mixed) is not a finite number.",
+      "node_id": "653:803",
+      "property_path": "style.stroke_widths"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "653:816",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "ERROR",
+      "code": "FR-VALUE-EXTRACT-003",
+      "message": "Value Symbol(figma.mixed) is not a finite number.",
+      "node_id": "653:816",
+      "property_path": "style.stroke_widths"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "653:829",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "ERROR",
+      "code": "FR-VALUE-EXTRACT-003",
+      "message": "Value Symbol(figma.mixed) is not a finite number.",
+      "node_id": "653:829",
+      "property_path": "style.stroke_widths"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:777;653:673",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:777;653:674",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:777;653:675",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:777;653:676",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:777;653:677",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:777;653:678",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:777;653:679",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:777;653:680",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:777;653:681",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:777;653:682",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:777;653:683",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:777;653:684",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:790;653:686",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:790;653:687",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:790;653:688",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:790;653:689",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:790;653:690",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:790;653:691",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:790;653:692",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:790;653:693",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:790;653:694",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:790;653:695",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:790;653:696",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:790;653:697",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:803;653:686",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:803;653:687",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:803;653:688",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:803;653:689",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:803;653:690",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:803;653:691",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:803;653:692",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:803;653:693",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:803;653:694",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:803;653:695",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:803;653:696",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:803;653:697",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:816;653:686",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:816;653:687",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:816;653:688",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:816;653:689",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:816;653:690",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:816;653:691",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:816;653:692",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:816;653:693",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:816;653:694",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:816;653:695",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:816;653:696",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:816;653:697",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:829;653:686",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:829;653:687",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:829;653:688",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:829;653:689",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:829;653:690",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:829;653:691",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:829;653:692",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:829;653:693",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:829;653:694",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:829;653:695",
+      "property_path": "text"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
+      "node_id": "I653:829;653:696",
+      "property_path": "layout.strokes_included_in_layout"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-EXTRACT-LOSS-001",
+      "message": "Text layout metadata outside characters and styled runs is retained only as a source extension.",
+      "node_id": "I653:829;653:697",
+      "property_path": "text"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "516:223",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-COMPONENT-001",
+      "message": "component 72f97ad3da2b889d55e0efe6d732a9e8f2f133a7 has no semantic mapping; structural children are retained",
+      "node_id": "653:777",
+      "property_path": "component.component_key"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "653:777",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:777;653:673",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:777;653:674",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:777;653:675",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:777;653:676",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:777;653:677",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:777;653:678",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:777;653:679",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:777;653:680",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:777;653:681",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:777;653:682",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:777;653:683",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:777;653:684",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-COMPONENT-001",
+      "message": "component 08a4d6ac0a96394e47599bf76f315111c5195f7c has no semantic mapping; structural children are retained",
+      "node_id": "653:790",
+      "property_path": "component.component_key"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "653:790",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:790;653:686",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:790;653:687",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:790;653:688",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:790;653:689",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:790;653:690",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:790;653:691",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:790;653:692",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:790;653:693",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:790;653:694",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:790;653:695",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:790;653:696",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:790;653:697",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-COMPONENT-001",
+      "message": "component 08a4d6ac0a96394e47599bf76f315111c5195f7c has no semantic mapping; structural children are retained",
+      "node_id": "653:803",
+      "property_path": "component.component_key"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "653:803",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:803;653:686",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:803;653:687",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:803;653:688",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:803;653:689",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:803;653:690",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:803;653:691",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:803;653:692",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:803;653:693",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:803;653:694",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:803;653:695",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:803;653:696",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:803;653:697",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-COMPONENT-001",
+      "message": "component 08a4d6ac0a96394e47599bf76f315111c5195f7c has no semantic mapping; structural children are retained",
+      "node_id": "653:816",
+      "property_path": "component.component_key"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "653:816",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:816;653:686",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:816;653:687",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:816;653:688",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:816;653:689",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:816;653:690",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:816;653:691",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:816;653:692",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:816;653:693",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:816;653:694",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:816;653:695",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:816;653:696",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:816;653:697",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "WARNING",
+      "code": "FR-COMPONENT-001",
+      "message": "component 08a4d6ac0a96394e47599bf76f315111c5195f7c has no semantic mapping; structural children are retained",
+      "node_id": "653:829",
+      "property_path": "component.component_key"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "653:829",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:829;653:686",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:829;653:687",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:829;653:688",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:829;653:689",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:829;653:690",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:829;653:691",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:829;653:692",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:829;653:693",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:829;653:694",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:829;653:695",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: pass-through compositing",
+      "node_id": "I653:829;653:696",
+      "property_path": "asset_decision"
+    },
+    {
+      "severity": "INFO",
+      "code": "FR-ASSET-001",
+      "message": "node requires runtime lowering: center/outside stroke alignment, pass-through compositing",
+      "node_id": "I653:829;653:697",
+      "property_path": "asset_decision"
+    }
+  ]
+}

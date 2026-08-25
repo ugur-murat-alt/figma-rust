@@ -1,0 +1,17 @@
+{
+  "name": "figma-rust",
+  "id": "figma-rust-local",
+  "api": "1.0.0",
+  "main": "dist/main.js",
+  "ui": "dist/ui.html",
+  "editorType": ["figma", "dev"],
+  "capabilities": ["codegen"],
+  "codegenLanguages": [
+    { "label": "Rust / GPUI", "value": "RUST_GPUI" }
+  ],
+  "documentAccess": "dynamic-page",
+  "networkAccess": {
+    "allowedDomains": ["http://127.0.0.1:38421"],
+    "reasoning": "Connects only to the loopback figma-rust compiler service started by the user."
+  }
+}

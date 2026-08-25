@@ -1,0 +1,55 @@
+{
+  "schema_version": 2,
+  "captured_at_unix_ms": 1787656543661,
+  "engine": "computer-use-linux",
+  "source": "xdg-desktop-portal",
+  "session_type": "wayland",
+  "wayland_display": "wayland-0",
+  "gpui_revision": "5631830c564afa89b3aba679f45d9c3345f9460f",
+  "window": {
+    "title": "figma-rust-real-group-ready",
+    "wm_class": "figma-rust-real-group",
+    "coordinate_width": 100,
+    "coordinate_height": 60,
+    "payload_width": 100,
+    "payload_height": 60,
+    "scale": 1.0
+  },
+  "backdrops": {
+    "black": {
+      "path": "capture.black.png",
+      "sha256": "a63d50f8caa570843c3a8501bdc6046866e303436c1da298ca695c410590b9c4"
+    },
+    "white": {
+      "path": "capture.white.png",
+      "sha256": "e1efb7b3f8e352492f6af78f29ab972ec530a94e6b0608c3881a240c59c72e10"
+    }
+  },
+  "reconstruction": "dual-backdrop-straight-alpha-v1",
+  "actual": {
+    "path": "actual.png",
+    "sha256": "3cdadaa6e0a29756eaf467632e9dab30e771491aa46af89ba2fab054ca99ac83"
+  },
+  "verification": {
+    "manifest": "verify.image.json",
+    "report": "capture.verify.json",
+    "result": {
+      "passed": true,
+      "inputs": {
+        "manifest": "76d8320e68277546a8a01b69b405f49c0c7197c22db7734bcc56371401c01d90",
+        "reference_geometry": "974f54312902aec38dcf1f9179073bf24f5fd001e7c313739cdce45449e63d1c",
+        "actual_geometry": "d44de9f49c459457ed9248af9af3e781fa14fbe49b1c0606359d14b1382c8cc2",
+        "reference_image": "00b870f8e967362deb405959a68758d31f10615aa949eb44e7cfa6cdad84db89",
+        "actual_image": "3cdadaa6e0a29756eaf467632e9dab30e771491aa46af89ba2fab054ca99ac83"
+      },
+      "geometry_differences": [],
+      "image_metrics": {
+        "mean_absolute_error": 0.0,
+        "changed_pixel_ratio": 0.0,
+        "edge_error": 0.0,
+        "ssim": 1.0
+      },
+      "failures": []
+    }
+  }
+}

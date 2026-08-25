@@ -1,0 +1,9 @@
+{
+  "capture": {
+    "engine": "wayland-compositor",
+    "gpui_revision": "5631830c564afa89b3aba679f45d9c3345f9460f",
+    "window_title": "figma-rust-orbitline-table-ready"
+  },
+  "viewport": [520, 176],
+  "nodes": {}
+}

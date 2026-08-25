@@ -1,0 +1,256 @@
+{
+  "ir_version": 1,
+  "source": {
+    "file_key": "XRjBi41NCw78G6lkyJjmbV",
+    "page_id": "0:1",
+    "selected_node_ids": [
+      "1:4"
+    ],
+    "plugin_api_version": "1.135.0"
+  },
+  "roots": [
+    {
+      "source_id": "1:4",
+      "name": "Real GROUP coordinate fixture",
+      "kind": "GROUP",
+      "visible": true,
+      "opacity": 1.0,
+      "size": {
+        "horizontal": {
+          "sizing": {
+            "kind": "FIXED",
+            "value": 100.0
+          }
+        },
+        "vertical": {
+          "sizing": {
+            "kind": "FIXED",
+            "value": 60.0
+          }
+        }
+      },
+      "layout": {
+        "kind": "ABSOLUTE",
+        "clips_content": false,
+        "scroll": {
+          "horizontal": false,
+          "vertical": false
+        }
+      },
+      "positioning": {
+        "kind": "AUTO",
+        "transform": {
+          "matrix": [
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "style": {
+        "fills": [],
+        "strokes": [],
+        "stroke_widths": {
+          "top": 0.0,
+          "right": 0.0,
+          "bottom": 0.0,
+          "left": 0.0
+        },
+        "stroke_align": "INSIDE",
+        "radii": {
+          "top_left": 0.0,
+          "top_right": 0.0,
+          "bottom_right": 0.0,
+          "bottom_left": 0.0,
+          "smoothing": 0.0
+        },
+        "effects": [],
+        "blend_mode": "NORMAL",
+        "is_mask": false
+      },
+      "reactions": [],
+      "asset_decision": {
+        "route": "NATIVE",
+        "reasons": []
+      },
+      "children": [
+        {
+          "source_id": "1:2",
+          "name": "Group child A",
+          "kind": "RECTANGLE",
+          "visible": true,
+          "opacity": 1.0,
+          "size": {
+            "horizontal": {
+              "sizing": {
+                "kind": "FIXED",
+                "value": 40.0
+              }
+            },
+            "vertical": {
+              "sizing": {
+                "kind": "FIXED",
+                "value": 30.0
+              }
+            }
+          },
+          "layout": {
+            "kind": "PLAIN",
+            "clips_content": false,
+            "scroll": {
+              "horizontal": false,
+              "vertical": false
+            }
+          },
+          "positioning": {
+            "kind": "ABSOLUTE",
+            "x": 0.0,
+            "y": 0.0,
+            "horizontal_constraint": "MIN",
+            "vertical_constraint": "MIN",
+            "transform": {
+              "matrix": [
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "style": {
+            "fills": [
+              {
+                "kind": "SOLID",
+                "color": {
+                  "fallback": {
+                    "r": 0.125,
+                    "g": 0.251,
+                    "b": 0.502,
+                    "a": 1.0
+                  }
+                }
+              }
+            ],
+            "strokes": [],
+            "stroke_widths": {
+              "top": 0.0,
+              "right": 0.0,
+              "bottom": 0.0,
+              "left": 0.0
+            },
+            "stroke_align": "INSIDE",
+            "radii": {
+              "top_left": 0.0,
+              "top_right": 0.0,
+              "bottom_right": 0.0,
+              "bottom_left": 0.0,
+              "smoothing": 0.0
+            },
+            "effects": [],
+            "blend_mode": "NORMAL",
+            "is_mask": false
+          },
+          "reactions": [],
+          "asset_decision": {
+            "route": "NATIVE",
+            "reasons": []
+          },
+          "children": []
+        },
+        {
+          "source_id": "1:3",
+          "name": "Group child B",
+          "kind": "RECTANGLE",
+          "visible": true,
+          "opacity": 1.0,
+          "size": {
+            "horizontal": {
+              "sizing": {
+                "kind": "FIXED",
+                "value": 30.0
+              }
+            },
+            "vertical": {
+              "sizing": {
+                "kind": "FIXED",
+                "value": 20.0
+              }
+            }
+          },
+          "layout": {
+            "kind": "PLAIN",
+            "clips_content": false,
+            "scroll": {
+              "horizontal": false,
+              "vertical": false
+            }
+          },
+          "positioning": {
+            "kind": "ABSOLUTE",
+            "x": 70.0,
+            "y": 40.0,
+            "horizontal_constraint": "MIN",
+            "vertical_constraint": "MIN",
+            "transform": {
+              "matrix": [
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "style": {
+            "fills": [
+              {
+                "kind": "SOLID",
+                "color": {
+                  "fallback": {
+                    "r": 0.878,
+                    "g": 0.314,
+                    "b": 0.251,
+                    "a": 1.0
+                  }
+                }
+              }
+            ],
+            "strokes": [],
+            "stroke_widths": {
+              "top": 0.0,
+              "right": 0.0,
+              "bottom": 0.0,
+              "left": 0.0
+            },
+            "stroke_align": "INSIDE",
+            "radii": {
+              "top_left": 0.0,
+              "top_right": 0.0,
+              "bottom_right": 0.0,
+              "bottom_left": 0.0,
+              "smoothing": 0.0
+            },
+            "effects": [],
+            "blend_mode": "NORMAL",
+            "is_mask": false
+          },
+          "reactions": [],
+          "asset_decision": {
+            "route": "NATIVE",
+            "reasons": []
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "variables": [],
+  "components": [],
+  "assets": []
+}

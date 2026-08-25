@@ -1,0 +1,23 @@
+{
+  "passed": false,
+  "inputs": {
+    "manifest": "5542baba2634f33293a68136856db5bd7142eacc8e0d52368d5d8004616d2541",
+    "reference_geometry": "654226c86ee3635f583792a682563ad5a7f020a4afe0cfa97e76ca4a6ac60b52",
+    "actual_geometry": "395b86bc1ab153e96d14f97525c013a13dbfe4211dcf1302b4a8100e44e4977e",
+    "reference_image": "0bb74b7441db1d8155fb64427867a13a78535f913917f85e61cc4aa6f00aabde",
+    "actual_image": "b23c04c72ca2b611c563b808457df8b98a6b939bebb67058deee18871a1d9fa6"
+  },
+  "geometry_differences": [],
+  "image_metrics": {
+    "mean_absolute_error": 0.024447843822888816,
+    "changed_pixel_ratio": 0.13184003496503496,
+    "edge_error": 0.017184808251158753,
+    "ssim": 0.5064026854163125
+  },
+  "failures": [
+    "mean pixel error 0.02445 exceeds 0.00000",
+    "changed pixel ratio 0.13184 exceeds 0.00000",
+    "edge error 0.01718 exceeds 0.00000",
+    "global SSIM 0.50640 is below 1.00000"
+  ]
+}

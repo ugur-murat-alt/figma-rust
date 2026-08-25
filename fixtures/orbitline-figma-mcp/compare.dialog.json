@@ -1,0 +1,14 @@
+{
+  "reference_geometry": "reference.dialog.geometry.json",
+  "actual_geometry": "actual.dialog.geometry.json",
+  "reference_image": "reference.dialog.png",
+  "actual_image": "actual.dialog.png",
+  "thresholds": {
+    "geometry_absolute_px": 0.0,
+    "geometry_relative": 0.0,
+    "mean_absolute_pixel_error": 0.0,
+    "changed_pixel_ratio": 0.0,
+    "edge_error": 0.0,
+    "minimum_ssim": 1.0
+  }
+}

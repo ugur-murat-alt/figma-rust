@@ -1,0 +1,90 @@
+---
+name: Improvement proposal
+description: Propose a bounded, testable improvement to figma-rust
+title: "[Enhancement] "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Search open and closed issues and review the current plan/capability matrix before submitting. Do not disclose vulnerabilities here; use the private path in SECURITY.md.
+  - type: dropdown
+    id: layer
+    attributes:
+      label: Affected layer
+      options:
+        - Figma plugin/extraction
+        - Core/Design IR
+        - GPUI code generation
+        - GPUI runtime
+        - CLI/server
+        - Verification
+        - Capture/provenance
+        - OpenCode2 skill
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem and frequency
+      description: Describe the user/operator problem, impact, and how often it occurs.
+    validations:
+      required: true
+  - type: textarea
+    id: current
+    attributes:
+      label: Current behavior
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Proposed outcome
+      description: Describe the observable result without requiring an unverified implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives and workarounds
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Impact analysis
+      description: Cover compatibility, determinism, performance, security/privacy, and generated-artifact ownership.
+    validations:
+      required: true
+  - type: textarea
+    id: proof
+    attributes:
+      label: Proof fixture or benchmark
+      description: Name the smallest sanitized fixture or benchmark that demonstrates value.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria and verification plan
+    validations:
+      required: true
+  - type: textarea
+    id: plan
+    attributes:
+      label: Plan/capability relationship
+      description: Link the relevant plan or capability-matrix item, or explain why this is new.
+    validations:
+      required: true
+  - type: checkboxes
+    id: confirmations
+    attributes:
+      label: Confirmations
+      options:
+        - label: I searched open and closed issues for duplicates.
+          required: true
+        - label: I removed secrets, private Figma URLs/content, customer data, and proprietary screenshots.
+          required: true
+        - label: This proposal is not a security vulnerability.
+          required: true
