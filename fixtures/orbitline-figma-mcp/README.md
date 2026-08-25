@@ -47,9 +47,11 @@ different Figma pages, so each extraction retains its own `page_id`.
 - Dialog: 18 nodes; extraction and normalization complete with 11 warnings and no
   errors. Code generation stops at the root runtime asset route caused by
   pass-through compositing.
-- Table: 66 nodes; normalization stops on 9 extraction errors: four unsupported
-  bound corner-radius tokens and five mixed stroke-width values. Its 65 text/stroke
-  preservation warnings remain node-scoped in the checked-in reports.
+- Table: 66 nodes; schema-v2 extraction and normalization complete with 70
+  warnings and no errors. The root's four corner radii retain token
+  `VariableID:185:136`, and mixed aggregate stroke widths use their preserved
+  per-edge values. Code generation now reaches the existing root runtime asset
+  route caused by pass-through compositing.
 
 `inspect.*.json`, `lint.*.json`, and `compile.*.stderr` are the corresponding CLI
 artifacts. The hand-authored `orbitline-mcp-proof` output must not be described as

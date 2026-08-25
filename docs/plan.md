@@ -44,7 +44,8 @@ do not hide current Linux screenshot or advanced-effect limitations.
 - [x] Define versioned raw extraction types with extension/unknown-field retention.
 - [x] Define target-neutral Design IR and stable JSON serialization.
 - [x] Implement schema/hierarchy validation and finite-number checks.
-- [x] Implement variable/token binding and current-mode fallback resolution.
+- [x] Implement schema-v2 variable/token binding with full consumer mode context,
+  multi-mode values, and literal fallback resolution.
 - [x] Implement UTF-16-safe mixed text normalization.
 - [x] Implement parent-aware HUG/FILL/FIXED and min/max normalization.
 - [x] Implement stack, grid, absolute, constraints, clipping, and scroll passes.
@@ -63,11 +64,12 @@ node-scoped diagnostics.
 
 - [x] Create `figma-rust-codegen` with `proc_macro2`, `quote`, `syn`, and
   `prettyplease`.
-- [x] Lower fixed/HUG/FILL stacks, absolute nodes, text, solid fills, borders,
-  radii, opacity, and shadows to verified GPUI APIs.
+- [x] Lower fixed/HUG/FILL stacks, absolute nodes, text, solid fills, per-edge
+  borders, independent radii, opacity, and shadows to verified GPUI APIs.
 - [ ] Lower simple grids to verified GPUI APIs.
 - [x] Generate stable per-node functions and required imports.
-- [x] Generate typed token access with literal fallback.
+- [x] Generate context-aware color and number token access with literal fallback;
+  modeled number paths are gap, padding, radii, stroke widths, and text size.
 - [ ] Generate component call/fallback forms.
 - [ ] Generate action contracts without application behavior.
 - [x] Generate Figma ID -> Rust symbol/line sidecar map.
@@ -81,7 +83,8 @@ compiles against the pinned upstream; no string-concatenated Rust syntax remains
 ## M3: Narrow GPUI runtime
 
 - [x] Create `figma-gpui-runtime` with the exact GPUI pin and no component library.
-- [x] Add typed token resolver and source metadata helpers.
+- [x] Add typed token resolver, consumer collection/mode context, and source
+  metadata helpers.
 - [ ] Add mixed-track grid primitive only if native/nested lowering cannot match
   fixtures.
 - [ ] Add exact image crop/fit helper.
@@ -101,7 +104,8 @@ render fixture; runtime contains no controls or application state.
 - [ ] Add compile-time asset manifest output.
 - [x] Implement `figma-rust verify` for geometry and image reports.
 - [x] Implement loopback-only `figma-rust serve` with bounded JSON requests.
-- [x] Create Figma plugin manifest and TypeScript extractor.
+- [x] Create Figma plugin manifest and a TypeScript extractor that preserves
+  multi-mode variables plus modeled numeric bindings.
 - [x] Add selection diagnostics UI and JSON export.
 - [ ] Add asset/SVG extraction for requested fallback nodes.
 - [x] Add Dev Mode Codegen bridge with internal timeout and clear unavailable
@@ -175,6 +179,11 @@ Every feature follows this gate before its checkbox becomes complete:
 
 ## Current known constraints
 
+- Extraction schema v2 is an explicit compatibility boundary; v1 bundles must be
+  re-extracted or migrated. They remain readable only to emit `FR-SCHEMA-001`.
+- Enterprise extended-variable-collection overrides are not yet covered by a
+  public fixture; current verified mode handling covers standard collections and
+  cross-collection alias chains.
 - Linux headless pixel rendering is not supplied by pinned GPUI; a compositor is
   required for pixel artifacts.
 - Exact font pixels are platform-dependent; geometry and text envelopes are

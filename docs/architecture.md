@@ -42,7 +42,7 @@ business behavior.
 
 ### Extraction bundle
 
-The plugin emits a versioned JSON bundle:
+The plugin emits a versioned JSON bundle. The current version is `2`:
 
 ```text
 ExtractionBundle
@@ -56,10 +56,20 @@ ExtractionBundle
   rest_snapshot?: JSON_REST_V1 object
 ```
 
+Schema v2 stores each referenced variable once per canonical consumer mode
+context. Both `RawVariable` and token-bound values carry the applicable
+`collection_id -> mode_id` map, including standard cross-collection alias chains.
+Modeled numeric values use
+`RawBoundValue<number>` so token identity and literal fallback survive for Auto
+Layout gap/padding, corner radii, and per-edge stroke widths.
+
 `RawNode` deliberately uses Figma terms such as `layout_mode`, axis sizing,
 constraints, grid tracks, bound-variable aliases, component properties, and
 UTF-16 text ranges. Unknown source fields can be retained in an extension map so
 new Figma fields do not disappear silently.
+
+V1 bundles are deserialized only far enough to produce the explicit
+`FR-SCHEMA-001` compatibility error. They are never compiled as v2 data.
 
 A direct REST-to-Raw-Model importer is planned but not implemented. The plugin
 can retain an optional `rest_snapshot` for provenance; current CLI commands
@@ -76,7 +86,8 @@ It includes:
 - alignment, padding, gap, grid tracks/placement, clipping, transforms, opacity;
 - fills, gradients, strokes, independent radii, effects, and shadows;
 - typography and explicit mixed-style runs;
-- values carrying both optional `TokenRef` and current literal fallback;
+- values carrying optional `TokenRef`, consumer mode context, and current literal
+  fallback;
 - component identity, set identity, variants, properties, direct overrides, and
   structural fallback children;
 - typed interaction/state metadata;
@@ -91,8 +102,8 @@ Normalization is an ordered pipeline, not a recursive string generator.
 1. **Schema validation**: reject malformed dimensions, non-finite numbers,
    duplicate IDs, impossible ranges, and unresolved required references.
 2. **Hierarchy indexing**: build parent/child and component/instance indices.
-3. **Variable resolution**: attach token identity and current-mode literal fallback;
-   unresolved aliases remain diagnostics.
+3. **Variable resolution**: match `(variable ID, consumer mode context)`, attach
+   token identity and literal fallback, and retain cycle-safe alias diagnostics.
 4. **Text-run normalization**: convert Figma UTF-16 ranges into content-bearing
    runs without unsafe Rust string slicing.
 5. **Parent-aware sizing**: interpret HUG/FILL/FIXED using parent layout and axis.

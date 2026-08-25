@@ -46,7 +46,7 @@ Expected plugin build outputs are ignored artifacts under `plugin/dist/`.
 The bundle contract contains:
 
 ```text
-schema_version
+schema_version (currently 2)
 source { file_key?, page_id, selected_node_ids, plugin_api_version }
 roots
 variables
@@ -55,6 +55,11 @@ assets
 extraction_diagnostics
 rest_snapshot?
 ```
+
+Schema v2 is required for multi-mode and modeled numeric bindings. A token-bound
+value carries its literal fallback and consumer collection/mode context. V1
+bundles remain readable only so lint/compile can emit `FR-SCHEMA-001`; re-extract
+or explicitly migrate them instead of relabeling them.
 
 Do not merge roots from different Figma pages into one bundle. Extract them separately so `source.page_id` stays truthful.
 
