@@ -1,0 +1,9 @@
+[
+  {
+    "severity": "WARNING",
+    "code": "FR-ASSET-002",
+    "message": "node requires SVG lowering: vector or mask semantics",
+    "node_id": "13:1",
+    "property_path": "asset_decision"
+  }
+]

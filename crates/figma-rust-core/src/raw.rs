@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, fmt::Write as _};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -576,4 +576,26 @@ pub struct RawAsset {
     pub content_hash: Option<String>,
     #[serde(default)]
     pub export_settings: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub payload_base64: Option<String>,
+}
+
+impl RawAsset {
+    /// Returns the deterministic flat output name for a supported asset payload.
+    #[must_use]
+    pub fn file_name(&self) -> Option<String> {
+        let extension = match self.media_type.as_str() {
+            "image/svg+xml" => "svg",
+            "image/png" => "png",
+            "image/jpeg" => "jpg",
+            "image/gif" => "gif",
+            "image/webp" => "webp",
+            _ => return None,
+        };
+        let mut encoded_id = String::with_capacity(self.id.len() * 2);
+        for byte in self.id.as_bytes() {
+            write!(&mut encoded_id, "{byte:02x}").ok()?;
+        }
+        Some(format!("asset-{encoded_id}.{extension}"))
+    }
 }

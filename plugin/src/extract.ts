@@ -88,6 +88,7 @@ interface ExtractionContext {
   assetChecks: Map<string, Promise<void>>;
   nodes: Map<string, SceneNode>;
   nodeCount: number;
+  includeAssetPayloads: boolean;
   deadline?: ExtractionDeadline;
 }
 
@@ -120,14 +121,21 @@ export function withExtractionDeadline<T>(
 export async function extractSelection(
   includeRestSnapshot = false,
   deadline?: ExtractionDeadline,
+  includeAssetPayloads = true,
 ): Promise<ExtractionBundle> {
-  return extractNodes(figma.currentPage.selection, includeRestSnapshot, deadline);
+  return extractNodes(
+    figma.currentPage.selection,
+    includeRestSnapshot,
+    deadline,
+    includeAssetPayloads,
+  );
 }
 
 export async function extractNodes(
   selection: readonly SceneNode[],
   includeRestSnapshot = false,
   deadline?: ExtractionDeadline,
+  includeAssetPayloads = true,
 ): Promise<ExtractionBundle> {
   const context: ExtractionContext = {
     diagnostics: [],
@@ -138,6 +146,7 @@ export async function extractNodes(
     assetChecks: new Map(),
     nodes: new Map(),
     nodeCount: 0,
+    includeAssetPayloads,
     deadline,
   };
 
@@ -222,6 +231,7 @@ async function extractNode(
   depth: number,
   context: ExtractionContext,
   coordinateParentTransform?: FigmaTransform,
+  capturedByAncestor = false,
 ): Promise<RawNode> {
   assertWithinDeadline(context.deadline);
   context.nodeCount += 1;
@@ -259,6 +269,12 @@ async function extractNode(
   const size = extractSize(record, node.id, context);
   const extractedPosition = extractPosition(record, node.id, context, coordinateParentTransform);
   const style = extractStyle(record, node.id, context, extensions);
+
+  let text: RawText | undefined;
+  if (nodeType === "TEXT") {
+    text = extractText(node as TextNode, context, extensions);
+  }
+  const capturesSubtree = fallbackExportFormatFor(kind ?? "GROUP", style, text) !== undefined;
   const children = await extractChildren(
     record,
     node.id,
@@ -266,12 +282,8 @@ async function extractNode(
     depth,
     context,
     extractedPosition.sourceTransform,
+    capturedByAncestor || capturesSubtree,
   );
-
-  let text: RawText | undefined;
-  if (nodeType === "TEXT") {
-    text = extractText(node as TextNode, context, extensions);
-  }
 
   const component = await extractComponentMetadata(node, context);
   const reactions = extractReactions(record, node.id, context, extensions);
@@ -296,7 +308,116 @@ async function extractNode(
     ...extensions,
   };
 
+  if (!capturedByAncestor) registerNodeFallbackAsset(node, raw, context);
+
   return raw;
+}
+
+export type FallbackExportFormat = "SVG" | "PNG";
+
+export function fallbackExportFormat(node: RawNode): FallbackExportFormat | undefined {
+  return fallbackExportFormatFor(node.kind, node.style, node.text);
+}
+
+function fallbackExportFormatFor(
+  kind: RawNodeKind,
+  style: RawStyle,
+  text: RawText | undefined,
+): FallbackExportFormat | undefined {
+  const paints = [...style.fills, ...style.strokes];
+  const requiresRaster = !["NORMAL", "PASS_THROUGH"].includes(style.blend_mode)
+    || style.effects.some((effect) => !["DROP_SHADOW", "INNER_SHADOW"].includes(effect.kind))
+    || paints.some((paint) => paint.kind === "VIDEO" || paint.kind === "SHADER");
+  if (requiresRaster) return "PNG";
+
+  const requiresSvg = kind === "VECTOR"
+    || style.is_mask
+    || style.strokes.length > 1
+    || paints.some((paint) => paint.kind === "PATTERN")
+    || text?.runs.some((run) => run.style.letter_spacing !== undefined && run.style.letter_spacing !== 0) === true;
+  return requiresSvg ? "SVG" : undefined;
+}
+
+function registerNodeFallbackAsset(
+  node: SceneNode,
+  raw: RawNode,
+  context: ExtractionContext,
+): void {
+  const format = fallbackExportFormat(raw);
+  if (format === undefined) return;
+  const id = `node:${node.id}:${format.toLowerCase()}`;
+  if (context.assets.has(id) || context.assetChecks.has(id)) return;
+  if (context.assetChecks.size >= MAX_IMAGE_ASSETS) {
+    addDiagnostic(
+      context,
+      "ERROR",
+      "FR-ASSET-LIMIT-001",
+      `Asset resolution stopped after ${MAX_IMAGE_ASSETS} unique assets.`,
+      node.id,
+      "asset_decision.route",
+    );
+    return;
+  }
+
+  if (!context.includeAssetPayloads) {
+    context.assets.set(id, {
+      id,
+      source_node_id: node.id,
+      media_type: format === "SVG" ? "image/svg+xml" : "image/png",
+      export_settings: { format },
+    });
+    return;
+  }
+
+  let exportOperation: Promise<Uint8Array>;
+  try {
+    exportOperation = node.exportAsync({ format });
+  } catch (error) {
+    addDiagnostic(
+      context,
+      "ERROR",
+      "FR-ASSET-EXTRACT-007",
+      `${format} fallback export failed: ${errorMessage(error)}; no asset was added.`,
+      node.id,
+      "asset_decision.route",
+    );
+    return;
+  }
+  const check = exportOperation.then(
+    (bytes) => {
+      if (bytes.byteLength === 0) {
+        addDiagnostic(
+          context,
+          "ERROR",
+          "FR-ASSET-EXTRACT-006",
+          `${format} fallback export returned no bytes; no asset was added.`,
+          node.id,
+          "asset_decision.route",
+        );
+        return;
+      }
+      const payload = encodeAssetPayload(bytes, node.id, "asset_decision.route", context);
+      if (payload === undefined) return;
+      context.assets.set(id, {
+        id,
+        source_node_id: node.id,
+        media_type: format === "SVG" ? "image/svg+xml" : "image/png",
+        export_settings: { format },
+        payload_base64: payload,
+      });
+    },
+    (error) => {
+      addDiagnostic(
+        context,
+        "ERROR",
+        "FR-ASSET-EXTRACT-007",
+        `${format} fallback export failed: ${errorMessage(error)}; no asset was added.`,
+        node.id,
+        "asset_decision.route",
+      );
+    },
+  );
+  context.assetChecks.set(id, check);
 }
 
 async function extractChildren(
@@ -306,6 +427,7 @@ async function extractChildren(
   depth: number,
   context: ExtractionContext,
   sourceTransform: FigmaTransform,
+  capturedByAncestor: boolean,
 ): Promise<RawNode[]> {
   const value = field(record, "children");
   if (value === undefined || value === null) return [];
@@ -366,6 +488,7 @@ async function extractChildren(
         depth + 1,
         context,
         childCoordinateParent,
+        capturedByAncestor,
       ),
     );
   }
@@ -1825,9 +1948,12 @@ function registerImageAsset(imageHash: string, nodeId: string, propertyPath: str
       context.assets.set(imageHash, {
         id: imageHash,
         source_node_id: nodeId,
-        media_type: "image/*",
+        media_type: detectImageMediaType(bytes),
         content_hash: asset.hash,
         export_settings: {},
+        ...(context.includeAssetPayloads
+          ? { payload_base64: encodeAssetPayload(bytes, nodeId, propertyPath, context) }
+          : {}),
       });
     },
     (error) => {
@@ -1835,6 +1961,48 @@ function registerImageAsset(imageHash: string, nodeId: string, propertyPath: str
     },
   );
   context.assetChecks.set(imageHash, check);
+}
+
+function encodeAssetPayload(
+  bytes: Uint8Array,
+  nodeId: string,
+  propertyPath: string,
+  context: ExtractionContext,
+): string | undefined {
+  try {
+    return figma.base64Encode(bytes);
+  } catch (error) {
+    addDiagnostic(
+      context,
+      "ERROR",
+      "FR-ASSET-EXTRACT-008",
+      `Asset bytes could not be base64 encoded: ${errorMessage(error)}; payload was omitted.`,
+      nodeId,
+      propertyPath,
+    );
+    return undefined;
+  }
+}
+
+function detectImageMediaType(bytes: Uint8Array): string {
+  if (bytes.length >= 8
+    && bytes[0] === 0x89
+    && bytes[1] === 0x50
+    && bytes[2] === 0x4e
+    && bytes[3] === 0x47) return "image/png";
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+    return "image/jpeg";
+  }
+  if (bytes.length >= 6) {
+    const signature = String.fromCharCode(...bytes.slice(0, 6));
+    if (signature === "GIF87a" || signature === "GIF89a") return "image/gif";
+  }
+  if (bytes.length >= 12) {
+    const riff = String.fromCharCode(...bytes.slice(0, 4));
+    const webp = String.fromCharCode(...bytes.slice(8, 12));
+    if (riff === "RIFF" && webp === "WEBP") return "image/webp";
+  }
+  return "application/octet-stream";
 }
 
 function boundValue<T>(

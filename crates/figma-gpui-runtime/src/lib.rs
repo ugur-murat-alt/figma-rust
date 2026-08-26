@@ -3,6 +3,8 @@
 //! This crate intentionally contains no controls, application state, navigation,
 //! or design-system policy.
 
+use std::path::{Path, PathBuf};
+
 use gpui::Hsla;
 
 /// Source variable identity and the consumer's resolved collection modes.
@@ -50,6 +52,35 @@ pub struct FallbackTokens;
 
 impl TokenResolver for FallbackTokens {}
 
+/// Resolves compiler-owned manifest file names to local asset paths.
+pub trait AssetResolver {
+    fn asset_path(&self, file_name: &str) -> PathBuf;
+}
+
+/// Resolves generated assets relative to one application-owned directory.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct DirectoryAssets {
+    root: PathBuf,
+}
+
+impl DirectoryAssets {
+    #[must_use]
+    pub fn new(root: impl Into<PathBuf>) -> Self {
+        Self { root: root.into() }
+    }
+
+    #[must_use]
+    pub fn root(&self) -> &Path {
+        &self.root
+    }
+}
+
+impl AssetResolver for DirectoryAssets {
+    fn asset_path(&self, file_name: &str) -> PathBuf {
+        self.root.join(file_name)
+    }
+}
+
 /// Returns the deterministic selector used by GPUI geometry tests.
 #[must_use]
 pub fn source_selector(index: usize) -> String {
@@ -65,7 +96,10 @@ pub trait ActionSink<A> {
 
 #[cfg(test)]
 mod tests {
-    use super::{FallbackTokens, TokenContext, TokenResolver, source_selector};
+    use super::{
+        AssetResolver, DirectoryAssets, FallbackTokens, TokenContext, TokenResolver,
+        source_selector,
+    };
     use gpui::hsla;
 
     #[test]
@@ -91,5 +125,15 @@ mod tests {
     fn selectors_are_stable_and_sortable() {
         assert_eq!(source_selector(7), "figma-node-0007");
         assert_eq!(source_selector(42), "figma-node-0042");
+    }
+
+    #[test]
+    fn directory_assets_resolve_manifest_file_names() {
+        let assets = DirectoryAssets::new("generated-assets");
+        assert_eq!(assets.root(), std::path::Path::new("generated-assets"));
+        assert_eq!(
+            assets.asset_path("asset-01.svg"),
+            std::path::PathBuf::from("generated-assets/asset-01.svg")
+        );
     }
 }

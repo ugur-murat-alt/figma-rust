@@ -1,19 +1,28 @@
 use std::{
+    collections::BTreeSet,
     fs::{self, OpenOptions},
     io::Write as _,
-    path::{Path, PathBuf},
+    path::{Component, Path, PathBuf},
 };
 
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use figma_rust_codegen::{CodegenError, GeneratedOutput};
 use figma_rust_core::{Diagnostic, NormalizationOutput, Severity, normalize_bundle, parse_bundle};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 const GENERATED_RUST: &str = "generated.rs";
 const SOURCE_MAP_JSON: &str = "source-map.json";
 const IR_JSON: &str = "ir.json";
 const DIAGNOSTICS_JSON: &str = "diagnostics.json";
-const ARTIFACT_NAMES: [&str; 4] = [GENERATED_RUST, SOURCE_MAP_JSON, IR_JSON, DIAGNOSTICS_JSON];
+const ASSET_MANIFEST_JSON: &str = "asset-manifest.json";
+const ARTIFACT_NAMES: [&str; 5] = [
+    GENERATED_RUST,
+    SOURCE_MAP_JSON,
+    IR_JSON,
+    DIAGNOSTICS_JSON,
+    ASSET_MANIFEST_JSON,
+];
 const ARTIFACT_LOCK: &str = ".figma-rust.lock";
 
 #[derive(Debug, Error)]
@@ -30,6 +39,13 @@ pub enum CliError {
         label: &'static str,
         source: serde_json::Error,
     },
+    #[error("failed to decode asset {id}: {source}")]
+    DecodeAsset {
+        id: String,
+        source: base64::DecodeError,
+    },
+    #[error("invalid asset manifest {path}: {message}")]
+    AssetManifest { path: String, message: String },
     #[error("unsafe output path {path}: {reason}")]
     UnsafeOutput { path: String, reason: String },
     #[error("failed to create output directory {path}: {source}")]
@@ -380,7 +396,7 @@ fn write_outputs(
 
     let created_directory = ensure_output_directory(output_directory)?;
     let result = with_artifact_lock(output_directory, || {
-        let paths = prepare_publish(output_directory)?;
+        let paths = prepare_publish(output_directory, &outputs)?;
         if let Err(error) = stage_outputs(&paths, &outputs) {
             let cleanup_errors = cleanup_temps(&paths);
             return Err(transaction_error(error, &cleanup_errors));
@@ -393,50 +409,125 @@ fn write_outputs(
 fn output_artifacts(
     normalization: &NormalizationOutput,
     generated: &GeneratedOutput,
-) -> Result<[OutputArtifact; 4], CliError> {
-    Ok([
+) -> Result<Vec<OutputArtifact>, CliError> {
+    let mut document_without_payloads = normalization.document.clone();
+    for asset in &mut document_without_payloads.assets {
+        asset.payload_base64 = None;
+    }
+    let mut manifest = AssetManifest {
+        schema_version: 1,
+        assets: Vec::with_capacity(normalization.document.assets.len()),
+    };
+    let mut outputs = vec![
         OutputArtifact {
-            name: GENERATED_RUST,
+            name: GENERATED_RUST.to_owned(),
             content: generated.rust.as_bytes().to_vec(),
         },
         OutputArtifact {
-            name: SOURCE_MAP_JSON,
+            name: SOURCE_MAP_JSON.to_owned(),
             content: serialize_json("source map", &generated.source_map)?.into_bytes(),
         },
         OutputArtifact {
-            name: IR_JSON,
-            content: serialize_json("normalized IR", &normalization.document)?.into_bytes(),
+            name: IR_JSON.to_owned(),
+            content: serialize_json("normalized IR", &document_without_payloads)?.into_bytes(),
         },
         OutputArtifact {
-            name: DIAGNOSTICS_JSON,
+            name: DIAGNOSTICS_JSON.to_owned(),
             content: serialize_json("diagnostics", &normalization.diagnostics)?.into_bytes(),
         },
-    ])
+    ];
+    for asset in &normalization.document.assets {
+        let file_name = asset
+            .payload_base64
+            .as_ref()
+            .and_then(|_| asset.file_name());
+        manifest.assets.push(AssetManifestEntry {
+            id: asset.id.clone(),
+            source_node_id: asset.source_node_id.clone(),
+            media_type: asset.media_type.clone(),
+            content_hash: asset.content_hash.clone(),
+            export_settings: asset.export_settings.clone(),
+            file_name: file_name.clone(),
+            payload_available: asset.payload_base64.is_some(),
+        });
+        if let (Some(payload), Some(file_name)) = (&asset.payload_base64, file_name) {
+            let content = BASE64
+                .decode(payload)
+                .map_err(|source| CliError::DecodeAsset {
+                    id: asset.id.clone(),
+                    source,
+                })?;
+            outputs.push(OutputArtifact {
+                name: file_name,
+                content,
+            });
+        }
+    }
+    outputs.push(OutputArtifact {
+        name: ASSET_MANIFEST_JSON.to_owned(),
+        content: serialize_json("asset manifest", &manifest)?.into_bytes(),
+    });
+    outputs.sort_by(|left, right| left.name.cmp(&right.name));
+    Ok(outputs)
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct AssetManifest {
+    schema_version: u32,
+    assets: Vec<AssetManifestEntry>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct AssetManifestEntry {
+    id: String,
+    source_node_id: String,
+    media_type: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    content_hash: Option<String>,
+    #[serde(default)]
+    export_settings: std::collections::BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    file_name: Option<String>,
+    #[serde(default)]
+    payload_available: bool,
 }
 
 struct OutputArtifact {
-    name: &'static str,
+    name: String,
     content: Vec<u8>,
 }
 
 struct ArtifactPaths {
-    name: &'static str,
+    name: String,
     final_path: PathBuf,
     temp_path: PathBuf,
     backup_path: PathBuf,
     had_previous: bool,
+    publish: bool,
 }
 
-fn prepare_publish(output_directory: &Path) -> Result<Vec<ArtifactPaths>, CliError> {
-    ARTIFACT_NAMES
+fn prepare_publish(
+    output_directory: &Path,
+    outputs: &[OutputArtifact],
+) -> Result<Vec<ArtifactPaths>, CliError> {
+    let output_names = outputs
         .iter()
-        .copied()
+        .map(|output| output.name.as_str())
+        .collect::<BTreeSet<_>>();
+    let mut owned_names = existing_owned_artifact_names(output_directory)?;
+    owned_names.extend(outputs.iter().map(|output| output.name.clone()));
+    owned_names
+        .into_iter()
         .map(|name| {
-            let final_path = output_directory.join(name);
+            validate_artifact_name(&name)?;
+            let final_path = output_directory.join(&name);
             let had_previous = validate_regular_or_missing(&final_path, "artifact destination")?;
-            let temp_path = work_path(output_directory, name, "tmp");
-            let backup_path = work_path(output_directory, name, "backup");
-            validate_missing(&temp_path, "temporary artifact path")?;
+            let temp_path = work_path(output_directory, &name, "tmp");
+            let backup_path = work_path(output_directory, &name, "backup");
+            let publish = output_names.contains(name.as_str());
+            if publish {
+                validate_missing(&temp_path, "temporary artifact path")?;
+            }
             validate_missing(&backup_path, "artifact backup path")?;
             Ok(ArtifactPaths {
                 name,
@@ -444,16 +535,18 @@ fn prepare_publish(output_directory: &Path) -> Result<Vec<ArtifactPaths>, CliErr
                 temp_path,
                 backup_path,
                 had_previous,
+                publish,
             })
         })
         .collect()
 }
 
 fn stage_outputs(paths: &[ArtifactPaths], outputs: &[OutputArtifact]) -> Result<(), String> {
-    for (path, output) in paths.iter().zip(outputs) {
-        if path.name != output.name {
-            return Err("internal artifact ordering mismatch".to_owned());
-        }
+    for output in outputs {
+        let path = paths
+            .iter()
+            .find(|path| path.name == output.name)
+            .ok_or_else(|| format!("missing publication path for {}", output.name))?;
         let mut file = OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -485,7 +578,7 @@ fn publish_outputs_with(
         }
     }
 
-    for (published, path) in paths.iter().enumerate() {
+    for (published, path) in paths.iter().filter(|path| path.publish).enumerate() {
         if let Err(error) = publish(published, &path.temp_path, &path.final_path) {
             let operation = format!("publishing {}: {error}", path.final_path.display());
             let cleanup_errors = rollback_after_publish(paths, published);
@@ -529,7 +622,7 @@ fn rollback_before_publish(paths: &[ArtifactPaths], backed_up: usize) -> Vec<Str
 
 fn rollback_after_publish(paths: &[ArtifactPaths], published: usize) -> Vec<String> {
     let mut errors = Vec::new();
-    for path in paths.iter().take(published) {
+    for path in paths.iter().filter(|path| path.publish).take(published) {
         if let Err(error) = remove_regular_if_exists(&path.final_path) {
             errors.push(error);
         }
@@ -557,13 +650,13 @@ fn invalidate_outputs(output_directory: &Path) -> Result<(), CliError> {
 }
 
 fn invalidate_outputs_locked(output_directory: &Path) -> Result<(), CliError> {
-    let paths = ARTIFACT_NAMES
-        .iter()
-        .copied()
+    let paths = existing_owned_artifact_names(output_directory)?
+        .into_iter()
         .map(|name| {
-            let final_path = output_directory.join(name);
+            validate_artifact_name(&name)?;
+            let final_path = output_directory.join(&name);
             let had_previous = validate_regular_or_missing(&final_path, "artifact destination")?;
-            let quarantine_path = work_path(output_directory, name, "invalid");
+            let quarantine_path = work_path(output_directory, &name, "invalid");
             validate_missing(&quarantine_path, "artifact invalidation path")?;
             Ok((final_path, quarantine_path, had_previous))
         })
@@ -691,6 +784,60 @@ fn validate_missing(path: &Path, label: &str) -> Result<(), CliError> {
     }
 }
 
+fn existing_owned_artifact_names(output_directory: &Path) -> Result<BTreeSet<String>, CliError> {
+    let mut names = ARTIFACT_NAMES
+        .iter()
+        .map(|name| (*name).to_owned())
+        .collect::<BTreeSet<_>>();
+    let manifest_path = output_directory.join(ASSET_MANIFEST_JSON);
+    let manifest_exists = validate_regular_or_missing(&manifest_path, "asset manifest")?;
+    if !manifest_exists {
+        return Ok(names);
+    }
+    let input = fs::read_to_string(&manifest_path).map_err(|source| CliError::Read {
+        path: manifest_path.display().to_string(),
+        source,
+    })?;
+    let manifest =
+        serde_json::from_str::<AssetManifest>(&input).map_err(|error| CliError::AssetManifest {
+            path: manifest_path.display().to_string(),
+            message: error.to_string(),
+        })?;
+    if manifest.schema_version != 1 {
+        return Err(CliError::AssetManifest {
+            path: manifest_path.display().to_string(),
+            message: format!(
+                "unsupported schema version {}; expected 1",
+                manifest.schema_version
+            ),
+        });
+    }
+    for file_name in manifest
+        .assets
+        .into_iter()
+        .filter_map(|asset| asset.file_name)
+    {
+        validate_artifact_name(&file_name)?;
+        names.insert(file_name);
+    }
+    Ok(names)
+}
+
+fn validate_artifact_name(name: &str) -> Result<(), CliError> {
+    let mut components = Path::new(name).components();
+    let valid = matches!(components.next(), Some(Component::Normal(_)))
+        && components.next().is_none()
+        && !name.starts_with('.');
+    if valid {
+        Ok(())
+    } else {
+        Err(CliError::UnsafeOutput {
+            path: name.to_owned(),
+            reason: "artifact name must be one non-hidden file name".to_owned(),
+        })
+    }
+}
+
 fn work_path(output_directory: &Path, name: &str, suffix: &str) -> PathBuf {
     output_directory.join(format!(".figma-rust-{name}.{suffix}"))
 }
@@ -712,6 +859,7 @@ fn remove_regular_if_exists(path: &Path) -> Result<(), String> {
 fn cleanup_temps(paths: &[ArtifactPaths]) -> Vec<String> {
     paths
         .iter()
+        .filter(|path| path.publish)
         .filter_map(|path| remove_regular_if_exists(&path.temp_path).err())
         .collect()
 }
@@ -845,9 +993,9 @@ mod tests {
     use figma_rust_core::normalize_bundle;
 
     use super::{
-        ARTIFACT_NAMES, ArtifactLock, GENERATED_RUST, compile_file, compile_source, inspect_bundle,
-        lint_source, output_artifacts, parse_bundle, prepare_publish, publish_outputs_with,
-        stage_outputs, work_path,
+        ARTIFACT_NAMES, ASSET_MANIFEST_JSON, ArtifactLock, GENERATED_RUST, compile_file,
+        compile_source, inspect_bundle, lint_source, output_artifacts, parse_bundle,
+        prepare_publish, publish_outputs_with, stage_outputs, work_path,
     };
 
     const BASIC: &str = include_str!("../../figma-rust-core/tests/fixtures/basic.raw.json");
@@ -929,6 +1077,7 @@ mod tests {
         assert_eq!(
             names,
             [
+                "asset-manifest.json",
                 "diagnostics.json",
                 "generated.rs",
                 "ir.json",
@@ -939,6 +1088,70 @@ mod tests {
         for name in names {
             assert!(fs::read(out.join(name))?.ends_with(b"\n"));
         }
+        fs::remove_dir_all(base)?;
+        Ok(())
+    }
+
+    #[test]
+    fn compile_publishes_fallback_payload_and_deterministic_manifest()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let base = unique_test_path("asset-manifest");
+        fs::create_dir_all(&base)?;
+        let raw = base.join("raw.json");
+        let out = base.join("out");
+        let mut bundle = serde_json::from_str::<serde_json::Value>(BASIC)?;
+        bundle["roots"][0]["kind"] = serde_json::json!("VECTOR");
+        bundle["assets"] = serde_json::json!([{
+            "id": "node:1:1:svg",
+            "source_node_id": "1:1",
+            "media_type": "image/svg+xml",
+            "export_settings": {"format": "SVG"},
+            "payload_base64": "PHN2Zy8+"
+        }]);
+        fs::write(&raw, serde_json::to_vec_pretty(&bundle)?)?;
+
+        let result = compile_file(&raw, &out)?;
+        assert!(result.error.is_none(), "{:?}", result.diagnostics);
+        let asset_name = "asset-6e6f64653a313a313a737667.svg";
+        assert_eq!(fs::read(out.join(asset_name))?, b"<svg/>");
+        let manifest = fs::read_to_string(out.join("asset-manifest.json"))?;
+        assert!(manifest.ends_with('\n'));
+        assert!(manifest.contains(&format!("\"file_name\": \"{asset_name}\"")));
+        assert!(!manifest.contains("payload_base64"));
+
+        fs::remove_dir_all(base)?;
+        Ok(())
+    }
+
+    #[test]
+    fn next_compile_removes_assets_no_longer_listed_by_the_manifest()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let base = unique_test_path("stale-asset");
+        fs::create_dir_all(&base)?;
+        let raw = base.join("raw.json");
+        let out = base.join("out");
+        let mut bundle = serde_json::from_str::<serde_json::Value>(BASIC)?;
+        bundle["roots"][0]["kind"] = serde_json::json!("VECTOR");
+        bundle["assets"] = serde_json::json!([{
+            "id": "node:1:1:svg",
+            "source_node_id": "1:1",
+            "media_type": "image/svg+xml",
+            "export_settings": {"format": "SVG"},
+            "payload_base64": "PHN2Zy8+"
+        }]);
+        fs::write(&raw, serde_json::to_vec_pretty(&bundle)?)?;
+        assert!(compile_file(&raw, &out)?.error.is_none());
+        let stale_asset = out.join("asset-6e6f64653a313a313a737667.svg");
+        assert!(stale_asset.is_file());
+        fs::write(out.join("keep.txt"), "unrelated")?;
+
+        fs::write(&raw, BASIC)?;
+        assert!(compile_file(&raw, &out)?.error.is_none());
+        assert!(!stale_asset.exists());
+        assert_eq!(fs::read_to_string(out.join("keep.txt"))?, "unrelated");
+        let manifest = fs::read_to_string(out.join(ASSET_MANIFEST_JSON))?;
+        assert!(manifest.contains("\"assets\": []"));
+
         fs::remove_dir_all(base)?;
         Ok(())
     }
@@ -1015,14 +1228,18 @@ mod tests {
         let normalization = normalize_bundle(&changed_bundle);
         let generated = figma_rust_codegen::generate(&normalization.document)?;
         let outputs = output_artifacts(&normalization, &generated)?;
+        let generated_output = outputs
+            .iter()
+            .find(|output| output.name == GENERATED_RUST)
+            .ok_or("missing generated output")?;
         assert_ne!(
-            outputs[0].content,
+            generated_output.content,
             *previous
                 .get(GENERATED_RUST)
                 .ok_or("missing previous generated Rust")?
         );
         let lock = ArtifactLock::acquire(&out)?;
-        let paths = prepare_publish(&out)?;
+        let paths = prepare_publish(&out, &outputs)?;
         stage_outputs(&paths, &outputs).map_err(std::io::Error::other)?;
         let result = publish_outputs_with(&paths, |index, source, destination| {
             if index == 3 {

@@ -1765,6 +1765,7 @@ dependencies = [
 name = "figma-rust-cli"
 version = "0.2.0"
 dependencies = [
+ "base64 0.23.1",
  "clap",
  "figma-rust-codegen",
  "figma-rust-core",

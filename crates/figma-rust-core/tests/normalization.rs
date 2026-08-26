@@ -378,6 +378,7 @@ fn unordered_metadata_is_canonical_and_variable_values_are_validated() {
             media_type: "image/png".to_owned(),
             content_hash: None,
             export_settings: BTreeMap::new(),
+            payload_base64: None,
         },
         RawAsset {
             id: "a".to_owned(),
@@ -385,6 +386,7 @@ fn unordered_metadata_is_canonical_and_variable_values_are_validated() {
             media_type: "image/svg+xml".to_owned(),
             content_hash: None,
             export_settings: BTreeMap::new(),
+            payload_base64: None,
         },
     ];
     let mut second = first.clone();
@@ -641,4 +643,53 @@ fn text_runs_use_utf16_offsets_without_splitting_unicode() {
     let text = output.document.roots[0].text.as_ref().expect("text IR");
     assert_eq!(text.runs[0].text, "😀");
     assert!(!output.has_errors());
+}
+
+#[test]
+fn opaque_pass_through_group_stays_native_but_translucent_group_does_not() {
+    let mut opaque = fixed_node("11:1", "GROUP");
+    opaque["style"] = json!({"blend_mode": "PASS_THROUGH"});
+    let mut translucent = fixed_node("11:2", "GROUP");
+    translucent["opacity"] = json!(0.5);
+    translucent["style"] = json!({"blend_mode": "PASS_THROUGH"});
+    let mut rectangle = fixed_node("11:3", "RECTANGLE");
+    rectangle["style"] = json!({"blend_mode": "PASS_THROUGH"});
+
+    let output = normalize_bundle(&bundle_with_roots(&json!([opaque, translucent, rectangle])));
+    assert_eq!(
+        output.document.roots[0].asset_decision.route,
+        AssetRoute::Native
+    );
+    assert_eq!(
+        output.document.roots[1].asset_decision.route,
+        AssetRoute::Runtime
+    );
+    assert_eq!(
+        output.document.roots[2].asset_decision.route,
+        AssetRoute::Runtime
+    );
+}
+
+#[test]
+fn nonzero_letter_spacing_uses_svg_fallback() {
+    let mut node = fixed_node("12:1", "TEXT");
+    node["text"] = json!({
+        "characters": "Tracked",
+        "runs": [{
+            "start_utf16": 0,
+            "end_utf16": 7,
+            "style": {"letter_spacing": 1.5}
+        }]
+    });
+
+    let output = normalize_bundle(&bundle_with_roots(&json!([node])));
+    assert_eq!(
+        output.document.roots[0].asset_decision.route,
+        AssetRoute::Svg
+    );
+    assert!(output.diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == codes::SVG_FALLBACK
+            && diagnostic.node_id.as_deref() == Some("12:1")
+            && diagnostic.property_path.as_deref() == Some("asset_decision")
+    }));
 }

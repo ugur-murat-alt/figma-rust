@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 
-import { extractNodes } from "../src/extract";
+import { extractNodes, fallbackExportFormat } from "../src/extract";
+import {
+  BRIDGE_MAX_REQUEST_BYTES,
+  LARGE_BUNDLE_BYTES,
+  classifyBundleBytes,
+  includeRestSnapshotForExport,
+  summarizeBundle,
+} from "../src/export";
+import type { ExtractionBundle } from "../src/schema";
 import realGroupFixture from "./fixtures/real-group.plugin-api.json";
 import multiModeFixture from "./fixtures/multi-mode-variables.json";
 import realExtractionFixture from "../../fixtures/real-figma/extraction.json";
@@ -10,7 +18,7 @@ type Transform = [[number, number, number], [number, number, number]];
 interface TestNode {
   id: string;
   name: string;
-  type: "GROUP" | "RECTANGLE";
+  type: "GROUP" | "RECTANGLE" | "VECTOR";
   x: number;
   y: number;
   width: number;
@@ -23,6 +31,7 @@ interface TestNode {
   resolvedVariableModes?: Record<string, string>;
   fills?: unknown[];
   children?: TestNode[];
+  exportAsync?: (settings: { format: "SVG" | "PNG" }) => Promise<Uint8Array>;
 }
 
 const testVariables = new Map<string, unknown>();
@@ -33,6 +42,7 @@ Object.assign(globalThis, {
     fileKey: realGroupFixture.file_key,
     currentPage: { id: "0:1", selection: [] },
     mixed: Symbol("mixed"),
+    base64Encode: (bytes: Uint8Array) => Buffer.from(bytes).toString("base64"),
     variables: {
       getVariableByIdAsync: async (id: string) => testVariables.get(id) ?? null,
       getVariableCollectionByIdAsync: async (id: string) => testCollections.get(id) ?? null,
@@ -577,6 +587,113 @@ async function preservesModeledNumericBindings(): Promise<void> {
   testCollections.clear();
 }
 
+function supportsCompactExportAndLargeSelectionFeedback(): void {
+  assert.equal(includeRestSnapshotForExport("COMPILER"), false);
+  assert.equal(includeRestSnapshotForExport("EVIDENCE"), true);
+
+  const bundle = {
+    schema_version: 2,
+    source: {
+      page_id: "sayfa-çalışma",
+      selected_node_ids: ["419:2"],
+      plugin_api_version: "1.135.0",
+    },
+    roots: [{
+      id: "419:2",
+      children: [
+        { id: "419:3", children: [] },
+        { id: "419:4", children: [{ id: "419:5", children: [] }] },
+      ],
+    }],
+    variables: [{ id: "variable:1" }, { id: "variable:2" }],
+    components: [],
+    assets: [{ id: "asset:1" }],
+    extraction_diagnostics: [
+      { severity: "INFO", code: "I" },
+      { severity: "WARNING", code: "W" },
+      { severity: "ERROR", code: "E" },
+    ],
+  } as unknown as ExtractionBundle;
+
+  const summary = summarizeBundle(bundle);
+  assert.equal(summary.root_count, 1);
+  assert.equal(summary.node_count, 4);
+  assert.equal(summary.variable_count, 2);
+  assert.equal(summary.asset_count, 1);
+  assert.deepEqual(summary.diagnostics, { info: 1, warnings: 1, errors: 1 });
+  assert.equal(summary.includes_rest_snapshot, false);
+  assert.equal(summary.estimated_bytes, Buffer.byteLength(JSON.stringify(bundle), "utf8"));
+  assert.equal(summary.large_selection, false);
+  assert.equal(summary.bridge_compatible, true);
+
+  assert.deepEqual(classifyBundleBytes(LARGE_BUNDLE_BYTES), {
+    large_selection: true,
+    bridge_compatible: true,
+  });
+  assert.deepEqual(classifyBundleBytes(BRIDGE_MAX_REQUEST_BYTES + 1), {
+    large_selection: true,
+    bridge_compatible: false,
+  });
+}
+
+async function exportsDeterministicFallbackPayloads(): Promise<void> {
+  const svg = rectangle("9:1", [[1, 0, 0], [0, 1, 0]]);
+  svg.type = "VECTOR";
+  svg.exportAsync = async (settings) => {
+    assert.equal(settings.format, "SVG");
+    return Buffer.from("<svg/>");
+  };
+  const bundle = await extractNodes([svg as unknown as SceneNode]);
+  assert.deepEqual(bundle.assets, [{
+    id: "node:9:1:svg",
+    source_node_id: "9:1",
+    media_type: "image/svg+xml",
+    export_settings: { format: "SVG" },
+    payload_base64: "PHN2Zy8+",
+  }]);
+
+  let previewExported = false;
+  const previewSvg = rectangle("9:2", [[1, 0, 0], [0, 1, 0]]);
+  previewSvg.type = "VECTOR";
+  previewSvg.exportAsync = async () => {
+    previewExported = true;
+    return Buffer.from("<svg/>");
+  };
+  const preview = await extractNodes(
+    [previewSvg as unknown as SceneNode],
+    false,
+    undefined,
+    false,
+  );
+  assert.equal(previewExported, false);
+  assert.equal(preview.assets[0].payload_base64, undefined);
+
+  let childExported = false;
+  const childSvg = rectangle("9:4", [[1, 0, 0], [0, 1, 0]]);
+  childSvg.type = "VECTOR";
+  childSvg.exportAsync = async () => {
+    childExported = true;
+    return Buffer.from("<svg/>");
+  };
+  const parentSvg = rectangle("9:3", [[1, 0, 0], [0, 1, 0]]);
+  parentSvg.type = "VECTOR";
+  parentSvg.children = [childSvg];
+  parentSvg.exportAsync = async () => Buffer.from("<svg><path/></svg>");
+  const nested = await extractNodes([parentSvg as unknown as SceneNode]);
+  assert.equal(childExported, false);
+  assert.deepEqual(nested.assets.map((asset) => asset.source_node_id), ["9:3"]);
+
+  const raw = bundle.roots[0];
+  raw.kind = "TEXT";
+  raw.text = {
+    characters: "Tracked",
+    runs: [{ start_utf16: 0, end_utf16: 7, style: { letter_spacing: 1 } }],
+  };
+  assert.equal(fallbackExportFormat(raw), "SVG");
+  raw.style.blend_mode = "MULTIPLY";
+  assert.equal(fallbackExportFormat(raw), "PNG");
+}
+
 await extractsGroupLocalCoordinates();
 await extractsNestedGroupLocalCoordinates();
 await extractsRotatedGroupLocalCoordinates();
@@ -586,4 +703,6 @@ await preservesAndValidatesGridPlacements();
 await keepsAliasCyclesScopedToOneResolution();
 await preservesVariableValuesAcrossConsumerModes();
 await preservesModeledNumericBindings();
+supportsCompactExportAndLargeSelectionFeedback();
+await exportsDeterministicFallbackPayloads();
 console.log("extraction tests passed");

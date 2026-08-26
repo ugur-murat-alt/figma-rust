@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "assets": [
+    {
+      "id": "node:13:1:svg",
+      "source_node_id": "13:1",
+      "media_type": "image/svg+xml",
+      "export_settings": {
+        "format": "SVG"
+      },
+      "file_name": "asset-6e6f64653a31333a313a737667.svg",
+      "payload_available": true
+    }
+  ]
+}

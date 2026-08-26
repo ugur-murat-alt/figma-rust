@@ -4,11 +4,11 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use figma_rust_core::ir::{
-    Axis, AxisSize, AxisSizing, BoundValue, Color, ComponentResolution, DesignDocument, Edges,
-    Effect, Layout, Node, Paint, Positioning, TextStyle, TokenRef,
+    AssetRoute, Axis, AxisSize, AxisSizing, BoundValue, Color, ComponentResolution, DesignDocument,
+    Edges, Effect, Layout, Node, Paint, Positioning, TextStyle, TokenRef,
 };
 use figma_rust_core::raw::{
-    RawAlignment, RawBlendMode, RawConstraint, RawNodeKind, RawStrokeAlign,
+    RawAlignment, RawAsset, RawBlendMode, RawConstraint, RawNodeKind, RawStrokeAlign,
 };
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
@@ -82,6 +82,7 @@ struct IndexedNode<'a> {
     ordinal: usize,
     node: &'a Node,
     emitted: bool,
+    captured_by_asset: bool,
     parent_stack_axis: Option<Axis>,
 }
 
@@ -97,7 +98,11 @@ struct IndexedNode<'a> {
 pub fn generate(document: &DesignDocument) -> Result<GeneratedOutput, CodegenError> {
     let (indexed, ordinals) = index_document(document)?;
     for indexed_node in &indexed {
-        validate_node(indexed_node.node)?;
+        validate_node(
+            indexed_node.node,
+            &document.assets,
+            indexed_node.captured_by_asset,
+        )?;
     }
     let emitted = indexed
         .iter()
@@ -105,9 +110,12 @@ pub fn generate(document: &DesignDocument) -> Result<GeneratedOutput, CodegenErr
         .filter(|indexed_node| indexed_node.emitted)
         .collect::<Vec<_>>();
 
+    let uses_assets = emitted
+        .iter()
+        .any(|indexed_node| is_asset_fallback(indexed_node.node));
     let functions = emitted
         .iter()
-        .map(|indexed_node| lower_function(*indexed_node, &ordinals))
+        .map(|indexed_node| lower_function(*indexed_node, &ordinals, &document.assets, uses_assets))
         .collect::<Result<Vec<_>, _>>()?;
     let root_symbols = document
         .roots
@@ -118,9 +126,21 @@ pub fn generate(document: &DesignDocument) -> Result<GeneratedOutput, CodegenErr
             node_symbol(ordinal)
         })
         .collect::<Vec<_>>();
+    let root_elements = root_symbols
+        .iter()
+        .map(|symbol| {
+            if uses_assets {
+                quote! { #symbol(tokens, assets) }
+            } else {
+                quote! { #symbol(tokens) }
+            }
+        })
+        .collect::<Vec<_>>();
     let uses_parent_element = root_symbols.len() > 1
         || emitted.iter().any(|indexed| {
-            indexed.node.text.is_some() || indexed.node.children.iter().any(|child| child.visible)
+            !is_asset_fallback(indexed.node)
+                && (indexed.node.text.is_some()
+                    || indexed.node.children.iter().any(|child| child.visible))
         });
     let imports = if emitted.is_empty() {
         quote! {}
@@ -133,21 +153,35 @@ pub fn generate(document: &DesignDocument) -> Result<GeneratedOutput, CodegenErr
             use gpui::{InteractiveElement as _, Styled as _};
         }
     };
-    let root = match root_symbols.as_slice() {
+    let root = match root_elements.as_slice() {
         [] => quote! { gpui::div() },
-        [symbol] => quote! { #symbol(tokens) },
-        symbols => quote! { gpui::div() #(.child(#symbols(tokens)))* },
+        [element] => quote! { #element },
+        elements => quote! { gpui::div() #(.child(#elements))* },
     };
-
+    let generated_view = if uses_assets {
+        quote! {
+            pub fn generated_view(
+                tokens: &impl figma_gpui_runtime::TokenResolver,
+                assets: &impl figma_gpui_runtime::AssetResolver,
+            ) -> impl gpui::IntoElement {
+                let _ = tokens;
+                #root
+            }
+        }
+    } else {
+        quote! {
+            pub fn generated_view(
+                tokens: &impl figma_gpui_runtime::TokenResolver,
+            ) -> impl gpui::IntoElement {
+                let _ = tokens;
+                #root
+            }
+        }
+    };
     let tokens = quote! {
         #imports
 
-        pub fn generated_view(
-            tokens: &impl figma_gpui_runtime::TokenResolver,
-        ) -> impl gpui::IntoElement {
-            let _ = tokens;
-            #root
-        }
+        #generated_view
 
         #(#functions)*
     };
@@ -166,6 +200,7 @@ fn index_document(
     fn visit<'a>(
         node: &'a Node,
         ancestors_visible: bool,
+        captured_by_asset: bool,
         parent_stack_axis: Option<Axis>,
         indexed: &mut Vec<IndexedNode<'a>>,
         ordinals: &mut BTreeMap<&'a str, usize>,
@@ -176,19 +211,28 @@ fn index_document(
                 node_id: node.source_id.clone(),
             });
         }
-        let emitted = ancestors_visible && node.visible;
+        let emitted = ancestors_visible && node.visible && !captured_by_asset;
         indexed.push(IndexedNode {
             ordinal,
             node,
             emitted,
+            captured_by_asset,
             parent_stack_axis,
         });
         let child_parent_axis = match &node.layout {
             Layout::Stack { axis, .. } => Some(*axis),
             Layout::Plain { .. } | Layout::Absolute { .. } | Layout::Grid { .. } => None,
         };
+        let children_captured = captured_by_asset || (emitted && is_asset_fallback(node));
         for child in &node.children {
-            visit(child, emitted, child_parent_axis, indexed, ordinals)?;
+            visit(
+                child,
+                emitted,
+                children_captured,
+                child_parent_axis,
+                indexed,
+                ordinals,
+            )?;
         }
         Ok(())
     }
@@ -196,7 +240,7 @@ fn index_document(
     let mut indexed = Vec::new();
     let mut ordinals = BTreeMap::new();
     for root in &document.roots {
-        visit(root, true, None, &mut indexed, &mut ordinals)?;
+        visit(root, true, false, None, &mut indexed, &mut ordinals)?;
     }
     Ok((indexed, ordinals))
 }
@@ -204,26 +248,71 @@ fn index_document(
 fn lower_function(
     indexed: IndexedNode<'_>,
     ordinals: &BTreeMap<&str, usize>,
+    assets: &[RawAsset],
+    uses_assets: bool,
 ) -> Result<TokenStream, CodegenError> {
     let symbol = node_symbol(indexed.ordinal);
-    let element = lower_node(indexed, ordinals)?;
-    Ok(quote! {
-        #[allow(clippy::too_many_lines)]
-        fn #symbol(
-            tokens: &impl figma_gpui_runtime::TokenResolver,
-        ) -> impl gpui::IntoElement {
-            let _ = tokens;
-            #element
-        }
-    })
+    let element = lower_node(indexed, ordinals, assets, uses_assets)?;
+    if uses_assets {
+        Ok(quote! {
+            #[allow(clippy::too_many_lines)]
+            fn #symbol(
+                tokens: &impl figma_gpui_runtime::TokenResolver,
+                assets: &impl figma_gpui_runtime::AssetResolver,
+            ) -> impl gpui::IntoElement {
+                let _ = tokens;
+                #element
+            }
+        })
+    } else {
+        Ok(quote! {
+            #[allow(clippy::too_many_lines)]
+            fn #symbol(
+                tokens: &impl figma_gpui_runtime::TokenResolver,
+            ) -> impl gpui::IntoElement {
+                let _ = tokens;
+                #element
+            }
+        })
+    }
 }
 
 fn lower_node(
     indexed: IndexedNode<'_>,
     ordinals: &BTreeMap<&str, usize>,
+    assets: &[RawAsset],
+    uses_assets: bool,
 ) -> Result<TokenStream, CodegenError> {
     let node = indexed.node;
     let ordinal = indexed.ordinal;
+    if let Some(asset) = fallback_asset(node, assets)? {
+        let file_name = asset.file_name().ok_or_else(|| {
+            unsupported_error(
+                node,
+                "asset_decision.route",
+                format!("unsupported fallback media type `{}`", asset.media_type),
+            )
+        })?;
+        let mut element = match node.asset_decision.route {
+            AssetRoute::Svg => quote! {
+                gpui::svg()
+                    .external_path(
+                        figma_gpui_runtime::AssetResolver::asset_path(assets, #file_name)
+                            .to_string_lossy()
+                            .into_owned()
+                    )
+                    .debug_selector(|| figma_gpui_runtime::source_selector(#ordinal))
+            },
+            AssetRoute::Raster => quote! {
+                gpui::img(figma_gpui_runtime::AssetResolver::asset_path(assets, #file_name))
+                    .debug_selector(|| figma_gpui_runtime::source_selector(#ordinal))
+            },
+            AssetRoute::Native | AssetRoute::Runtime => unreachable!("validated asset route"),
+        };
+        element = lower_position(element, node)?;
+        element = lower_size(element, node, indexed.parent_stack_axis)?;
+        return Ok(element);
+    }
     let mut element = quote! {
         gpui::div().debug_selector(|| figma_gpui_runtime::source_selector(#ordinal))
     };
@@ -244,12 +333,98 @@ fn lower_node(
     }
     for child in node.children.iter().filter(|child| child.visible) {
         let child_symbol = node_symbol(ordinals[child.source_id.as_str()]);
-        element = quote! { #element.child(#child_symbol(tokens)) };
+        element = if uses_assets {
+            quote! { #element.child(#child_symbol(tokens, assets)) }
+        } else {
+            quote! { #element.child(#child_symbol(tokens)) }
+        };
     }
     Ok(element)
 }
 
-fn validate_node(node: &Node) -> Result<(), CodegenError> {
+fn is_asset_fallback(node: &Node) -> bool {
+    matches!(
+        node.asset_decision.route,
+        AssetRoute::Svg | AssetRoute::Raster
+    )
+}
+
+fn fallback_asset<'a>(
+    node: &Node,
+    assets: &'a [RawAsset],
+) -> Result<Option<&'a RawAsset>, CodegenError> {
+    let media_matches = |asset: &&RawAsset| match node.asset_decision.route {
+        AssetRoute::Svg => {
+            asset.media_type == "image/svg+xml"
+                && asset.export_settings.get("format").map(String::as_str) == Some("SVG")
+        }
+        AssetRoute::Raster => {
+            asset.media_type == "image/png"
+                && asset.export_settings.get("format").map(String::as_str) == Some("PNG")
+        }
+        AssetRoute::Native | AssetRoute::Runtime => false,
+    };
+    if !is_asset_fallback(node) {
+        return Ok(None);
+    }
+
+    let mut matches = assets
+        .iter()
+        .filter(|asset| asset.source_node_id == node.source_id)
+        .filter(media_matches);
+    let Some(asset) = matches.next() else {
+        return Err(unsupported_error(
+            node,
+            "asset_decision.route",
+            format!(
+                "{:?} fallback has no matching asset",
+                node.asset_decision.route
+            ),
+        ));
+    };
+    if matches.next().is_some() {
+        return Err(unsupported_error(
+            node,
+            "asset_decision.route",
+            format!(
+                "{:?} fallback has multiple matching assets",
+                node.asset_decision.route
+            ),
+        ));
+    }
+    if asset.payload_base64.as_deref().is_none_or(str::is_empty) {
+        return Err(unsupported_error(
+            node,
+            "asset_decision.route",
+            format!("fallback asset `{}` has no payload", asset.id),
+        ));
+    }
+    Ok(Some(asset))
+}
+
+fn validate_node(
+    node: &Node,
+    assets: &[RawAsset],
+    captured_by_asset: bool,
+) -> Result<(), CodegenError> {
+    if let Some(component) = &node.component
+        && let ComponentResolution::Mapped { mapping_id } = &component.resolution
+    {
+        return unsupported(
+            node,
+            "component.resolution",
+            format!("mapped component invocation `{mapping_id}`"),
+        );
+    }
+    if !node.reactions.is_empty() {
+        return unsupported(node, "reactions", "prototype reactions");
+    }
+    if captured_by_asset {
+        return Ok(());
+    }
+    if fallback_asset(node, assets)?.is_some() {
+        return Ok(());
+    }
     match node.kind {
         RawNodeKind::Vector | RawNodeKind::Image => {
             return unsupported(node, "kind", format!("{:?} asset node", node.kind));
@@ -264,24 +439,12 @@ fn validate_node(node: &Node) -> Result<(), CodegenError> {
         | RawNodeKind::Scroll => {}
     }
 
-    if node.asset_decision.route != figma_rust_core::ir::AssetRoute::Native {
+    if node.asset_decision.route != AssetRoute::Native {
         return unsupported(
             node,
             "asset_decision.route",
             format!("{:?} asset route", node.asset_decision.route),
         );
-    }
-    if let Some(component) = &node.component
-        && let ComponentResolution::Mapped { mapping_id } = &component.resolution
-    {
-        return unsupported(
-            node,
-            "component.resolution",
-            format!("mapped component invocation `{mapping_id}`"),
-        );
-    }
-    if !node.reactions.is_empty() {
-        return unsupported(node, "reactions", "prototype reactions");
     }
     if node.style.is_mask {
         return unsupported(node, "style.is_mask", "mask rendering");
@@ -1019,13 +1182,17 @@ fn unsupported<T>(
     property: &str,
     feature: impl Into<String>,
 ) -> Result<T, CodegenError> {
-    Err(CodegenError::Unsupported {
+    Err(unsupported_error(node, property, feature))
+}
+
+fn unsupported_error(node: &Node, property: &str, feature: impl Into<String>) -> CodegenError {
+    CodegenError::Unsupported {
         location: ErrorSource {
             node_id: node.source_id.clone(),
             property: property.to_owned(),
         },
         feature: feature.into(),
-    })
+    }
 }
 
 fn invalid(node: &Node, property: &str, value: impl Into<String>) -> CodegenError {
@@ -1043,11 +1210,13 @@ mod tests {
     use std::collections::BTreeMap;
 
     use figma_rust_core::ir::{
-        Axis, AxisSize, AxisSizing, BoundValue, Color, ComponentResolution, DesignDocument, Edges,
-        Effect, Layout, Paint, Positioning, Radii, Scroll, Size, Style, Text,
+        AssetRoute, Axis, AxisSize, AxisSizing, BoundValue, Color, ComponentResolution,
+        DesignDocument, Edges, Effect, Layout, Paint, Positioning, Radii, Scroll, Size, Style,
+        Text,
     };
     use figma_rust_core::raw::{
-        RawAlignment, RawBlendMode, RawConstraint, RawNodeKind, RawStrokeAlign,
+        RawAction, RawAlignment, RawAsset, RawBlendMode, RawConstraint, RawNodeKind, RawReaction,
+        RawStrokeAlign, RawTrigger,
     };
     use serde::Deserialize;
 
@@ -1414,5 +1583,102 @@ mod tests {
             Err(CodegenError::Unsupported { location, .. })
                 if location.node_id == "1:1" && location.property == "style.fills"
         ));
+    }
+
+    #[test]
+    fn svg_fallback_uses_manifest_asset_and_collapses_the_captured_subtree() {
+        let mut document = supported_document();
+        document.roots[0].kind = RawNodeKind::Vector;
+        document.roots[0].asset_decision.route = AssetRoute::Svg;
+        document.assets = vec![RawAsset {
+            id: "node:1:1:svg".to_owned(),
+            source_node_id: "1:1".to_owned(),
+            media_type: "image/svg+xml".to_owned(),
+            content_hash: None,
+            export_settings: BTreeMap::from([("format".to_owned(), "SVG".to_owned())]),
+            payload_base64: Some("PHN2Zy8+".to_owned()),
+        }];
+
+        let output = match generate(&document) {
+            Ok(output) => output,
+            Err(error) => panic!("SVG fallback must generate: {error}"),
+        };
+        assert!(output.rust.contains("AssetResolver"));
+        assert!(output.rust.contains("gpui::svg()"));
+        assert!(output.rust.contains("AssetResolver::asset_path"));
+        assert!(output.rust.contains("asset-6e6f64653a313a313a737667.svg"));
+        assert_eq!(output.source_map.nodes.len(), 1);
+        assert!(!output.rust.contains("fn node_0001("));
+    }
+
+    #[test]
+    fn fallback_without_a_matching_payload_is_node_scoped() {
+        let mut document = basic_document();
+        document.roots[0].asset_decision.route = AssetRoute::Raster;
+
+        assert!(matches!(
+            generate(&document),
+            Err(CodegenError::Unsupported { location, .. })
+                if location.node_id == "1:1" && location.property == "asset_decision.route"
+        ));
+    }
+
+    #[test]
+    fn captured_descendant_reactions_are_not_silently_discarded() {
+        let mut document = supported_document();
+        document.roots[0].kind = RawNodeKind::Vector;
+        document.roots[0].asset_decision.route = AssetRoute::Svg;
+        document.roots[0].children[0].reactions = vec![RawReaction {
+            trigger: RawTrigger::Click,
+            action: RawAction::Emit {
+                name: "clicked".to_owned(),
+            },
+        }];
+        document.assets = vec![RawAsset {
+            id: "node:1:1:svg".to_owned(),
+            source_node_id: "1:1".to_owned(),
+            media_type: "image/svg+xml".to_owned(),
+            content_hash: None,
+            export_settings: BTreeMap::from([("format".to_owned(), "SVG".to_owned())]),
+            payload_base64: Some("PHN2Zy8+".to_owned()),
+        }];
+
+        assert!(matches!(
+            generate(&document),
+            Err(CodegenError::Unsupported { location, .. })
+                if location.node_id == "1:2" && location.property == "reactions"
+        ));
+    }
+
+    #[test]
+    fn raster_fallback_is_distinct_from_an_image_fill_asset() {
+        let mut document = basic_document();
+        document.roots[0].asset_decision.route = AssetRoute::Raster;
+        document.assets = vec![
+            RawAsset {
+                id: "image-hash".to_owned(),
+                source_node_id: "1:1".to_owned(),
+                media_type: "image/png".to_owned(),
+                content_hash: Some("image-hash".to_owned()),
+                export_settings: BTreeMap::new(),
+                payload_base64: Some("aW1hZ2U=".to_owned()),
+            },
+            RawAsset {
+                id: "node:1:1:png".to_owned(),
+                source_node_id: "1:1".to_owned(),
+                media_type: "image/png".to_owned(),
+                content_hash: None,
+                export_settings: BTreeMap::from([("format".to_owned(), "PNG".to_owned())]),
+                payload_base64: Some("ZmFsbGJhY2s=".to_owned()),
+            },
+        ];
+
+        let output = match generate(&document) {
+            Ok(output) => output,
+            Err(error) => panic!("raster fallback must generate: {error}"),
+        };
+        assert!(output.rust.contains("gpui::img("));
+        assert!(output.rust.contains("asset-6e6f64653a313a313a706e67.png"));
+        assert!(!output.rust.contains("asset-696d6167652d68617368.png"));
     }
 }
