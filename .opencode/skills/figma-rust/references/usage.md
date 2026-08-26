@@ -40,7 +40,7 @@ Expected plugin build outputs are ignored artifacts under `plugin/dist/`.
 2. In Figma Desktop, import a development plugin from `plugin/manifest.json`.
 3. Open a Figma design file and select the smallest frame, component, instance, or scene-node root that owns the behavior under test.
 4. Use **Lint selection** first to review extraction diagnostics.
-5. Use **Export JSON** to download `figma-rust-extraction.json`.
+5. Use **Export compiler JSON** for the compact CLI input. Use **Export evidence JSON** only when the optional `JSON_REST_V1` snapshot is required.
 6. Move the downloaded bundle into a purpose-specific fixture directory only after checking that it contains no private material that should not enter Git.
 
 The bundle contract contains:
@@ -55,6 +55,11 @@ assets
 extraction_diagnostics
 rest_snapshot?
 ```
+
+Assets can carry optional base64 payloads. Preview/lint extraction omits those
+payloads; compiler/evidence exports include them when an SVG/raster fallback or
+image asset is available. The UI reports the UTF-8 JSON size and warns at 2 MiB
+and above or when the 8 MiB loopback limit is exceeded.
 
 Schema v2 is required for multi-mode and modeled numeric bindings. A token-bound
 value carries its literal fallback and consumer collection/mode context. V1
@@ -110,8 +115,18 @@ On success the compiler owns exactly:
 - `source-map.json`
 - `ir.json`
 - `diagnostics.json`
+- `asset-manifest.json`
+- zero or more deterministic flat asset files named by that manifest
 
-Treat those four files as one artifact set. Do not add handwritten behavior to `generated.rs`. Integrate by calling generated view functions from application-owned code and handling actions/state outside generated directories.
+Treat the fixed files, manifest, and listed asset files as one compiler-owned,
+lock-protected artifact set. Each file is staged, synced, and published with a
+same-directory rename; handled failures attempt to restore the previous set.
+Readers that do not take the directory lock can still observe rename transitions.
+Do not add handwritten behavior to `generated.rs`. Integrate by calling generated
+view functions from application-owned code and handling actions/state outside
+generated directories. A view with fallback assets also accepts an
+`AssetResolver`; `figma_gpui_runtime::DirectoryAssets` resolves files from the
+compiler output directory.
 
 Compilation can stop in two places:
 

@@ -42,7 +42,7 @@ diagnostic whenever it leaves the first route.
 | General subtree transform | figma-rust runtime | Custom scene/surface transform; not a generic Styled feature. |
 | Skew/perspective | asset/SVG, raster fallback | Preserve vector transform in SVG; perspective has no Figma 2D equivalent in normal nodes. |
 | Layer opacity | GPUI native | Native element opacity. |
-| PASS_THROUGH blend | figma-rust runtime | Requires explicit compositing semantics. |
+| PASS_THROUGH blend | GPUI native, figma-rust runtime | An opacity-1 `GROUP` is structural and lowers natively; other node kinds or group opacity require explicit compositing. |
 | Non-normal blend modes | raster fallback | No general GPUI Styled equivalent; never silently drop. |
 | Solid fill | GPUI native | Native background color. |
 | Two-stop linear gradient | GPUI native | Native angle and two color stops. |
@@ -74,7 +74,8 @@ diagnostic whenever it leaves the first route.
 | Plain text | GPUI native | Platform text shaping and wrapping. |
 | Multiline text | GPUI native | Fixed/hug dimensions and wrapping must be normalized together. |
 | Mixed font/size/weight/color runs | figma-rust runtime | Build explicit GPUI text runs; never collapse to one style. |
-| Letter spacing and line height | GPUI native | Unit conversion and font fixture required. |
+| Line height | GPUI native | Unit conversion and font fixture required. |
+| Letter spacing | asset/SVG | Pinned GPUI exposes no proven styled letter-spacing API; nonzero spacing exports the text node as SVG instead of dropping the value. |
 | Paragraph/list indentation and spacing | figma-rust runtime | Explicit paragraph layout helper. |
 | OpenType feature overrides | GPUI native, figma-rust runtime | Pass supported features; diagnose unavailable ones. |
 | Leading trim/text wrap styles | figma-rust runtime | Text helper plus geometry fixture; unsupported variants warn. |

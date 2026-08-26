@@ -58,7 +58,7 @@ Verified slices include:
 
 - Simple grid GPUI lowering remains pending; mixed-grid runtime support is not proven.
 - Typed component calls and generated action contracts remain pending.
-- Asset/SVG fallback extraction and compile-time asset manifests remain pending.
+- SVG/raster fallback payloads and compile-time manifests are supported for the bounded planner routes; richer crop/fit and runtime paint semantics remain pending.
 - Stroke alignment, multiple stroke paints, richer gradients, transforms, image crop/fit, and mixed typography need isolated runtime/codegen proofs.
 - Advanced masks/effects/blend modes can require explicit SVG/raster/runtime routes.
 - Linux headless pixel rendering is unavailable in the pinned GPUI revision; real compositor capture is required.

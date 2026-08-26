@@ -101,13 +101,14 @@ render fixture; runtime contains no controls or application state.
 - [x] Implement `figma-rust inspect` for tree/capability summaries.
 - [x] Implement `figma-rust lint` with text/JSON diagnostics and strict mode.
 - [x] Implement `figma-rust compile` for IR, Rust, source maps, and diagnostics.
-- [ ] Add compile-time asset manifest output.
+- [x] Add compile-time asset manifest output with locked, staged SVG/PNG payload
+  publication and handled-failure rollback.
 - [x] Implement `figma-rust verify` for geometry and image reports.
 - [x] Implement loopback-only `figma-rust serve` with bounded JSON requests.
 - [x] Create Figma plugin manifest and a TypeScript extractor that preserves
   multi-mode variables plus modeled numeric bindings.
 - [x] Add selection diagnostics UI and JSON export.
-- [ ] Add asset/SVG extraction for requested fallback nodes.
+- [x] Add asset/SVG and raster extraction for requested fallback nodes.
 - [x] Add Dev Mode Codegen bridge with internal timeout and clear unavailable
   service result.
 - [x] Typecheck and bundle the plugin.
