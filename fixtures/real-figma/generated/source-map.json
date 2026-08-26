@@ -2,18 +2,18 @@
   "nodes": {
     "1:2": {
       "symbol": "node_0001",
-      "start_line": 21,
-      "end_line": 32
+      "start_line": 25,
+      "end_line": 39
     },
     "1:3": {
       "symbol": "node_0002",
-      "start_line": 34,
-      "end_line": 45
+      "start_line": 41,
+      "end_line": 55
     },
     "1:4": {
       "symbol": "node_0000",
-      "start_line": 9,
-      "end_line": 19
+      "start_line": 10,
+      "end_line": 23
     }
   }
 }

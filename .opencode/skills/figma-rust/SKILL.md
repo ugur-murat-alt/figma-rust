@@ -32,6 +32,8 @@ Use this skill for every end-to-end figma-rust task. The system is a structural 
 5. For Linux transparent-window evidence, load `transparent-window-rgba-capture` and `atomic-artifact-publication`, then use the project command `/capture-linux`.
 6. Inspect the owning source and existing fixture before changing behavior. Prefer the smallest correct change.
 7. Select one mode: extract, inspect/lint, compile, plugin bridge, verify, capture, or compiler development. Do not mix evidence from different modes.
+8. For pixel verification, read `references/fidelity-fonts.md`; use exact source
+   font files and configure grayscale fidelity rendering before opening the window.
 
 ## Core operating sequence
 
@@ -50,6 +52,8 @@ Use this skill for every end-to-end figma-rust task. The system is a structural 
 - A hand-authored GPUI proof must be labeled hand-authored and must not be represented as compiler output.
 - A zero-tolerance comparison with `passed:false` is valid diagnostic evidence, but it is not a passing fidelity fixture.
 - Linux capture evidence must identify the ready process and exact compositor window. If a video source is lossy, state that clearly and retain the source plus decoder evidence.
+- Treat font file hashes and GPUI text rendering mode as capture provenance. Do
+  not install fixture-specific font versions globally.
 - Publish generated artifacts with a directory lock, unique same-directory temporary file, sync, and atomic rename. Preserve the previous final on validation failure.
 
 ## Mandatory GitHub issue decision
@@ -94,5 +98,6 @@ Report only checks that actually ran. Distinguish passed checks, expected thresh
 - `references/usage.md`: installation, plugin setup, CLI commands, server bridge, verification, capture, and development loops.
 - `references/capability-and-diagnostics.md`: architecture boundaries, diagnostic interpretation, current limitations, and evidence meanings.
 - `references/issue-policy.md`: mandatory issue classification, evidence, duplicate search, creation, and verification steps.
+- `references/fidelity-fonts.md`: exact font isolation and grayscale rendering for deterministic pixel proof.
 - `templates/bug-report.md`: sanitized bug body template for CLI-based issue creation.
 - `templates/feature-request.md`: actionable improvement body template for CLI-based issue creation.

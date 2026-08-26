@@ -12,7 +12,7 @@ use std::{
 
 use base64::Engine as _;
 use figma_generated_gpui_fixture::generated_real_group;
-use figma_gpui_runtime::FallbackTokens;
+use figma_gpui_runtime::{FallbackTokens, configure_figma_fidelity};
 use gpui::{
     App, AppContext, Bounds, Context, IntoElement, ParentElement, Render, Styled, Window,
     WindowBackgroundAppearance, WindowBounds, WindowOptions, div, point, px, rgba, size,
@@ -149,6 +149,7 @@ impl Render for CaptureView {
                     "logical_width": WIDTH,
                     "logical_height": HEIGHT,
                     "gpui_revision": GPUI_REVISION,
+                    "text_rendering": "grayscale",
                 });
                 println!("{event}");
                 if let Err(error) = io::stdout().flush() {
@@ -592,6 +593,7 @@ fn finalize_provenance(
         "session_type": environment("XDG_SESSION_TYPE"),
         "wayland_display": environment("WAYLAND_DISPLAY"),
         "gpui_revision": GPUI_REVISION,
+        "text_rendering": "grayscale",
         "window": {
             "title": EXTERNAL_READY_TITLE,
             "wm_class": EXTERNAL_WM_CLASS,
@@ -1045,6 +1047,7 @@ fn run_window_capture(output: Option<PathBuf>, backdrop: Option<Backdrop>) -> Ex
     let external_capture = backdrop.is_some();
 
     gpui_platform::application().run(move |cx: &mut App| {
+        configure_figma_fidelity(cx);
         let view_succeeded = Rc::clone(&app_succeeded);
         let open_result = cx.open_window(
             WindowOptions {

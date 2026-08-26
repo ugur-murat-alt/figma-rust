@@ -47,7 +47,7 @@ import {
 
 export const MAX_TRAVERSAL_NODES = 2_000;
 export const MAX_TRAVERSAL_DEPTH = 64;
-export const MAX_IMAGE_ASSETS = 128;
+export const MAX_IMAGE_ASSETS = 512;
 const TRANSFORM_EPSILON = 1e-12;
 
 const TEXT_SEGMENT_FIELDS = [
