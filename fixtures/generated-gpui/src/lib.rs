@@ -27,6 +27,14 @@ pub mod generated_real_group {
     ));
 }
 
+/// Output compiled from the synthetic SVG fallback fixture.
+pub mod generated_asset_fallback {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../asset-fallback/generated/generated.rs"
+    ));
+}
+
 /// Representative generated view for the first codegen slice.
 pub fn generated_view() -> impl IntoElement {
     div()
@@ -76,7 +84,7 @@ pub fn generated_view() -> impl IntoElement {
 
 #[cfg(test)]
 mod tests {
-    use figma_gpui_runtime::FallbackTokens;
+    use figma_gpui_runtime::{DirectoryAssets, FallbackTokens};
     use gpui::{
         Bounds, Context, IntoElement, Pixels, Render, TestAppContext, VisualTestContext, Window,
         px, size,
@@ -172,6 +180,15 @@ mod tests {
     #[test]
     fn real_group_fixture_constructs_without_an_application() {
         let _view = super::generated_real_group::generated_view(&FallbackTokens);
+    }
+
+    #[test]
+    fn asset_fallback_fixture_constructs_against_pinned_gpui() {
+        let assets = DirectoryAssets::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../asset-fallback/generated"
+        ));
+        let _view = super::generated_asset_fallback::generated_view(&FallbackTokens, &assets);
     }
 
     #[gpui::test]

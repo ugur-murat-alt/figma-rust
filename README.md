@@ -29,6 +29,10 @@ figma-rust serve
 
 Generated code never owns handwritten application behavior. Unsupported source
 features produce node-scoped diagnostics instead of disappearing silently.
+The plugin's **Export compiler JSON** path omits the optional REST snapshot and
+reports bundle size before the CLI publishes generated Rust, sidecars,
+`asset-manifest.json`, and decoded SVG/PNG fallback files under a directory lock
+with staged writes and handled-failure rollback.
 
 ## Linux Render Capture
 

@@ -10,6 +10,7 @@ name = "figma-rust"
 path = "src/main.rs"
 
 [dependencies]
+base64.workspace = true
 clap.workspace = true
 figma-rust-codegen = { path = "../figma-rust-codegen" }
 figma-rust-core = { path = "../figma-rust-core" }

@@ -63,6 +63,12 @@ Modeled numeric values use
 `RawBoundValue<number>` so token identity and literal fallback survive for Auto
 Layout gap/padding, corner radii, and per-edge stroke widths.
 
+`RawAsset` can carry an optional base64 payload for compiler exports. Preview and
+lint extraction retain asset metadata but skip payload export; Compiler JSON and
+Dev Mode compilation include payloads. The CLI removes payloads from `ir.json`,
+decodes supported SVG/PNG/JPEG/GIF/WebP data into deterministic flat file names,
+and records them in `asset-manifest.json`.
+
 `RawNode` deliberately uses Figma terms such as `layout_mode`, axis sizing,
 constraints, grid tracks, bound-variable aliases, component properties, and
 UTF-16 text ranges. Unknown source fields can be retained in an extension map so
@@ -146,6 +152,11 @@ The backend first uses GPUI core:
 - native colors, borders, radii, shadows, opacity, SVG, image, text, focus,
   events, hover/active styles, and scrolling;
 - stable `.id(...)` and test-support `.debug_selector(...)` metadata.
+
+SVG/raster fallback nodes are emitted as one GPUI asset element and their captured
+descendants are not emitted a second time. Generated fallback views accept the
+small `AssetResolver` contract; `DirectoryAssets` resolves manifest file names
+relative to an application-owned directory.
 
 Runtime primitives are accepted only when the capability matrix says native
 GPUI is insufficient and a fixture proves the primitive. Candidate modules are:

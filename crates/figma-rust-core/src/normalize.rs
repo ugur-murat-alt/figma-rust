@@ -931,7 +931,9 @@ impl Context<'_> {
         match raw.style.blend_mode {
             crate::raw::RawBlendMode::Normal => {}
             crate::raw::RawBlendMode::PassThrough => {
-                require(AssetRoute::Runtime, "pass-through compositing");
+                if raw.kind != RawNodeKind::Group || raw.opacity.to_bits() != 1.0_f64.to_bits() {
+                    require(AssetRoute::Runtime, "pass-through compositing");
+                }
             }
             _ => require(AssetRoute::Raster, "non-normal blend mode"),
         }
@@ -970,6 +972,15 @@ impl Context<'_> {
             ) {
                 require(AssetRoute::Raster, effect_kind(effect));
             }
+        }
+        if raw.text.as_ref().is_some_and(|text| {
+            text.runs.iter().any(|run| {
+                run.style
+                    .letter_spacing
+                    .is_some_and(|spacing| spacing != 0.0)
+            })
+        }) {
+            require(AssetRoute::Svg, "letter spacing");
         }
 
         AssetDecision { route, reasons }
@@ -1276,6 +1287,7 @@ fn compare_assets(left: &crate::raw::RawAsset, right: &crate::raw::RawAsset) -> 
         .then_with(|| left.media_type.cmp(&right.media_type))
         .then_with(|| left.content_hash.cmp(&right.content_hash))
         .then_with(|| left.export_settings.cmp(&right.export_settings))
+        .then_with(|| left.payload_base64.cmp(&right.payload_base64))
 }
 
 fn validate_node_ids(

@@ -6,6 +6,11 @@ import {
   withExtractionDeadline,
   type ExtractionDeadline,
 } from "./extract";
+import {
+  includeRestSnapshotForExport,
+  summarizeBundle,
+  type ExportKind,
+} from "./export";
 import type { CompilerResponse, ExtractionDiagnostic, ExtractionBundle } from "./schema";
 
 declare const __html__: string;
@@ -49,15 +54,25 @@ if (figma.editorType === "dev") {
 } else {
   figma.showUI(__html__, { width: 420, height: 560, themeColors: true });
 
-  figma.ui.onmessage = async (message: { type?: string }) => {
+  figma.ui.onmessage = async (message: { type?: string; export_kind?: ExportKind }) => {
     if (message.type === "extract") {
-      const bundle = await extractSelection(true);
-      figma.ui.postMessage({ type: "bundle", bundle });
+      try {
+        const exportKind: ExportKind = message.export_kind === "EVIDENCE" ? "EVIDENCE" : "COMPILER";
+        const bundle = await extractSelection(includeRestSnapshotForExport(exportKind));
+        figma.ui.postMessage({
+          type: "bundle",
+          bundle,
+          export_kind: exportKind,
+          summary: summarizeBundle(bundle),
+        });
+      } catch (error) {
+        postUiError(error);
+      }
       return;
     }
     if (message.type === "lint") {
-      const bundle = await extractSelection(false);
       try {
+        const bundle = await extractSelection(false, undefined, false);
         const result = await callCompiler(
           "/lint",
           bundle,
@@ -65,16 +80,20 @@ if (figma.editorType === "dev") {
         );
         figma.ui.postMessage({ type: "lint-result", result });
       } catch (error) {
-        figma.ui.postMessage({
-          type: "error",
-          message: error instanceof Error ? error.message : String(error),
-        });
+        postUiError(error);
       }
     }
   };
 
-  void extractSelection(false).then((bundle) => {
-    figma.ui.postMessage({ type: "bundle-preview", bundle });
+  void extractSelection(false, undefined, false).then((bundle) => {
+    figma.ui.postMessage({ type: "bundle-preview", bundle, summary: summarizeBundle(bundle) });
+  }, postUiError);
+}
+
+function postUiError(error: unknown): void {
+  figma.ui.postMessage({
+    type: "error",
+    message: error instanceof Error ? error.message : String(error),
   });
 }
 

@@ -281,6 +281,7 @@ export interface RawAsset {
   media_type: string;
   content_hash?: string;
   export_settings: Record<string, string>;
+  payload_base64?: string;
 }
 
 export interface RawNode {

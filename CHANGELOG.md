@@ -2,6 +2,37 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.0] - 2026-08-26
+
+### Added
+
+- Separate compact compiler and optional REST-evidence JSON exports with node,
+  variable, asset, diagnostic, and UTF-8 size summaries.
+- Optional base64 SVG/PNG fallback payloads, deterministic asset file names,
+  `asset-manifest.json`, stale-asset cleanup, and runtime `AssetResolver` support.
+- A pinned-GPUI synthetic fixture for the generated SVG fallback path.
+
+### Changed
+
+- Opaque `PASS_THROUGH` groups remain native while non-opaque pass-through cases
+  take the explicit runtime fallback route.
+- Nonzero letter spacing now uses SVG fallback instead of being silently dropped.
+- Preview and lint extraction omit asset payloads; compiler, evidence, and Dev Mode
+  compiler paths retain payloads when available.
+
+### Fixed
+
+- Collapsed captured fallback subtrees to one generated asset without repeating
+  nested SVG/raster exports while retaining reaction and component validation.
+- Preserved UI error reporting when asynchronous plugin actions reject.
+- Removed ambiguity between ordinary image assets and raster fallback payloads.
+
+### Known Limitations
+
+- Rich image crop/fit and runtime paint semantics still require isolated fixtures.
+- The complete Orbitline Design node `419:2` extraction is not part of this public
+  release fixture set, so its final geometry and pixel fidelity remain unverified.
+
 ## [0.2.0] - 2026-08-26
 
 ### Added
@@ -28,4 +59,5 @@ All notable changes to this project are documented in this file.
 - Enterprise extended-variable-collection overrides are not yet covered by a public fixture.
 - Runtime asset routes remain an explicit GPUI code-generation boundary.
 
+[0.3.0]: https://github.com/ugur-murat-alt/figma-rust/releases/tag/v0.3.0
 [0.2.0]: https://github.com/ugur-murat-alt/figma-rust/releases/tag/v0.2.0

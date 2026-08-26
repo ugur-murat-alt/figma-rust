@@ -7,7 +7,7 @@
       body { margin: 0; padding: 18px; color: var(--figma-color-text); background: var(--figma-color-bg); }
       h1 { margin: 0 0 4px; font-size: 16px; }
       p { margin: 0 0 14px; color: var(--figma-color-text-secondary); }
-      .actions { display: flex; gap: 8px; margin-bottom: 14px; }
+      .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
       button { border: 1px solid var(--figma-color-border); border-radius: 6px; padding: 7px 11px; background: var(--figma-color-bg-secondary); color: inherit; cursor: pointer; }
       button.primary { border-color: var(--figma-color-bg-brand); background: var(--figma-color-bg-brand); color: var(--figma-color-text-onbrand); }
       #status { padding: 10px; border: 1px solid var(--figma-color-border); border-radius: 6px; white-space: pre-wrap; max-height: 360px; overflow: auto; }
@@ -18,14 +18,31 @@
     <h1>figma-rust</h1>
     <p>Structural Figma extraction and GPUI compiler diagnostics.</p>
     <div class="actions">
-      <button id="extract" class="primary">Export JSON</button>
+      <button id="extract-compiler" class="primary">Export compiler JSON</button>
+      <button id="extract-evidence">Export evidence JSON</button>
       <button id="lint">Lint selection</button>
     </div>
     <div id="status">Select a frame or component.</div>
     <script>
       const status = document.getElementById("status");
-      document.getElementById("extract").onclick = () => parent.postMessage({ pluginMessage: { type: "extract" } }, "*");
+      document.getElementById("extract-compiler").onclick = () => parent.postMessage({ pluginMessage: { type: "extract", export_kind: "COMPILER" } }, "*");
+      document.getElementById("extract-evidence").onclick = () => parent.postMessage({ pluginMessage: { type: "extract", export_kind: "EVIDENCE" } }, "*");
       document.getElementById("lint").onclick = () => parent.postMessage({ pluginMessage: { type: "lint" } }, "*");
+      const formatBytes = (bytes) => bytes >= 1024 * 1024
+        ? `${(bytes / (1024 * 1024)).toFixed(2)} MiB`
+        : `${Math.ceil(bytes / 1024)} KiB`;
+      const formatSummary = (summary) => {
+        const lines = [
+          `${summary.root_count} root, ${summary.node_count} node`,
+          `${summary.variable_count} variable, ${summary.asset_count} asset`,
+          `${summary.diagnostics.errors} error, ${summary.diagnostics.warnings} warning, ${summary.diagnostics.info} info`,
+          `Estimated JSON: ${formatBytes(summary.estimated_bytes)}`,
+        ];
+        if (summary.includes_rest_snapshot) lines.push("Includes JSON_REST_V1 evidence snapshot");
+        if (summary.large_selection) lines.push("Large selection: prefer compiler JSON and the file-based CLI");
+        if (!summary.bridge_compatible) lines.push("Too large for the 8 MiB loopback bridge; export to a file");
+        return lines.join("\n");
+      };
       onmessage = ({ data }) => {
         const message = data.pluginMessage;
         if (!message) return;
@@ -34,14 +51,22 @@
           const url = URL.createObjectURL(new Blob([json], { type: "application/json" }));
           const link = document.createElement("a");
           link.href = url;
-          link.download = "figma-rust-extraction.json";
+          link.download = message.export_kind === "EVIDENCE"
+            ? "figma-rust-evidence.json"
+            : "figma-rust-extraction.json";
           link.click();
           URL.revokeObjectURL(url);
-          status.textContent = `${message.bundle.roots.length} root node exported\n${message.bundle.extraction_diagnostics.length} extraction diagnostics`;
+          status.textContent = `Exported ${link.download}\n${formatSummary(message.summary)}`;
         } else if (message.type === "bundle-preview") {
-          status.textContent = message.bundle.extraction_diagnostics.length
-            ? message.bundle.extraction_diagnostics.map((item) => `[${item.severity}] ${item.code}: ${item.message}`).join("\n")
-            : `${message.bundle.roots.length} selected root node(s) ready`;
+          const preview = message.bundle.extraction_diagnostics
+            .slice(0, 20)
+            .map((item) => `[${item.severity}] ${item.code}: ${item.message}`);
+          const remaining = message.bundle.extraction_diagnostics.length - preview.length;
+          status.textContent = [
+            formatSummary(message.summary),
+            ...preview,
+            ...(remaining > 0 ? [`… ${remaining} additional diagnostics; export or lint for the full list`] : []),
+          ].join("\n");
         } else if (message.type === "lint-result") {
           status.textContent = JSON.stringify(message.result, null, 2);
         } else if (message.type === "error") {
