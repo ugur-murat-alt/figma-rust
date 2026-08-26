@@ -61,8 +61,8 @@ diagnostic whenever it leaves the first route.
 | Dashed stroke | GPUI native, asset/SVG | Native rectangular border; arbitrary paths use SVG. |
 | Stroke caps/joins | asset/SVG | Preserve path semantics in SVG. |
 | Variable-width/brush/dynamic stroke | asset/SVG, raster fallback | SVG first; raster if export cannot preserve the effect. |
-| Uniform corner radius | GPUI native | Native radius. |
-| Independent corner radii | GPUI native | Native four-corner radii. |
+| Uniform corner radius | GPUI native | Native radius; bound values use the context-aware number resolver. |
+| Independent corner radii | GPUI native | Native four-corner radii; each corner retains its own token and fallback. |
 | Corner smoothing/squircle | figma-rust runtime, asset/SVG | Custom path or SVG; circular radius is not equivalent. |
 | Drop shadow | GPUI native | Offset, blur, spread, color; multiple shadows supported. |
 | Inner shadow | GPUI native | Native inset shadow at pinned revision; fixture required. |
@@ -79,8 +79,9 @@ diagnostic whenever it leaves the first route.
 | OpenType feature overrides | GPUI native, figma-rust runtime | Pass supported features; diagnose unavailable ones. |
 | Leading trim/text wrap styles | figma-rust runtime | Text helper plus geometry fixture; unsupported variants warn. |
 | Missing font | unsupported/ambiguous | Error in fidelity mode; configured substitution only with diagnostic. |
-| Variable-bound color/number/string/boolean | figma-rust runtime | `TokenRef` plus typed generated token resolver and literal fallback. |
-| Variable modes/collections | figma-rust runtime | Preserve collection/mode identity; application selects mode. |
+| Variable-bound color and modeled numbers | figma-rust runtime | Colors, text size, Auto Layout gap/padding, corner radii, and per-edge stroke widths retain `TokenRef`, full mode context, and literal fallback. Other numeric paths remain diagnostic until modeled. |
+| Variable-bound string/boolean | figma-rust runtime | Raw variable values and runtime resolver methods exist; no generated property consumer is claimed yet. |
+| Variable modes/collections | figma-rust runtime | Extraction schema v2 preserves each `(variable, mode context)` value for standard collections and cross-collection aliases; generated resolvers receive the applicable collection/mode map. Extended collection overrides are not yet proven. |
 | Component set and variants | figma-rust runtime | Semantic registry resolves Figma key and variant properties. |
 | TEXT/BOOLEAN component property | figma-rust runtime | Typed property mapping. |
 | INSTANCE_SWAP property | figma-rust runtime | Registry lookup with structural fallback and warning. |

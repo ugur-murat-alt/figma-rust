@@ -1,17 +1,19 @@
 use std::collections::BTreeMap;
 
 use figma_rust_core::diagnostic::codes;
-use figma_rust_core::ir::{AssetRoute, AxisSizing, ComponentResolution, Layout, Positioning};
+use figma_rust_core::ir::{
+    AssetRoute, AxisSizing, ComponentResolution, Layout, Paint, Positioning,
+};
 use figma_rust_core::raw::{RawAsset, RawColor, RawComponent, RawLiteral, RawVariable};
 use figma_rust_core::{
     ComponentMapping, ComponentRegistry, normalize_bundle, normalize_bundle_with_registry,
-    parse_bundle,
+    parse_and_normalize, parse_bundle,
 };
 use serde_json::{Value, json};
 
 fn bundle_with_roots(roots: &Value) -> figma_rust_core::raw::ExtractionBundle {
     let value = json!({
-        "schema_version": 1,
+        "schema_version": 2,
         "source": {
             "page_id": "0:1",
             "selected_node_ids": ["1:1"],
@@ -38,6 +40,10 @@ fn fixed_node(id: &str, kind: &str) -> Value {
             "vertical": "FIXED"
         }
     })
+}
+
+fn mode_context(collection_id: &str, mode_id: &str) -> BTreeMap<String, String> {
+    BTreeMap::from([(collection_id.to_owned(), mode_id.to_owned())])
 }
 
 #[test]
@@ -323,6 +329,7 @@ fn unordered_metadata_is_canonical_and_variable_values_are_validated() {
             name: "Z".to_owned(),
             collection_id: "theme".to_owned(),
             mode_id: "light".to_owned(),
+            mode_context: mode_context("theme", "light"),
             source_node_id: None,
             value: RawLiteral::Number(2.0),
         },
@@ -331,6 +338,7 @@ fn unordered_metadata_is_canonical_and_variable_values_are_validated() {
             name: "A".to_owned(),
             collection_id: "theme".to_owned(),
             mode_id: "light".to_owned(),
+            mode_context: mode_context("theme", "light"),
             source_node_id: Some("1:1".to_owned()),
             value: RawLiteral::Color(RawColor {
                 r: 2.0,
@@ -344,6 +352,7 @@ fn unordered_metadata_is_canonical_and_variable_values_are_validated() {
             name: "Z alternate".to_owned(),
             collection_id: "theme".to_owned(),
             mode_id: "dark".to_owned(),
+            mode_context: mode_context("theme", "dark"),
             source_node_id: None,
             value: RawLiteral::Number(3.0),
         },
@@ -394,11 +403,173 @@ fn unordered_metadata_is_canonical_and_variable_values_are_validated() {
         diagnostic.code == codes::INVALID_NUMBER && diagnostic.node_id.as_deref() == Some("1:1")
     }));
     assert!(
-        first_output
+        !first_output
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == codes::DUPLICATE_METADATA_ID)
     );
+    assert_eq!(
+        first_output
+            .document
+            .variables
+            .iter()
+            .filter_map(|variable| variable.token.mode_id.as_deref())
+            .collect::<Vec<_>>(),
+        vec!["light", "light", "dark"]
+    );
+}
+
+#[test]
+fn multi_mode_tokens_select_the_full_consumer_context() {
+    let mut node = fixed_node("10:1", "RECTANGLE");
+    node["style"] = json!({
+        "fills": [{
+            "kind": "SOLID",
+            "color": {
+                "literal": {"r": 0.9, "g": 0.8, "b": 0.7, "a": 1.0},
+                "token_id": "surface",
+                "mode_context": {"primitive": "dark", "theme": "light"}
+            }
+        }]
+    });
+    let mut bundle = bundle_with_roots(&json!([node]));
+    bundle.variables = vec![
+        RawVariable {
+            id: "surface".to_owned(),
+            name: "Surface".to_owned(),
+            collection_id: "theme".to_owned(),
+            mode_id: "light".to_owned(),
+            mode_context: BTreeMap::from([
+                ("primitive".to_owned(), "light".to_owned()),
+                ("theme".to_owned(), "light".to_owned()),
+            ]),
+            source_node_id: Some("10:2".to_owned()),
+            value: RawLiteral::Color(RawColor {
+                r: 0.1,
+                g: 0.2,
+                b: 0.3,
+                a: 1.0,
+            }),
+        },
+        RawVariable {
+            id: "surface".to_owned(),
+            name: "Surface".to_owned(),
+            collection_id: "theme".to_owned(),
+            mode_id: "light".to_owned(),
+            mode_context: BTreeMap::from([
+                ("primitive".to_owned(), "dark".to_owned()),
+                ("theme".to_owned(), "light".to_owned()),
+            ]),
+            source_node_id: Some("10:1".to_owned()),
+            value: RawLiteral::Color(RawColor {
+                r: 0.9,
+                g: 0.8,
+                b: 0.7,
+                a: 1.0,
+            }),
+        },
+    ];
+
+    let output = normalize_bundle(&bundle);
+    let Paint::Solid { color } = &output.document.roots[0].style.fills[0] else {
+        panic!("fixture must normalize to a solid fill");
+    };
+    assert_eq!(
+        color
+            .token
+            .as_ref()
+            .and_then(|token| token.mode_id.as_deref()),
+        Some("light")
+    );
+    assert_eq!(
+        color.mode_context.get("primitive").map(String::as_str),
+        Some("dark")
+    );
+    assert!((color.fallback.r - 0.9).abs() < f64::EPSILON);
+    assert_eq!(output.document.variables.len(), 2);
+    assert!(!output.has_errors());
+}
+
+#[test]
+fn modeled_numeric_bindings_preserve_tokens_and_fallbacks() {
+    let output = parse_and_normalize(include_str!("fixtures/basic.raw.json"))
+        .expect("numeric binding fixture must parse");
+    assert!(!output.has_errors());
+    let root = &output.document.roots[0];
+    let Layout::Stack { gap, padding, .. } = &root.layout else {
+        panic!("numeric binding fixture must normalize to a stack");
+    };
+    assert_eq!(
+        gap.token.as_ref().map(|token| token.id.as_str()),
+        Some("number.layout")
+    );
+    assert!((gap.fallback - 8.0).abs() < f64::EPSILON);
+    assert_eq!(
+        padding.top.token.as_ref().map(|token| token.id.as_str()),
+        Some("number.layout")
+    );
+    assert!((root.style.radii.top_left.fallback - 8.0).abs() < f64::EPSILON);
+    assert_eq!(
+        root.style
+            .radii
+            .bottom_left
+            .token
+            .as_ref()
+            .map(|token| token.id.as_str()),
+        Some("radius.bottom-left")
+    );
+    assert!((root.style.stroke_widths.top.fallback - 1.0).abs() < f64::EPSILON);
+    assert_eq!(
+        root.style
+            .stroke_widths
+            .left
+            .token
+            .as_ref()
+            .map(|token| token.id.as_str()),
+        Some("stroke.left")
+    );
+}
+
+#[test]
+fn schema_one_is_rejected_after_the_explicit_v2_change() {
+    let output = parse_and_normalize(include_str!("fixtures/basic.v1.raw.json"))
+        .expect("the exact v1 fixture must remain readable for an explicit version diagnostic");
+    assert!(
+        output
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == codes::SCHEMA_VERSION)
+    );
+}
+
+#[test]
+fn schema_two_rejects_legacy_scalar_bound_values() {
+    let relabeled = include_str!("fixtures/basic.v1.raw.json")
+        .replace("\"schema_version\": 1", "\"schema_version\": 2");
+    assert!(parse_bundle(&relabeled).is_err());
+
+    let mut bare_color = serde_json::from_str::<Value>(include_str!("fixtures/basic.raw.json"))
+        .expect("v2 fixture must be JSON");
+    bare_color["roots"][0]["style"]["fills"][0]["color"] =
+        bare_color["roots"][0]["style"]["fills"][0]["color"]["literal"].take();
+    assert!(parse_bundle(&bare_color.to_string()).is_err());
+}
+
+#[test]
+fn schema_two_rejects_duplicate_known_fields() {
+    let basic = include_str!("fixtures/basic.raw.json");
+    let duplicate_schema = basic.replace(
+        "\"schema_version\": 2",
+        "\"schema_version\": 1, \"schema_version\": 2",
+    );
+    assert!(parse_bundle(&duplicate_schema).is_err());
+
+    let duplicate_gap = basic.replacen("\"gap\": {", "\"gap\": 8.0, \"gap\": {", 1);
+    assert!(parse_bundle(&duplicate_gap).is_err());
+
+    let duplicate_literal =
+        basic.replacen("\"literal\": 8.0", "\"literal\": 7.0, \"literal\": 8.0", 1);
+    assert!(parse_bundle(&duplicate_literal).is_err());
 }
 
 #[test]

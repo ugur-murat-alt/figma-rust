@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "source": {
+    "file_key": "fixture-file",
+    "page_id": "0:1",
+    "selected_node_ids": ["1:1"],
+    "plugin_api_version": "1.135.0"
+  },
+  "roots": [
+    {
+      "id": "1:1",
+      "name": "Card",
+      "kind": "RECTANGLE",
+      "size": {
+        "width": 120.0,
+        "height": 48.0,
+        "horizontal": "FIXED",
+        "vertical": "FIXED",
+        "min_width": 80.0,
+        "max_width": 240.0
+      },
+      "style": {
+        "fills": [
+          {
+            "kind": "SOLID",
+            "color": {
+              "literal": {"r": 0.125, "g": 0.25, "b": 0.5, "a": 1.0},
+              "token_id": "color.brand"
+            }
+          }
+        ],
+        "radii": {
+          "top_left": 8.0,
+          "top_right": 8.0,
+          "bottom_right": 8.0,
+          "bottom_left": 8.0
+        }
+      },
+      "future_node_field": "retained-by-raw-model"
+    }
+  ],
+  "variables": [
+    {
+      "id": "color.brand",
+      "name": "Brand/Primary",
+      "collection_id": "collection.theme",
+      "mode_id": "mode.light",
+      "value": {
+        "kind": "COLOR",
+        "value": {"r": 0.125, "g": 0.25, "b": 0.5, "a": 1.0}
+      }
+    }
+  ],
+  "components": [],
+  "assets": []
+}

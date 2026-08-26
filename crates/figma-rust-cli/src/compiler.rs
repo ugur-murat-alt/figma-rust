@@ -851,6 +851,7 @@ mod tests {
     };
 
     const BASIC: &str = include_str!("../../figma-rust-core/tests/fixtures/basic.raw.json");
+    const BASIC_V1: &str = include_str!("../../figma-rust-core/tests/fixtures/basic.v1.raw.json");
 
     #[test]
     fn inspect_is_deterministic_and_counts_preorder_tree() -> Result<(), Box<dyn std::error::Error>>
@@ -884,11 +885,19 @@ mod tests {
     }
 
     #[test]
+    fn schema_one_source_returns_an_explicit_normalization_error()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let response = lint_source(BASIC_V1)?;
+        assert_eq!(response.error.as_deref(), Some("normalization failed"));
+        assert!(response.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == figma_rust_core::diagnostic::codes::SCHEMA_VERSION
+        }));
+        Ok(())
+    }
+
+    #[test]
     fn codegen_error_is_node_and_property_scoped() -> Result<(), Box<dyn std::error::Error>> {
-        let grid = BASIC.replace(
-            "\"kind\": \"RECTANGLE\",",
-            "\"kind\": \"RECTANGLE\", \"layout\": { \"mode\": \"GRID\" },",
-        );
+        let grid = BASIC.replace("\"mode\": \"HORIZONTAL\"", "\"mode\": \"GRID\"");
         let response = compile_source(&grid)?;
         assert!(response.code.is_none());
         assert!(response.error.is_some());
@@ -947,7 +956,7 @@ mod tests {
 
         fs::write(
             &raw,
-            BASIC.replace("\"schema_version\": 1", "\"schema_version\": 999"),
+            BASIC.replace("\"schema_version\": 2", "\"schema_version\": 999"),
         )?;
         let result = compile_file(&raw, &out)?;
         assert_eq!(result.error.as_deref(), Some("normalization failed"));
@@ -958,10 +967,7 @@ mod tests {
         assert!(compile_file(&raw, &out)?.error.is_none());
         fs::write(
             &raw,
-            BASIC.replace(
-                "\"kind\": \"RECTANGLE\",",
-                "\"kind\": \"RECTANGLE\", \"layout\": { \"mode\": \"GRID\" },",
-            ),
+            BASIC.replace("\"mode\": \"HORIZONTAL\"", "\"mode\": \"GRID\""),
         )?;
         let result = compile_file(&raw, &out)?;
         assert!(result.error.is_some());
@@ -1064,7 +1070,7 @@ mod tests {
         let out = base.join("out");
         fs::write(
             &raw,
-            BASIC.replace("\"schema_version\": 1", "\"schema_version\": 999"),
+            BASIC.replace("\"schema_version\": 2", "\"schema_version\": 999"),
         )?;
 
         let result = compile_file(&raw, &out)?;

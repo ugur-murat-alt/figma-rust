@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "source": {
     "file_key": "AShHVrUqsKDWavqH8D4S09",
     "page_id": "184:6",
@@ -22,12 +22,22 @@
         "wrap": false,
         "primary_alignment": "START",
         "counter_alignment": "START",
-        "gap": 10,
+        "gap": {
+          "literal": 10
+        },
         "padding": {
-          "top": 14,
-          "right": 16,
-          "bottom": 14,
-          "left": 16
+          "top": {
+            "literal": 14
+          },
+          "right": {
+            "literal": 16
+          },
+          "bottom": {
+            "literal": 14
+          },
+          "left": {
+            "literal": 16
+          }
         },
         "grid": {
           "columns": [],
@@ -75,23 +85,42 @@
                 "b": 0.12941177189350128,
                 "a": 1
               },
-              "token_id": "VariableID:185:57"
+              "token_id": "VariableID:185:57",
+              "mode_context": {
+                "VariableCollectionId:185:3": "185:1"
+              }
             }
           }
         ],
         "strokes": [],
         "stroke_widths": {
-          "top": 0,
-          "right": 0,
-          "bottom": 0,
-          "left": 0
+          "top": {
+            "literal": 0
+          },
+          "right": {
+            "literal": 0
+          },
+          "bottom": {
+            "literal": 0
+          },
+          "left": {
+            "literal": 0
+          }
         },
         "stroke_align": "INSIDE",
         "radii": {
-          "top_left": 0,
-          "top_right": 0,
-          "bottom_right": 0,
-          "bottom_left": 0,
+          "top_left": {
+            "literal": 0
+          },
+          "top_right": {
+            "literal": 0
+          },
+          "bottom_right": {
+            "literal": 0
+          },
+          "bottom_left": {
+            "literal": 0
+          },
           "smoothing": 0
         },
         "effects": [],
@@ -124,12 +153,22 @@
             "wrap": false,
             "primary_alignment": "START",
             "counter_alignment": "START",
-            "gap": 0,
+            "gap": {
+              "literal": 0
+            },
             "padding": {
-              "top": 0,
-              "right": 0,
-              "bottom": 0,
-              "left": 0
+              "top": {
+                "literal": 0
+              },
+              "right": {
+                "literal": 0
+              },
+              "bottom": {
+                "literal": 0
+              },
+              "left": {
+                "literal": 0
+              }
             },
             "grid": {
               "columns": [],
@@ -177,23 +216,42 @@
                     "b": 0.7098039388656616,
                     "a": 1
                   },
-                  "token_id": "VariableID:185:60"
+                  "token_id": "VariableID:185:60",
+                  "mode_context": {
+                    "VariableCollectionId:185:3": "185:1"
+                  }
                 }
               }
             ],
             "strokes": [],
             "stroke_widths": {
-              "top": 1,
-              "right": 1,
-              "bottom": 1,
-              "left": 1
+              "top": {
+                "literal": 1
+              },
+              "right": {
+                "literal": 1
+              },
+              "bottom": {
+                "literal": 1
+              },
+              "left": {
+                "literal": 1
+              }
             },
             "stroke_align": "OUTSIDE",
             "radii": {
-              "top_left": 0,
-              "top_right": 0,
-              "bottom_right": 0,
-              "bottom_left": 0,
+              "top_left": {
+                "literal": 0
+              },
+              "top_right": {
+                "literal": 0
+              },
+              "bottom_right": {
+                "literal": 0
+              },
+              "bottom_left": {
+                "literal": 0
+              },
               "smoothing": 0
             },
             "effects": [],
@@ -222,7 +280,10 @@
                       "b": 0.7098039388656616,
                       "a": 1
                     },
-                    "token_id": "VariableID:185:60"
+                    "token_id": "VariableID:185:60",
+                    "mode_context": {
+                      "VariableCollectionId:185:3": "185:1"
+                    }
                   }
                 }
               }
@@ -276,12 +337,22 @@
             "wrap": false,
             "primary_alignment": "START",
             "counter_alignment": "START",
-            "gap": 5,
+            "gap": {
+              "literal": 5
+            },
             "padding": {
-              "top": 10,
-              "right": 10,
-              "bottom": 10,
-              "left": 10
+              "top": {
+                "literal": 10
+              },
+              "right": {
+                "literal": 10
+              },
+              "bottom": {
+                "literal": 10
+              },
+              "left": {
+                "literal": 10
+              }
             },
             "grid": {
               "columns": [],
@@ -329,7 +400,10 @@
                     "b": 0.04313725605607033,
                     "a": 1
                   },
-                  "token_id": "VariableID:185:54"
+                  "token_id": "VariableID:185:54",
+                  "mode_context": {
+                    "VariableCollectionId:185:3": "185:1"
+                  }
                 }
               }
             ],
@@ -343,22 +417,41 @@
                     "b": 0.16470588743686676,
                     "a": 1
                   },
-                  "token_id": "VariableID:185:64"
+                  "token_id": "VariableID:185:64",
+                  "mode_context": {
+                    "VariableCollectionId:185:3": "185:1"
+                  }
                 }
               }
             ],
             "stroke_widths": {
-              "top": 1,
-              "right": 1,
-              "bottom": 1,
-              "left": 1
+              "top": {
+                "literal": 1
+              },
+              "right": {
+                "literal": 1
+              },
+              "bottom": {
+                "literal": 1
+              },
+              "left": {
+                "literal": 1
+              }
             },
             "stroke_align": "INSIDE",
             "radii": {
-              "top_left": 2,
-              "top_right": 2,
-              "bottom_right": 2,
-              "bottom_left": 2,
+              "top_left": {
+                "literal": 2
+              },
+              "top_right": {
+                "literal": 2
+              },
+              "bottom_right": {
+                "literal": 2
+              },
+              "bottom_left": {
+                "literal": 2
+              },
               "smoothing": 0
             },
             "effects": [],
@@ -380,12 +473,22 @@
                 "wrap": false,
                 "primary_alignment": "START",
                 "counter_alignment": "START",
-                "gap": 0,
+                "gap": {
+                  "literal": 0
+                },
                 "padding": {
-                  "top": 0,
-                  "right": 0,
-                  "bottom": 0,
-                  "left": 0
+                  "top": {
+                    "literal": 0
+                  },
+                  "right": {
+                    "literal": 0
+                  },
+                  "bottom": {
+                    "literal": 0
+                  },
+                  "left": {
+                    "literal": 0
+                  }
                 },
                 "grid": {
                   "columns": [],
@@ -426,17 +529,33 @@
                 "fills": [],
                 "strokes": [],
                 "stroke_widths": {
-                  "top": 0,
-                  "right": 0,
-                  "bottom": 0,
-                  "left": 0
+                  "top": {
+                    "literal": 0
+                  },
+                  "right": {
+                    "literal": 0
+                  },
+                  "bottom": {
+                    "literal": 0
+                  },
+                  "left": {
+                    "literal": 0
+                  }
                 },
                 "stroke_align": "INSIDE",
                 "radii": {
-                  "top_left": 0,
-                  "top_right": 0,
-                  "bottom_right": 0,
-                  "bottom_left": 0,
+                  "top_left": {
+                    "literal": 0
+                  },
+                  "top_right": {
+                    "literal": 0
+                  },
+                  "bottom_right": {
+                    "literal": 0
+                  },
+                  "bottom_left": {
+                    "literal": 0
+                  },
                   "smoothing": 0
                 },
                 "effects": [],
@@ -458,12 +577,22 @@
                     "wrap": false,
                     "primary_alignment": "START",
                     "counter_alignment": "START",
-                    "gap": 0,
+                    "gap": {
+                      "literal": 0
+                    },
                     "padding": {
-                      "top": 0,
-                      "right": 0,
-                      "bottom": 0,
-                      "left": 0
+                      "top": {
+                        "literal": 0
+                      },
+                      "right": {
+                        "literal": 0
+                      },
+                      "bottom": {
+                        "literal": 0
+                      },
+                      "left": {
+                        "literal": 0
+                      }
                     },
                     "grid": {
                       "columns": [],
@@ -511,23 +640,42 @@
                             "b": 0.5764706134796143,
                             "a": 1
                           },
-                          "token_id": "VariableID:185:61"
+                          "token_id": "VariableID:185:61",
+                          "mode_context": {
+                            "VariableCollectionId:185:3": "185:1"
+                          }
                         }
                       }
                     ],
                     "strokes": [],
                     "stroke_widths": {
-                      "top": 1,
-                      "right": 1,
-                      "bottom": 1,
-                      "left": 1
+                      "top": {
+                        "literal": 1
+                      },
+                      "right": {
+                        "literal": 1
+                      },
+                      "bottom": {
+                        "literal": 1
+                      },
+                      "left": {
+                        "literal": 1
+                      }
                     },
                     "stroke_align": "OUTSIDE",
                     "radii": {
-                      "top_left": 0,
-                      "top_right": 0,
-                      "bottom_right": 0,
-                      "bottom_left": 0,
+                      "top_left": {
+                        "literal": 0
+                      },
+                      "top_right": {
+                        "literal": 0
+                      },
+                      "bottom_right": {
+                        "literal": 0
+                      },
+                      "bottom_left": {
+                        "literal": 0
+                      },
                       "smoothing": 0
                     },
                     "effects": [],
@@ -556,7 +704,10 @@
                               "b": 0.5764706134796143,
                               "a": 1
                             },
-                            "token_id": "VariableID:185:61"
+                            "token_id": "VariableID:185:61",
+                            "mode_context": {
+                              "VariableCollectionId:185:3": "185:1"
+                            }
                           }
                         }
                       }
@@ -610,12 +761,22 @@
                     "wrap": false,
                     "primary_alignment": "START",
                     "counter_alignment": "START",
-                    "gap": 0,
+                    "gap": {
+                      "literal": 0
+                    },
                     "padding": {
-                      "top": 0,
-                      "right": 0,
-                      "bottom": 0,
-                      "left": 0
+                      "top": {
+                        "literal": 0
+                      },
+                      "right": {
+                        "literal": 0
+                      },
+                      "bottom": {
+                        "literal": 0
+                      },
+                      "left": {
+                        "literal": 0
+                      }
                     },
                     "grid": {
                       "columns": [],
@@ -656,17 +817,33 @@
                     "fills": [],
                     "strokes": [],
                     "stroke_widths": {
-                      "top": 0,
-                      "right": 0,
-                      "bottom": 0,
-                      "left": 0
+                      "top": {
+                        "literal": 0
+                      },
+                      "right": {
+                        "literal": 0
+                      },
+                      "bottom": {
+                        "literal": 0
+                      },
+                      "left": {
+                        "literal": 0
+                      }
                     },
                     "stroke_align": "INSIDE",
                     "radii": {
-                      "top_left": 0,
-                      "top_right": 0,
-                      "bottom_right": 0,
-                      "bottom_left": 0,
+                      "top_left": {
+                        "literal": 0
+                      },
+                      "top_right": {
+                        "literal": 0
+                      },
+                      "bottom_right": {
+                        "literal": 0
+                      },
+                      "bottom_left": {
+                        "literal": 0
+                      },
                       "smoothing": 0
                     },
                     "effects": [],
@@ -699,12 +876,22 @@
                     "wrap": false,
                     "primary_alignment": "START",
                     "counter_alignment": "START",
-                    "gap": 0,
+                    "gap": {
+                      "literal": 0
+                    },
                     "padding": {
-                      "top": 0,
-                      "right": 0,
-                      "bottom": 0,
-                      "left": 0
+                      "top": {
+                        "literal": 0
+                      },
+                      "right": {
+                        "literal": 0
+                      },
+                      "bottom": {
+                        "literal": 0
+                      },
+                      "left": {
+                        "literal": 0
+                      }
                     },
                     "grid": {
                       "columns": [],
@@ -752,23 +939,42 @@
                             "b": 0.9333333373069763,
                             "a": 1
                           },
-                          "token_id": "VariableID:185:59"
+                          "token_id": "VariableID:185:59",
+                          "mode_context": {
+                            "VariableCollectionId:185:3": "185:1"
+                          }
                         }
                       }
                     ],
                     "strokes": [],
                     "stroke_widths": {
-                      "top": 1,
-                      "right": 1,
-                      "bottom": 1,
-                      "left": 1
+                      "top": {
+                        "literal": 1
+                      },
+                      "right": {
+                        "literal": 1
+                      },
+                      "bottom": {
+                        "literal": 1
+                      },
+                      "left": {
+                        "literal": 1
+                      }
                     },
                     "stroke_align": "OUTSIDE",
                     "radii": {
-                      "top_left": 0,
-                      "top_right": 0,
-                      "bottom_right": 0,
-                      "bottom_left": 0,
+                      "top_left": {
+                        "literal": 0
+                      },
+                      "top_right": {
+                        "literal": 0
+                      },
+                      "bottom_right": {
+                        "literal": 0
+                      },
+                      "bottom_left": {
+                        "literal": 0
+                      },
                       "smoothing": 0
                     },
                     "effects": [],
@@ -797,7 +1003,10 @@
                               "b": 0.9333333373069763,
                               "a": 1
                             },
-                            "token_id": "VariableID:185:59"
+                            "token_id": "VariableID:185:59",
+                            "mode_context": {
+                              "VariableCollectionId:185:3": "185:1"
+                            }
                           }
                         }
                       }
@@ -860,12 +1069,22 @@
                 "wrap": false,
                 "primary_alignment": "START",
                 "counter_alignment": "START",
-                "gap": 0,
+                "gap": {
+                  "literal": 0
+                },
                 "padding": {
-                  "top": 0,
-                  "right": 0,
-                  "bottom": 0,
-                  "left": 0
+                  "top": {
+                    "literal": 0
+                  },
+                  "right": {
+                    "literal": 0
+                  },
+                  "bottom": {
+                    "literal": 0
+                  },
+                  "left": {
+                    "literal": 0
+                  }
                 },
                 "grid": {
                   "columns": [],
@@ -906,17 +1125,33 @@
                 "fills": [],
                 "strokes": [],
                 "stroke_widths": {
-                  "top": 0,
-                  "right": 0,
-                  "bottom": 0,
-                  "left": 0
+                  "top": {
+                    "literal": 0
+                  },
+                  "right": {
+                    "literal": 0
+                  },
+                  "bottom": {
+                    "literal": 0
+                  },
+                  "left": {
+                    "literal": 0
+                  }
                 },
                 "stroke_align": "INSIDE",
                 "radii": {
-                  "top_left": 0,
-                  "top_right": 0,
-                  "bottom_right": 0,
-                  "bottom_left": 0,
+                  "top_left": {
+                    "literal": 0
+                  },
+                  "top_right": {
+                    "literal": 0
+                  },
+                  "bottom_right": {
+                    "literal": 0
+                  },
+                  "bottom_left": {
+                    "literal": 0
+                  },
                   "smoothing": 0
                 },
                 "effects": [],
@@ -938,12 +1173,22 @@
                     "wrap": false,
                     "primary_alignment": "START",
                     "counter_alignment": "START",
-                    "gap": 0,
+                    "gap": {
+                      "literal": 0
+                    },
                     "padding": {
-                      "top": 0,
-                      "right": 0,
-                      "bottom": 0,
-                      "left": 0
+                      "top": {
+                        "literal": 0
+                      },
+                      "right": {
+                        "literal": 0
+                      },
+                      "bottom": {
+                        "literal": 0
+                      },
+                      "left": {
+                        "literal": 0
+                      }
                     },
                     "grid": {
                       "columns": [],
@@ -991,23 +1236,42 @@
                             "b": 0.5764706134796143,
                             "a": 1
                           },
-                          "token_id": "VariableID:185:61"
+                          "token_id": "VariableID:185:61",
+                          "mode_context": {
+                            "VariableCollectionId:185:3": "185:1"
+                          }
                         }
                       }
                     ],
                     "strokes": [],
                     "stroke_widths": {
-                      "top": 1,
-                      "right": 1,
-                      "bottom": 1,
-                      "left": 1
+                      "top": {
+                        "literal": 1
+                      },
+                      "right": {
+                        "literal": 1
+                      },
+                      "bottom": {
+                        "literal": 1
+                      },
+                      "left": {
+                        "literal": 1
+                      }
                     },
                     "stroke_align": "OUTSIDE",
                     "radii": {
-                      "top_left": 0,
-                      "top_right": 0,
-                      "bottom_right": 0,
-                      "bottom_left": 0,
+                      "top_left": {
+                        "literal": 0
+                      },
+                      "top_right": {
+                        "literal": 0
+                      },
+                      "bottom_right": {
+                        "literal": 0
+                      },
+                      "bottom_left": {
+                        "literal": 0
+                      },
                       "smoothing": 0
                     },
                     "effects": [],
@@ -1036,7 +1300,10 @@
                               "b": 0.5764706134796143,
                               "a": 1
                             },
-                            "token_id": "VariableID:185:61"
+                            "token_id": "VariableID:185:61",
+                            "mode_context": {
+                              "VariableCollectionId:185:3": "185:1"
+                            }
                           }
                         }
                       }
@@ -1090,12 +1357,22 @@
                     "wrap": false,
                     "primary_alignment": "START",
                     "counter_alignment": "START",
-                    "gap": 0,
+                    "gap": {
+                      "literal": 0
+                    },
                     "padding": {
-                      "top": 0,
-                      "right": 0,
-                      "bottom": 0,
-                      "left": 0
+                      "top": {
+                        "literal": 0
+                      },
+                      "right": {
+                        "literal": 0
+                      },
+                      "bottom": {
+                        "literal": 0
+                      },
+                      "left": {
+                        "literal": 0
+                      }
                     },
                     "grid": {
                       "columns": [],
@@ -1136,17 +1413,33 @@
                     "fills": [],
                     "strokes": [],
                     "stroke_widths": {
-                      "top": 0,
-                      "right": 0,
-                      "bottom": 0,
-                      "left": 0
+                      "top": {
+                        "literal": 0
+                      },
+                      "right": {
+                        "literal": 0
+                      },
+                      "bottom": {
+                        "literal": 0
+                      },
+                      "left": {
+                        "literal": 0
+                      }
                     },
                     "stroke_align": "INSIDE",
                     "radii": {
-                      "top_left": 0,
-                      "top_right": 0,
-                      "bottom_right": 0,
-                      "bottom_left": 0,
+                      "top_left": {
+                        "literal": 0
+                      },
+                      "top_right": {
+                        "literal": 0
+                      },
+                      "bottom_right": {
+                        "literal": 0
+                      },
+                      "bottom_left": {
+                        "literal": 0
+                      },
                       "smoothing": 0
                     },
                     "effects": [],
@@ -1179,12 +1472,22 @@
                     "wrap": false,
                     "primary_alignment": "START",
                     "counter_alignment": "START",
-                    "gap": 0,
+                    "gap": {
+                      "literal": 0
+                    },
                     "padding": {
-                      "top": 0,
-                      "right": 0,
-                      "bottom": 0,
-                      "left": 0
+                      "top": {
+                        "literal": 0
+                      },
+                      "right": {
+                        "literal": 0
+                      },
+                      "bottom": {
+                        "literal": 0
+                      },
+                      "left": {
+                        "literal": 0
+                      }
                     },
                     "grid": {
                       "columns": [],
@@ -1232,23 +1535,42 @@
                             "b": 0.9333333373069763,
                             "a": 1
                           },
-                          "token_id": "VariableID:185:59"
+                          "token_id": "VariableID:185:59",
+                          "mode_context": {
+                            "VariableCollectionId:185:3": "185:1"
+                          }
                         }
                       }
                     ],
                     "strokes": [],
                     "stroke_widths": {
-                      "top": 1,
-                      "right": 1,
-                      "bottom": 1,
-                      "left": 1
+                      "top": {
+                        "literal": 1
+                      },
+                      "right": {
+                        "literal": 1
+                      },
+                      "bottom": {
+                        "literal": 1
+                      },
+                      "left": {
+                        "literal": 1
+                      }
                     },
                     "stroke_align": "OUTSIDE",
                     "radii": {
-                      "top_left": 0,
-                      "top_right": 0,
-                      "bottom_right": 0,
-                      "bottom_left": 0,
+                      "top_left": {
+                        "literal": 0
+                      },
+                      "top_right": {
+                        "literal": 0
+                      },
+                      "bottom_right": {
+                        "literal": 0
+                      },
+                      "bottom_left": {
+                        "literal": 0
+                      },
                       "smoothing": 0
                     },
                     "effects": [],
@@ -1277,7 +1599,10 @@
                               "b": 0.9333333373069763,
                               "a": 1
                             },
-                            "token_id": "VariableID:185:59"
+                            "token_id": "VariableID:185:59",
+                            "mode_context": {
+                              "VariableCollectionId:185:3": "185:1"
+                            }
                           }
                         }
                       }
@@ -1340,12 +1665,22 @@
                 "wrap": false,
                 "primary_alignment": "START",
                 "counter_alignment": "START",
-                "gap": 0,
+                "gap": {
+                  "literal": 0
+                },
                 "padding": {
-                  "top": 0,
-                  "right": 0,
-                  "bottom": 0,
-                  "left": 0
+                  "top": {
+                    "literal": 0
+                  },
+                  "right": {
+                    "literal": 0
+                  },
+                  "bottom": {
+                    "literal": 0
+                  },
+                  "left": {
+                    "literal": 0
+                  }
                 },
                 "grid": {
                   "columns": [],
@@ -1386,17 +1721,33 @@
                 "fills": [],
                 "strokes": [],
                 "stroke_widths": {
-                  "top": 0,
-                  "right": 0,
-                  "bottom": 0,
-                  "left": 0
+                  "top": {
+                    "literal": 0
+                  },
+                  "right": {
+                    "literal": 0
+                  },
+                  "bottom": {
+                    "literal": 0
+                  },
+                  "left": {
+                    "literal": 0
+                  }
                 },
                 "stroke_align": "INSIDE",
                 "radii": {
-                  "top_left": 0,
-                  "top_right": 0,
-                  "bottom_right": 0,
-                  "bottom_left": 0,
+                  "top_left": {
+                    "literal": 0
+                  },
+                  "top_right": {
+                    "literal": 0
+                  },
+                  "bottom_right": {
+                    "literal": 0
+                  },
+                  "bottom_left": {
+                    "literal": 0
+                  },
                   "smoothing": 0
                 },
                 "effects": [],
@@ -1418,12 +1769,22 @@
                     "wrap": false,
                     "primary_alignment": "START",
                     "counter_alignment": "START",
-                    "gap": 0,
+                    "gap": {
+                      "literal": 0
+                    },
                     "padding": {
-                      "top": 0,
-                      "right": 0,
-                      "bottom": 0,
-                      "left": 0
+                      "top": {
+                        "literal": 0
+                      },
+                      "right": {
+                        "literal": 0
+                      },
+                      "bottom": {
+                        "literal": 0
+                      },
+                      "left": {
+                        "literal": 0
+                      }
                     },
                     "grid": {
                       "columns": [],
@@ -1471,23 +1832,42 @@
                             "b": 0.5764706134796143,
                             "a": 1
                           },
-                          "token_id": "VariableID:185:61"
+                          "token_id": "VariableID:185:61",
+                          "mode_context": {
+                            "VariableCollectionId:185:3": "185:1"
+                          }
                         }
                       }
                     ],
                     "strokes": [],
                     "stroke_widths": {
-                      "top": 1,
-                      "right": 1,
-                      "bottom": 1,
-                      "left": 1
+                      "top": {
+                        "literal": 1
+                      },
+                      "right": {
+                        "literal": 1
+                      },
+                      "bottom": {
+                        "literal": 1
+                      },
+                      "left": {
+                        "literal": 1
+                      }
                     },
                     "stroke_align": "OUTSIDE",
                     "radii": {
-                      "top_left": 0,
-                      "top_right": 0,
-                      "bottom_right": 0,
-                      "bottom_left": 0,
+                      "top_left": {
+                        "literal": 0
+                      },
+                      "top_right": {
+                        "literal": 0
+                      },
+                      "bottom_right": {
+                        "literal": 0
+                      },
+                      "bottom_left": {
+                        "literal": 0
+                      },
                       "smoothing": 0
                     },
                     "effects": [],
@@ -1516,7 +1896,10 @@
                               "b": 0.5764706134796143,
                               "a": 1
                             },
-                            "token_id": "VariableID:185:61"
+                            "token_id": "VariableID:185:61",
+                            "mode_context": {
+                              "VariableCollectionId:185:3": "185:1"
+                            }
                           }
                         }
                       }
@@ -1570,12 +1953,22 @@
                     "wrap": false,
                     "primary_alignment": "START",
                     "counter_alignment": "START",
-                    "gap": 0,
+                    "gap": {
+                      "literal": 0
+                    },
                     "padding": {
-                      "top": 0,
-                      "right": 0,
-                      "bottom": 0,
-                      "left": 0
+                      "top": {
+                        "literal": 0
+                      },
+                      "right": {
+                        "literal": 0
+                      },
+                      "bottom": {
+                        "literal": 0
+                      },
+                      "left": {
+                        "literal": 0
+                      }
                     },
                     "grid": {
                       "columns": [],
@@ -1616,17 +2009,33 @@
                     "fills": [],
                     "strokes": [],
                     "stroke_widths": {
-                      "top": 0,
-                      "right": 0,
-                      "bottom": 0,
-                      "left": 0
+                      "top": {
+                        "literal": 0
+                      },
+                      "right": {
+                        "literal": 0
+                      },
+                      "bottom": {
+                        "literal": 0
+                      },
+                      "left": {
+                        "literal": 0
+                      }
                     },
                     "stroke_align": "INSIDE",
                     "radii": {
-                      "top_left": 0,
-                      "top_right": 0,
-                      "bottom_right": 0,
-                      "bottom_left": 0,
+                      "top_left": {
+                        "literal": 0
+                      },
+                      "top_right": {
+                        "literal": 0
+                      },
+                      "bottom_right": {
+                        "literal": 0
+                      },
+                      "bottom_left": {
+                        "literal": 0
+                      },
                       "smoothing": 0
                     },
                     "effects": [],
@@ -1659,12 +2068,22 @@
                     "wrap": false,
                     "primary_alignment": "START",
                     "counter_alignment": "START",
-                    "gap": 0,
+                    "gap": {
+                      "literal": 0
+                    },
                     "padding": {
-                      "top": 0,
-                      "right": 0,
-                      "bottom": 0,
-                      "left": 0
+                      "top": {
+                        "literal": 0
+                      },
+                      "right": {
+                        "literal": 0
+                      },
+                      "bottom": {
+                        "literal": 0
+                      },
+                      "left": {
+                        "literal": 0
+                      }
                     },
                     "grid": {
                       "columns": [],
@@ -1712,23 +2131,42 @@
                             "b": 0.9333333373069763,
                             "a": 1
                           },
-                          "token_id": "VariableID:185:59"
+                          "token_id": "VariableID:185:59",
+                          "mode_context": {
+                            "VariableCollectionId:185:3": "185:1"
+                          }
                         }
                       }
                     ],
                     "strokes": [],
                     "stroke_widths": {
-                      "top": 1,
-                      "right": 1,
-                      "bottom": 1,
-                      "left": 1
+                      "top": {
+                        "literal": 1
+                      },
+                      "right": {
+                        "literal": 1
+                      },
+                      "bottom": {
+                        "literal": 1
+                      },
+                      "left": {
+                        "literal": 1
+                      }
                     },
                     "stroke_align": "OUTSIDE",
                     "radii": {
-                      "top_left": 0,
-                      "top_right": 0,
-                      "bottom_right": 0,
-                      "bottom_left": 0,
+                      "top_left": {
+                        "literal": 0
+                      },
+                      "top_right": {
+                        "literal": 0
+                      },
+                      "bottom_right": {
+                        "literal": 0
+                      },
+                      "bottom_left": {
+                        "literal": 0
+                      },
                       "smoothing": 0
                     },
                     "effects": [],
@@ -1757,7 +2195,10 @@
                               "b": 0.9333333373069763,
                               "a": 1
                             },
-                            "token_id": "VariableID:185:59"
+                            "token_id": "VariableID:185:59",
+                            "mode_context": {
+                              "VariableCollectionId:185:3": "185:1"
+                            }
                           }
                         }
                       }
@@ -1856,12 +2297,22 @@
             "wrap": false,
             "primary_alignment": "START",
             "counter_alignment": "START",
-            "gap": 8,
+            "gap": {
+              "literal": 8
+            },
             "padding": {
-              "top": 5,
-              "right": 8,
-              "bottom": 5,
-              "left": 8
+              "top": {
+                "literal": 5
+              },
+              "right": {
+                "literal": 8
+              },
+              "bottom": {
+                "literal": 5
+              },
+              "left": {
+                "literal": 8
+              }
             },
             "grid": {
               "columns": [],
@@ -1909,7 +2360,10 @@
                     "b": 0.08235294371843338,
                     "a": 1
                   },
-                  "token_id": "VariableID:185:52"
+                  "token_id": "VariableID:185:52",
+                  "mode_context": {
+                    "VariableCollectionId:185:3": "185:1"
+                  }
                 }
               }
             ],
@@ -1923,22 +2377,41 @@
                     "b": 0.16470588743686676,
                     "a": 1
                   },
-                  "token_id": "VariableID:185:64"
+                  "token_id": "VariableID:185:64",
+                  "mode_context": {
+                    "VariableCollectionId:185:3": "185:1"
+                  }
                 }
               }
             ],
             "stroke_widths": {
-              "top": 1,
-              "right": 1,
-              "bottom": 1,
-              "left": 1
+              "top": {
+                "literal": 1
+              },
+              "right": {
+                "literal": 1
+              },
+              "bottom": {
+                "literal": 1
+              },
+              "left": {
+                "literal": 1
+              }
             },
             "stroke_align": "INSIDE",
             "radii": {
-              "top_left": 2,
-              "top_right": 2,
-              "bottom_right": 2,
-              "bottom_left": 2,
+              "top_left": {
+                "literal": 2
+              },
+              "top_right": {
+                "literal": 2
+              },
+              "bottom_right": {
+                "literal": 2
+              },
+              "bottom_left": {
+                "literal": 2
+              },
               "smoothing": 0
             },
             "effects": [],
@@ -1960,12 +2433,22 @@
                 "wrap": false,
                 "primary_alignment": "START",
                 "counter_alignment": "START",
-                "gap": 0,
+                "gap": {
+                  "literal": 0
+                },
                 "padding": {
-                  "top": 0,
-                  "right": 0,
-                  "bottom": 0,
-                  "left": 0
+                  "top": {
+                    "literal": 0
+                  },
+                  "right": {
+                    "literal": 0
+                  },
+                  "bottom": {
+                    "literal": 0
+                  },
+                  "left": {
+                    "literal": 0
+                  }
                 },
                 "grid": {
                   "columns": [],
@@ -2013,7 +2496,10 @@
                         "b": 0.10588235408067703,
                         "a": 1
                       },
-                      "token_id": "VariableID:185:55"
+                      "token_id": "VariableID:185:55",
+                      "mode_context": {
+                        "VariableCollectionId:185:3": "185:1"
+                      }
                     }
                   }
                 ],
@@ -2027,22 +2513,41 @@
                         "b": 0.24313725531101227,
                         "a": 1
                       },
-                      "token_id": "VariableID:185:65"
+                      "token_id": "VariableID:185:65",
+                      "mode_context": {
+                        "VariableCollectionId:185:3": "185:1"
+                      }
                     }
                   }
                 ],
                 "stroke_widths": {
-                  "top": 1,
-                  "right": 1,
-                  "bottom": 1,
-                  "left": 1
+                  "top": {
+                    "literal": 1
+                  },
+                  "right": {
+                    "literal": 1
+                  },
+                  "bottom": {
+                    "literal": 1
+                  },
+                  "left": {
+                    "literal": 1
+                  }
                 },
                 "stroke_align": "INSIDE",
                 "radii": {
-                  "top_left": 2,
-                  "top_right": 2,
-                  "bottom_right": 2,
-                  "bottom_left": 2,
+                  "top_left": {
+                    "literal": 2
+                  },
+                  "top_right": {
+                    "literal": 2
+                  },
+                  "bottom_right": {
+                    "literal": 2
+                  },
+                  "bottom_left": {
+                    "literal": 2
+                  },
                   "smoothing": 0
                 },
                 "effects": [],
@@ -2099,12 +2604,22 @@
                 "wrap": false,
                 "primary_alignment": "START",
                 "counter_alignment": "START",
-                "gap": 0,
+                "gap": {
+                  "literal": 0
+                },
                 "padding": {
-                  "top": 0,
-                  "right": 0,
-                  "bottom": 0,
-                  "left": 0
+                  "top": {
+                    "literal": 0
+                  },
+                  "right": {
+                    "literal": 0
+                  },
+                  "bottom": {
+                    "literal": 0
+                  },
+                  "left": {
+                    "literal": 0
+                  }
                 },
                 "grid": {
                   "columns": [],
@@ -2152,23 +2667,42 @@
                         "b": 0.7098039388656616,
                         "a": 1
                       },
-                      "token_id": "VariableID:185:60"
+                      "token_id": "VariableID:185:60",
+                      "mode_context": {
+                        "VariableCollectionId:185:3": "185:1"
+                      }
                     }
                   }
                 ],
                 "strokes": [],
                 "stroke_widths": {
-                  "top": 1,
-                  "right": 1,
-                  "bottom": 1,
-                  "left": 1
+                  "top": {
+                    "literal": 1
+                  },
+                  "right": {
+                    "literal": 1
+                  },
+                  "bottom": {
+                    "literal": 1
+                  },
+                  "left": {
+                    "literal": 1
+                  }
                 },
                 "stroke_align": "OUTSIDE",
                 "radii": {
-                  "top_left": 0,
-                  "top_right": 0,
-                  "bottom_right": 0,
-                  "bottom_left": 0,
+                  "top_left": {
+                    "literal": 0
+                  },
+                  "top_right": {
+                    "literal": 0
+                  },
+                  "bottom_right": {
+                    "literal": 0
+                  },
+                  "bottom_left": {
+                    "literal": 0
+                  },
                   "smoothing": 0
                 },
                 "effects": [],
@@ -2197,7 +2731,10 @@
                           "b": 0.7098039388656616,
                           "a": 1
                         },
-                        "token_id": "VariableID:185:60"
+                        "token_id": "VariableID:185:60",
+                        "mode_context": {
+                          "VariableCollectionId:185:3": "185:1"
+                        }
                       }
                     }
                   }
@@ -2314,6 +2851,9 @@
           "b": 0.08235294371843338,
           "a": 1
         }
+      },
+      "mode_context": {
+        "VariableCollectionId:185:3": "185:1"
       }
     },
     {
@@ -2330,6 +2870,9 @@
           "b": 0.04313725605607033,
           "a": 1
         }
+      },
+      "mode_context": {
+        "VariableCollectionId:185:3": "185:1"
       }
     },
     {
@@ -2346,6 +2889,9 @@
           "b": 0.10588235408067703,
           "a": 1
         }
+      },
+      "mode_context": {
+        "VariableCollectionId:185:3": "185:1"
       }
     },
     {
@@ -2362,6 +2908,9 @@
           "b": 0.12941177189350128,
           "a": 1
         }
+      },
+      "mode_context": {
+        "VariableCollectionId:185:3": "185:1"
       }
     },
     {
@@ -2378,6 +2927,9 @@
           "b": 0.9333333373069763,
           "a": 1
         }
+      },
+      "mode_context": {
+        "VariableCollectionId:185:3": "185:1"
       }
     },
     {
@@ -2394,6 +2946,9 @@
           "b": 0.7098039388656616,
           "a": 1
         }
+      },
+      "mode_context": {
+        "VariableCollectionId:185:3": "185:1"
       }
     },
     {
@@ -2410,6 +2965,9 @@
           "b": 0.5764706134796143,
           "a": 1
         }
+      },
+      "mode_context": {
+        "VariableCollectionId:185:3": "185:1"
       }
     },
     {
@@ -2426,6 +2984,9 @@
           "b": 0.16470588743686676,
           "a": 1
         }
+      },
+      "mode_context": {
+        "VariableCollectionId:185:3": "185:1"
       }
     },
     {
@@ -2442,6 +3003,9 @@
           "b": 0.24313725531101227,
           "a": 1
         }
+      },
+      "mode_context": {
+        "VariableCollectionId:185:3": "185:1"
       }
     }
   ],

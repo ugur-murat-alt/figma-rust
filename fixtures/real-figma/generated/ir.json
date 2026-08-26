@@ -1,5 +1,5 @@
 {
-  "ir_version": 1,
+  "ir_version": 2,
   "source": {
     "file_key": "XRjBi41NCw78G6lkyJjmbV",
     "page_id": "0:1",
@@ -54,17 +54,33 @@
         "fills": [],
         "strokes": [],
         "stroke_widths": {
-          "top": 0.0,
-          "right": 0.0,
-          "bottom": 0.0,
-          "left": 0.0
+          "top": {
+            "fallback": 0.0
+          },
+          "right": {
+            "fallback": 0.0
+          },
+          "bottom": {
+            "fallback": 0.0
+          },
+          "left": {
+            "fallback": 0.0
+          }
         },
         "stroke_align": "INSIDE",
         "radii": {
-          "top_left": 0.0,
-          "top_right": 0.0,
-          "bottom_right": 0.0,
-          "bottom_left": 0.0,
+          "top_left": {
+            "fallback": 0.0
+          },
+          "top_right": {
+            "fallback": 0.0
+          },
+          "bottom_right": {
+            "fallback": 0.0
+          },
+          "bottom_left": {
+            "fallback": 0.0
+          },
           "smoothing": 0.0
         },
         "effects": [],
@@ -138,17 +154,33 @@
             ],
             "strokes": [],
             "stroke_widths": {
-              "top": 0.0,
-              "right": 0.0,
-              "bottom": 0.0,
-              "left": 0.0
+              "top": {
+                "fallback": 0.0
+              },
+              "right": {
+                "fallback": 0.0
+              },
+              "bottom": {
+                "fallback": 0.0
+              },
+              "left": {
+                "fallback": 0.0
+              }
             },
             "stroke_align": "INSIDE",
             "radii": {
-              "top_left": 0.0,
-              "top_right": 0.0,
-              "bottom_right": 0.0,
-              "bottom_left": 0.0,
+              "top_left": {
+                "fallback": 0.0
+              },
+              "top_right": {
+                "fallback": 0.0
+              },
+              "bottom_right": {
+                "fallback": 0.0
+              },
+              "bottom_left": {
+                "fallback": 0.0
+              },
               "smoothing": 0.0
             },
             "effects": [],
@@ -223,17 +255,33 @@
             ],
             "strokes": [],
             "stroke_widths": {
-              "top": 0.0,
-              "right": 0.0,
-              "bottom": 0.0,
-              "left": 0.0
+              "top": {
+                "fallback": 0.0
+              },
+              "right": {
+                "fallback": 0.0
+              },
+              "bottom": {
+                "fallback": 0.0
+              },
+              "left": {
+                "fallback": 0.0
+              }
             },
             "stroke_align": "INSIDE",
             "radii": {
-              "top_left": 0.0,
-              "top_right": 0.0,
-              "bottom_right": 0.0,
-              "bottom_left": 0.0,
+              "top_left": {
+                "fallback": 0.0
+              },
+              "top_right": {
+                "fallback": 0.0
+              },
+              "bottom_right": {
+                "fallback": 0.0
+              },
+              "bottom_left": {
+                "fallback": 0.0
+              },
               "smoothing": 0.0
             },
             "effects": [],

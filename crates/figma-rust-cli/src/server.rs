@@ -150,6 +150,7 @@ mod tests {
     use super::{MAX_BODY_BYTES, build_response};
 
     const BASIC: &str = include_str!("../../figma-rust-core/tests/fixtures/basic.raw.json");
+    const BASIC_V1: &str = include_str!("../../figma-rust-core/tests/fixtures/basic.v1.raw.json");
 
     #[test]
     fn compile_response_is_json_and_contains_code() -> Result<(), Box<dyn std::error::Error>> {
@@ -251,7 +252,7 @@ mod tests {
     #[test]
     fn normalization_domain_error_remains_a_parseable_plugin_response()
     -> Result<(), Box<dyn std::error::Error>> {
-        let invalid_version = BASIC.replace("\"schema_version\": 1", "\"schema_version\": 999");
+        let invalid_version = BASIC.replace("\"schema_version\": 2", "\"schema_version\": 999");
         let body: &'static str = Box::leak(invalid_version.into_boxed_str());
         let mut request = TestRequest::new()
             .with_method(Method::Post)
@@ -269,6 +270,28 @@ mod tests {
                 .as_array()
                 .is_some_and(|items| !items.is_empty())
         );
+        Ok(())
+    }
+
+    #[test]
+    fn schema_one_source_returns_a_parseable_version_diagnostic()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let mut request = TestRequest::new()
+            .with_method(Method::Post)
+            .with_path("/lint")
+            .with_body(BASIC_V1)
+            .into();
+        let response = build_response(&mut request);
+        assert_eq!(response.status_code(), StatusCode(200));
+        let mut body = String::new();
+        response.into_reader().read_to_string(&mut body)?;
+        let value: serde_json::Value = serde_json::from_str(&body)?;
+        assert_eq!(value["error"], "normalization failed");
+        assert!(value["diagnostics"].as_array().is_some_and(|items| {
+            items
+                .iter()
+                .any(|diagnostic| diagnostic["code"] == "FR-SCHEMA-001")
+        }));
         Ok(())
     }
 }

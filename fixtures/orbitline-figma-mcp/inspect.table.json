@@ -1,11 +1,11 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "root_count": 1,
   "node_count": 66,
   "diagnostic_summary": {
     "info": 66,
     "warnings": 70,
-    "errors": 9
+    "errors": 0
   },
   "tree": [
     {
@@ -509,46 +509,11 @@
   ],
   "diagnostics": [
     {
-      "severity": "ERROR",
-      "code": "FR-TOKEN-LOSS-003",
-      "message": "Variable binding for bottomLeftRadius is not represented by the raw model.",
-      "node_id": "516:223",
-      "property_path": "bound_variables.bottomLeftRadius"
-    },
-    {
-      "severity": "ERROR",
-      "code": "FR-TOKEN-LOSS-003",
-      "message": "Variable binding for bottomRightRadius is not represented by the raw model.",
-      "node_id": "516:223",
-      "property_path": "bound_variables.bottomRightRadius"
-    },
-    {
-      "severity": "ERROR",
-      "code": "FR-TOKEN-LOSS-003",
-      "message": "Variable binding for topLeftRadius is not represented by the raw model.",
-      "node_id": "516:223",
-      "property_path": "bound_variables.topLeftRadius"
-    },
-    {
-      "severity": "ERROR",
-      "code": "FR-TOKEN-LOSS-003",
-      "message": "Variable binding for topRightRadius is not represented by the raw model.",
-      "node_id": "516:223",
-      "property_path": "bound_variables.topRightRadius"
-    },
-    {
       "severity": "WARNING",
       "code": "FR-EXTRACT-LOSS-001",
       "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
       "node_id": "653:777",
       "property_path": "layout.strokes_included_in_layout"
-    },
-    {
-      "severity": "ERROR",
-      "code": "FR-VALUE-EXTRACT-003",
-      "message": "Value Symbol(figma.mixed) is not a finite number.",
-      "node_id": "653:777",
-      "property_path": "style.stroke_widths"
     },
     {
       "severity": "WARNING",
@@ -558,25 +523,11 @@
       "property_path": "layout.strokes_included_in_layout"
     },
     {
-      "severity": "ERROR",
-      "code": "FR-VALUE-EXTRACT-003",
-      "message": "Value Symbol(figma.mixed) is not a finite number.",
-      "node_id": "653:790",
-      "property_path": "style.stroke_widths"
-    },
-    {
       "severity": "WARNING",
       "code": "FR-EXTRACT-LOSS-001",
       "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
       "node_id": "653:803",
       "property_path": "layout.strokes_included_in_layout"
-    },
-    {
-      "severity": "ERROR",
-      "code": "FR-VALUE-EXTRACT-003",
-      "message": "Value Symbol(figma.mixed) is not a finite number.",
-      "node_id": "653:803",
-      "property_path": "style.stroke_widths"
     },
     {
       "severity": "WARNING",
@@ -586,25 +537,11 @@
       "property_path": "layout.strokes_included_in_layout"
     },
     {
-      "severity": "ERROR",
-      "code": "FR-VALUE-EXTRACT-003",
-      "message": "Value Symbol(figma.mixed) is not a finite number.",
-      "node_id": "653:816",
-      "property_path": "style.stroke_widths"
-    },
-    {
       "severity": "WARNING",
       "code": "FR-EXTRACT-LOSS-001",
       "message": "Stroke inclusion in auto-layout calculations is not represented by the raw model.",
       "node_id": "653:829",
       "property_path": "layout.strokes_included_in_layout"
-    },
-    {
-      "severity": "ERROR",
-      "code": "FR-VALUE-EXTRACT-003",
-      "message": "Value Symbol(figma.mixed) is not a finite number.",
-      "node_id": "653:829",
-      "property_path": "style.stroke_widths"
     },
     {
       "severity": "WARNING",

@@ -5,6 +5,15 @@
 
 use gpui::Hsla;
 
+/// Source variable identity and the consumer's resolved collection modes.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct TokenContext<'a> {
+    pub id: &'a str,
+    pub collection_id: Option<&'a str>,
+    pub mode_id: Option<&'a str>,
+    pub modes: &'a [(&'a str, &'a str)],
+}
+
 /// Resolves a Figma variable while retaining the source's current literal value.
 ///
 /// Applications can map token names into their own theme. The default resolver
@@ -16,6 +25,14 @@ pub trait TokenResolver {
 
     fn number(&self, _token: &str, fallback: f32) -> f32 {
         fallback
+    }
+
+    fn color_with_context(&self, context: TokenContext<'_>, fallback: Hsla) -> Hsla {
+        self.color(context.id, fallback)
+    }
+
+    fn number_with_context(&self, context: TokenContext<'_>, fallback: f32) -> f32 {
+        self.number(context.id, fallback)
     }
 
     fn string(&self, _token: &str, fallback: &str) -> String {
@@ -48,7 +65,7 @@ pub trait ActionSink<A> {
 
 #[cfg(test)]
 mod tests {
-    use super::{FallbackTokens, TokenResolver, source_selector};
+    use super::{FallbackTokens, TokenContext, TokenResolver, source_selector};
     use gpui::hsla;
 
     #[test]
@@ -60,6 +77,14 @@ mod tests {
         assert!((tokens.number("space/2", 8.0) - 8.0).abs() < f32::EPSILON);
         assert_eq!(tokens.string("copy/label", "Label"), "Label");
         assert!(tokens.boolean("state/enabled", true));
+        let context = TokenContext {
+            id: "surface/input",
+            collection_id: Some("theme"),
+            mode_id: Some("dark"),
+            modes: &[("theme", "dark")],
+        };
+        assert_eq!(tokens.color_with_context(context, color), color);
+        assert!((tokens.number_with_context(context, 8.0) - 8.0).abs() < f32::EPSILON);
     }
 
     #[test]

@@ -1,0 +1,13 @@
+{
+  "collection_id": "VariableCollectionId:test:1",
+  "variable_id": "VariableID:test:alias",
+  "aliased_variable_id": "VariableID:test:value",
+  "modes": {
+    "light": "mode-light",
+    "dark": "mode-dark"
+  },
+  "values": {
+    "light": { "r": 0.1, "g": 0.2, "b": 0.3 },
+    "dark": { "r": 0.9, "g": 0.8, "b": 0.7 }
+  }
+}

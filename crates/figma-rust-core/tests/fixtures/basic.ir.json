@@ -1,6 +1,6 @@
 {
   "document": {
-    "ir_version": 1,
+    "ir_version": 2,
     "source": {
       "file_key": "fixture-file",
       "page_id": "0:1",
@@ -33,7 +33,73 @@
           }
         },
         "layout": {
-          "kind": "PLAIN",
+          "kind": "STACK",
+          "axis": "HORIZONTAL",
+          "wrap": false,
+          "primary_alignment": "START",
+          "counter_alignment": "START",
+          "gap": {
+            "token": {
+              "id": "number.layout",
+              "name": "Layout/Default",
+              "collection_id": "collection.theme",
+              "mode_id": "mode.light"
+            },
+            "mode_context": {
+              "collection.theme": "mode.light"
+            },
+            "fallback": 8.0
+          },
+          "padding": {
+            "top": {
+              "token": {
+                "id": "number.layout",
+                "name": "Layout/Default",
+                "collection_id": "collection.theme",
+                "mode_id": "mode.light"
+              },
+              "mode_context": {
+                "collection.theme": "mode.light"
+              },
+              "fallback": 8.0
+            },
+            "right": {
+              "token": {
+                "id": "number.layout",
+                "name": "Layout/Default",
+                "collection_id": "collection.theme",
+                "mode_id": "mode.light"
+              },
+              "mode_context": {
+                "collection.theme": "mode.light"
+              },
+              "fallback": 8.0
+            },
+            "bottom": {
+              "token": {
+                "id": "number.layout",
+                "name": "Layout/Default",
+                "collection_id": "collection.theme",
+                "mode_id": "mode.light"
+              },
+              "mode_context": {
+                "collection.theme": "mode.light"
+              },
+              "fallback": 8.0
+            },
+            "left": {
+              "token": {
+                "id": "number.layout",
+                "name": "Layout/Default",
+                "collection_id": "collection.theme",
+                "mode_id": "mode.light"
+              },
+              "mode_context": {
+                "collection.theme": "mode.light"
+              },
+              "fallback": 8.0
+            }
+          },
           "clips_content": false,
           "scroll": {
             "horizontal": false,
@@ -64,6 +130,9 @@
                   "collection_id": "collection.theme",
                   "mode_id": "mode.light"
                 },
+                "mode_context": {
+                  "collection.theme": "mode.light"
+                },
                 "fallback": {
                   "r": 0.125,
                   "g": 0.25,
@@ -73,19 +142,128 @@
               }
             }
           ],
-          "strokes": [],
+          "strokes": [
+            {
+              "kind": "SOLID",
+              "color": {
+                "token": {
+                  "id": "color.brand",
+                  "name": "Brand/Primary",
+                  "collection_id": "collection.theme",
+                  "mode_id": "mode.light"
+                },
+                "mode_context": {
+                  "collection.theme": "mode.light"
+                },
+                "fallback": {
+                  "r": 0.125,
+                  "g": 0.25,
+                  "b": 0.5,
+                  "a": 1.0
+                }
+              }
+            }
+          ],
           "stroke_widths": {
-            "top": 0.0,
-            "right": 0.0,
-            "bottom": 0.0,
-            "left": 0.0
+            "top": {
+              "token": {
+                "id": "stroke.top",
+                "name": "Stroke/Top",
+                "collection_id": "collection.theme",
+                "mode_id": "mode.light"
+              },
+              "mode_context": {
+                "collection.theme": "mode.light"
+              },
+              "fallback": 1.0
+            },
+            "right": {
+              "token": {
+                "id": "stroke.right",
+                "name": "Stroke/Right",
+                "collection_id": "collection.theme",
+                "mode_id": "mode.light"
+              },
+              "mode_context": {
+                "collection.theme": "mode.light"
+              },
+              "fallback": 2.0
+            },
+            "bottom": {
+              "token": {
+                "id": "stroke.bottom",
+                "name": "Stroke/Bottom",
+                "collection_id": "collection.theme",
+                "mode_id": "mode.light"
+              },
+              "mode_context": {
+                "collection.theme": "mode.light"
+              },
+              "fallback": 3.0
+            },
+            "left": {
+              "token": {
+                "id": "stroke.left",
+                "name": "Stroke/Left",
+                "collection_id": "collection.theme",
+                "mode_id": "mode.light"
+              },
+              "mode_context": {
+                "collection.theme": "mode.light"
+              },
+              "fallback": 4.0
+            }
           },
           "stroke_align": "INSIDE",
           "radii": {
-            "top_left": 8.0,
-            "top_right": 8.0,
-            "bottom_right": 8.0,
-            "bottom_left": 8.0,
+            "top_left": {
+              "token": {
+                "id": "radius.top-left",
+                "name": "Radius/Top Left",
+                "collection_id": "collection.theme",
+                "mode_id": "mode.light"
+              },
+              "mode_context": {
+                "collection.theme": "mode.light"
+              },
+              "fallback": 8.0
+            },
+            "top_right": {
+              "token": {
+                "id": "radius.top-right",
+                "name": "Radius/Top Right",
+                "collection_id": "collection.theme",
+                "mode_id": "mode.light"
+              },
+              "mode_context": {
+                "collection.theme": "mode.light"
+              },
+              "fallback": 6.0
+            },
+            "bottom_right": {
+              "token": {
+                "id": "radius.bottom-right",
+                "name": "Radius/Bottom Right",
+                "collection_id": "collection.theme",
+                "mode_id": "mode.light"
+              },
+              "mode_context": {
+                "collection.theme": "mode.light"
+              },
+              "fallback": 4.0
+            },
+            "bottom_left": {
+              "token": {
+                "id": "radius.bottom-left",
+                "name": "Radius/Bottom Left",
+                "collection_id": "collection.theme",
+                "mode_id": "mode.light"
+              },
+              "mode_context": {
+                "collection.theme": "mode.light"
+              },
+              "fallback": 2.0
+            },
             "smoothing": 0.0
           },
           "effects": [],
@@ -108,6 +286,9 @@
           "collection_id": "collection.theme",
           "mode_id": "mode.light"
         },
+        "mode_context": {
+          "collection.theme": "mode.light"
+        },
         "value": {
           "kind": "COLOR",
           "value": {
@@ -116,6 +297,141 @@
             "b": 0.5,
             "a": 1.0
           }
+        }
+      },
+      {
+        "token": {
+          "id": "number.layout",
+          "name": "Layout/Default",
+          "collection_id": "collection.theme",
+          "mode_id": "mode.light"
+        },
+        "mode_context": {
+          "collection.theme": "mode.light"
+        },
+        "value": {
+          "kind": "NUMBER",
+          "value": 8.0
+        }
+      },
+      {
+        "token": {
+          "id": "radius.bottom-left",
+          "name": "Radius/Bottom Left",
+          "collection_id": "collection.theme",
+          "mode_id": "mode.light"
+        },
+        "mode_context": {
+          "collection.theme": "mode.light"
+        },
+        "value": {
+          "kind": "NUMBER",
+          "value": 2.0
+        }
+      },
+      {
+        "token": {
+          "id": "radius.bottom-right",
+          "name": "Radius/Bottom Right",
+          "collection_id": "collection.theme",
+          "mode_id": "mode.light"
+        },
+        "mode_context": {
+          "collection.theme": "mode.light"
+        },
+        "value": {
+          "kind": "NUMBER",
+          "value": 4.0
+        }
+      },
+      {
+        "token": {
+          "id": "radius.top-left",
+          "name": "Radius/Top Left",
+          "collection_id": "collection.theme",
+          "mode_id": "mode.light"
+        },
+        "mode_context": {
+          "collection.theme": "mode.light"
+        },
+        "value": {
+          "kind": "NUMBER",
+          "value": 8.0
+        }
+      },
+      {
+        "token": {
+          "id": "radius.top-right",
+          "name": "Radius/Top Right",
+          "collection_id": "collection.theme",
+          "mode_id": "mode.light"
+        },
+        "mode_context": {
+          "collection.theme": "mode.light"
+        },
+        "value": {
+          "kind": "NUMBER",
+          "value": 6.0
+        }
+      },
+      {
+        "token": {
+          "id": "stroke.bottom",
+          "name": "Stroke/Bottom",
+          "collection_id": "collection.theme",
+          "mode_id": "mode.light"
+        },
+        "mode_context": {
+          "collection.theme": "mode.light"
+        },
+        "value": {
+          "kind": "NUMBER",
+          "value": 3.0
+        }
+      },
+      {
+        "token": {
+          "id": "stroke.left",
+          "name": "Stroke/Left",
+          "collection_id": "collection.theme",
+          "mode_id": "mode.light"
+        },
+        "mode_context": {
+          "collection.theme": "mode.light"
+        },
+        "value": {
+          "kind": "NUMBER",
+          "value": 4.0
+        }
+      },
+      {
+        "token": {
+          "id": "stroke.right",
+          "name": "Stroke/Right",
+          "collection_id": "collection.theme",
+          "mode_id": "mode.light"
+        },
+        "mode_context": {
+          "collection.theme": "mode.light"
+        },
+        "value": {
+          "kind": "NUMBER",
+          "value": 2.0
+        }
+      },
+      {
+        "token": {
+          "id": "stroke.top",
+          "name": "Stroke/Top",
+          "collection_id": "collection.theme",
+          "mode_id": "mode.light"
+        },
+        "mode_context": {
+          "collection.theme": "mode.light"
+        },
+        "value": {
+          "kind": "NUMBER",
+          "value": 1.0
         }
       }
     ],
