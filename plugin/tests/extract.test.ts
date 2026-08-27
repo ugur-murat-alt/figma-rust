@@ -8,6 +8,11 @@ import {
   includeRestSnapshotForExport,
   summarizeBundle,
 } from "../src/export";
+import {
+  cleanupTemporaryTransferNodes,
+  findTemporaryTransferNodes,
+  isTemporaryTransferNodeName,
+} from "../src/transfer";
 import type { ExtractionBundle } from "../src/schema";
 import realGroupFixture from "./fixtures/real-group.plugin-api.json";
 import multiModeFixture from "./fixtures/multi-mode-variables.json";
@@ -636,6 +641,66 @@ function supportsCompactExportAndLargeSelectionFeedback(): void {
   });
 }
 
+function cleansOnlyTemporaryTransferNodesAfterExportVerification(): void {
+  const removed: string[] = [];
+  const nodes = [
+    {
+      id: "845:451",
+      name: "__figma_rust_bundle_ses_example_0111",
+      remove: () => removed.push("845:451"),
+    },
+    {
+      id: "419:2",
+      name: "OL / Foundations / Canonical",
+      remove: () => removed.push("419:2"),
+    },
+    {
+      id: "836:340",
+      name: "__figma_rust_extract_ses_example_0000",
+      remove: () => removed.push("836:340"),
+    },
+    {
+      id: "999:1",
+      name: "__figma_rust_bundle_",
+      remove: () => removed.push("999:1"),
+    },
+    {
+      id: "999:2",
+      name: "__figma_rust_bundle_user_note_0111",
+      remove: () => removed.push("999:2"),
+    },
+    {
+      id: "999:3",
+      name: "__figma_rust_extract_ses_example_0000_copy",
+      remove: () => removed.push("999:3"),
+    },
+  ];
+
+  assert.equal(isTemporaryTransferNodeName(nodes[0].name), true);
+  assert.equal(isTemporaryTransferNodeName(nodes[2].name), true);
+  assert.equal(isTemporaryTransferNodeName(nodes[1].name), false);
+  assert.equal(isTemporaryTransferNodeName(nodes[3].name), false);
+  assert.equal(isTemporaryTransferNodeName(nodes[4].name), false);
+  assert.equal(isTemporaryTransferNodeName(nodes[5].name), false);
+  assert.deepEqual(
+    findTemporaryTransferNodes(nodes).map((node) => node.id),
+    ["836:340", "845:451"],
+  );
+
+  assert.throws(
+    () => cleanupTemporaryTransferNodes(nodes, false),
+    /Verify the downloaded compiler JSON before cleanup/,
+  );
+  assert.deepEqual(removed, []);
+
+  const result = cleanupTemporaryTransferNodes(nodes, true);
+  assert.deepEqual(result, {
+    removed_count: 2,
+    removed_node_ids: ["836:340", "845:451"],
+  });
+  assert.deepEqual(removed, ["836:340", "845:451"]);
+}
+
 async function exportsDeterministicFallbackPayloads(): Promise<void> {
   const svg = rectangle("9:1", [[1, 0, 0], [0, 1, 0]]);
   svg.type = "VECTOR";
@@ -694,6 +759,62 @@ async function exportsDeterministicFallbackPayloads(): Promise<void> {
   assert.equal(fallbackExportFormat(raw), "PNG");
 }
 
+async function exportsTrackedTextFallbackPayload(): Promise<void> {
+  const trackedText = {
+    ...rectangle("9:5", [[1, 0, 0], [0, 1, 0]]),
+    type: "TEXT",
+    characters: "Symbol",
+    hasMissingFont: false,
+    textAutoResize: "WIDTH_AND_HEIGHT",
+    textAlignHorizontal: "LEFT",
+    textAlignVertical: "TOP",
+    textTruncation: "DISABLED",
+    maxLines: null,
+    getStyledTextSegments: () => [{
+      start: 0,
+      end: 6,
+      fontName: { family: "JetBrains Mono", style: "Medium" },
+      fontSize: 10,
+      fontWeight: 500,
+      lineHeight: { unit: "PIXELS", value: 12 },
+      letterSpacing: { unit: "PIXELS", value: 0.4 },
+      fills: [{ type: "SOLID", color: { r: 0.48, g: 0.53, b: 0.58 } }],
+    }],
+    exportAsync: async (settings: { format: "SVG" | "PNG" }) => {
+      assert.equal(settings.format, "SVG");
+      return Buffer.from("<svg/>");
+    },
+  } as unknown as SceneNode;
+
+  const bundle = await extractNodes([trackedText]);
+  assert.equal(bundle.roots[0].text?.runs[0].style.letter_spacing, 0.4);
+  assert.deepEqual(bundle.assets, [{
+    id: "node:9:5:svg",
+    source_node_id: "9:5",
+    media_type: "image/svg+xml",
+    export_settings: { format: "SVG" },
+    payload_base64: "PHN2Zy8+",
+  }]);
+}
+
+async function exportsFoundationScaleFallbackAssets(): Promise<void> {
+  const nodes = Array.from({ length: 353 }, (_, index) => {
+    const node = rectangle(`10:${index + 1}`, [[1, 0, 0], [0, 1, 0]]);
+    node.type = "VECTOR";
+    node.exportAsync = async () => Buffer.from("<svg/>");
+    return node as unknown as SceneNode;
+  });
+
+  const bundle = await extractNodes(nodes);
+  assert.equal(bundle.assets.length, nodes.length);
+  assert.equal(
+    bundle.extraction_diagnostics.some(
+      (diagnostic) => diagnostic.code === "FR-ASSET-LIMIT-001",
+    ),
+    false,
+  );
+}
+
 await extractsGroupLocalCoordinates();
 await extractsNestedGroupLocalCoordinates();
 await extractsRotatedGroupLocalCoordinates();
@@ -704,5 +825,8 @@ await keepsAliasCyclesScopedToOneResolution();
 await preservesVariableValuesAcrossConsumerModes();
 await preservesModeledNumericBindings();
 supportsCompactExportAndLargeSelectionFeedback();
+cleansOnlyTemporaryTransferNodesAfterExportVerification();
 await exportsDeterministicFallbackPayloads();
+await exportsTrackedTextFallbackPayload();
+await exportsFoundationScaleFallbackAssets();
 console.log("extraction tests passed");

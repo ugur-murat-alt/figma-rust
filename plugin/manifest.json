@@ -11,7 +11,7 @@
   ],
   "documentAccess": "dynamic-page",
   "networkAccess": {
-    "allowedDomains": ["http://127.0.0.1:38421"],
-    "reasoning": "Connects only to the loopback figma-rust compiler service started by the user."
+    "allowedDomains": ["none"],
+    "devAllowedDomains": ["http://localhost:38421"]
   }
 }

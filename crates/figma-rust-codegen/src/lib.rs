@@ -140,7 +140,8 @@ pub fn generate(document: &DesignDocument) -> Result<GeneratedOutput, CodegenErr
         || emitted.iter().any(|indexed| {
             !is_asset_fallback(indexed.node)
                 && (indexed.node.text.is_some()
-                    || indexed.node.children.iter().any(|child| child.visible))
+                    || indexed.node.children.iter().any(|child| child.visible)
+                    || has_visible_stroke(indexed.node))
         });
     let imports = if emitted.is_empty() {
         quote! {}
@@ -160,19 +161,26 @@ pub fn generate(document: &DesignDocument) -> Result<GeneratedOutput, CodegenErr
     };
     let generated_view = if uses_assets {
         quote! {
-            pub fn generated_view(
-                tokens: &impl figma_gpui_runtime::TokenResolver,
-                assets: &impl figma_gpui_runtime::AssetResolver,
-            ) -> impl gpui::IntoElement {
+            pub fn generated_view<Tokens, Assets>(
+                tokens: &Tokens,
+                assets: &Assets,
+            ) -> impl gpui::IntoElement + use<Tokens, Assets>
+            where
+                Tokens: figma_gpui_runtime::TokenResolver,
+                Assets: figma_gpui_runtime::AssetResolver,
+            {
                 let _ = tokens;
                 #root
             }
         }
     } else {
         quote! {
-            pub fn generated_view(
-                tokens: &impl figma_gpui_runtime::TokenResolver,
-            ) -> impl gpui::IntoElement {
+            pub fn generated_view<Tokens>(
+                tokens: &Tokens,
+            ) -> impl gpui::IntoElement + use<Tokens>
+            where
+                Tokens: figma_gpui_runtime::TokenResolver,
+            {
                 let _ = tokens;
                 #root
             }
@@ -256,20 +264,28 @@ fn lower_function(
     if uses_assets {
         Ok(quote! {
             #[allow(clippy::too_many_lines)]
-            fn #symbol(
-                tokens: &impl figma_gpui_runtime::TokenResolver,
-                assets: &impl figma_gpui_runtime::AssetResolver,
-            ) -> impl gpui::IntoElement {
+            fn #symbol<Tokens, Assets>(
+                tokens: &Tokens,
+                assets: &Assets,
+            ) -> impl gpui::IntoElement + use<Tokens, Assets>
+            where
+                Tokens: figma_gpui_runtime::TokenResolver,
+                Assets: figma_gpui_runtime::AssetResolver,
+            {
                 let _ = tokens;
+                let _ = assets;
                 #element
             }
         })
     } else {
         Ok(quote! {
             #[allow(clippy::too_many_lines)]
-            fn #symbol(
-                tokens: &impl figma_gpui_runtime::TokenResolver,
-            ) -> impl gpui::IntoElement {
+            fn #symbol<Tokens>(
+                tokens: &Tokens,
+            ) -> impl gpui::IntoElement + use<Tokens>
+            where
+                Tokens: figma_gpui_runtime::TokenResolver,
+            {
                 let _ = tokens;
                 #element
             }
@@ -321,13 +337,15 @@ fn lower_node(
     element = lower_layout(element, node)?;
     element = lower_size(element, node, indexed.parent_stack_axis)?;
     element = lower_fill(element, node)?;
-    element = lower_stroke(element, node)?;
     element = lower_radii(element, node)?;
     element = lower_opacity(element, node)?;
     element = lower_shadows(element, node)?;
     element = lower_text_style(element, node)?;
 
     if let Some(text) = &node.text {
+        if matches!(node.size.horizontal.sizing, AxisSizing::Hug) {
+            element = quote! { #element.whitespace_nowrap() };
+        }
         let characters = &text.characters;
         element = quote! { #element.child(#characters) };
     }
@@ -338,6 +356,9 @@ fn lower_node(
         } else {
             quote! { #element.child(#child_symbol(tokens)) }
         };
+    }
+    if let Some(stroke) = lower_stroke_overlay(node)? {
+        element = quote! { #element.child(#stroke) };
     }
     Ok(element)
 }
@@ -567,8 +588,7 @@ fn validate_text(node: &Node) -> Result<(), CodegenError> {
 
 fn validate_text_style(node: &Node, style: &TextStyle) -> Result<(), CodegenError> {
     if let Some(font_style) = &style.font_style
-        && !font_style.eq_ignore_ascii_case("normal")
-        && !font_style.eq_ignore_ascii_case("italic")
+        && font_style_posture(font_style, style.font_weight).is_none()
     {
         return unsupported(
             node,
@@ -779,7 +799,21 @@ fn lower_axis_size(
     horizontal: bool,
 ) -> Result<TokenStream, CodegenError> {
     match axis.sizing {
-        AxisSizing::Hug => {}
+        AxisSizing::Hug => {
+            if let Some(value) = axis.measured {
+                let property = if horizontal {
+                    "size.horizontal.measured"
+                } else {
+                    "size.vertical.measured"
+                };
+                let value = checked_f32(node, property, value, true)?;
+                element = if horizontal {
+                    quote! { #element.w(gpui::px(#value)) }
+                } else {
+                    quote! { #element.h(gpui::px(#value)) }
+                };
+            }
+        }
         AxisSizing::Fill if horizontal => element = quote! { #element.w_full() },
         AxisSizing::Fill => element = quote! { #element.h_full() },
         AxisSizing::Fixed(value) => {
@@ -885,6 +919,29 @@ fn lower_stroke(mut element: TokenStream, node: &Node) -> Result<TokenStream, Co
         }
     }
     Ok(element)
+}
+
+fn lower_stroke_overlay(node: &Node) -> Result<Option<TokenStream>, CodegenError> {
+    if !has_visible_stroke(node) {
+        return Ok(None);
+    }
+
+    let overlay = quote! { gpui::div().absolute().inset_0() };
+    let overlay = lower_stroke(overlay, node)?;
+    let overlay = lower_radii(overlay, node)?;
+    Ok(Some(overlay))
+}
+
+fn has_visible_stroke(node: &Node) -> bool {
+    !node.style.strokes.is_empty()
+        && [
+            &node.style.stroke_widths.top,
+            &node.style.stroke_widths.right,
+            &node.style.stroke_widths.bottom,
+            &node.style.stroke_widths.left,
+        ]
+        .into_iter()
+        .any(bound_number_is_visible)
 }
 
 fn lower_radii(mut element: TokenStream, node: &Node) -> Result<TokenStream, CodegenError> {
@@ -994,7 +1051,7 @@ fn lower_text_style(mut element: TokenStream, node: &Node) -> Result<TokenStream
     if style
         .font_style
         .as_ref()
-        .is_some_and(|font_style| font_style.eq_ignore_ascii_case("italic"))
+        .is_some_and(|font_style| font_style_posture(font_style, style.font_weight) == Some(true))
     {
         element = quote! { #element.italic() };
     }
@@ -1015,6 +1072,36 @@ fn lower_text_style(mut element: TokenStream, node: &Node) -> Result<TokenStream
         element = quote! { #element.text_color(#color) };
     }
     Ok(element)
+}
+
+fn font_style_posture(font_style: &str, font_weight: Option<u16>) -> Option<bool> {
+    let compact = font_style
+        .chars()
+        .filter(char::is_ascii_alphanumeric)
+        .flat_map(char::to_lowercase)
+        .collect::<String>();
+    let (weight_name, italic) = compact
+        .strip_suffix("italic")
+        .map_or((compact.as_str(), false), |weight_name| (weight_name, true));
+    let posture_only = matches!(weight_name, "" | "normal" | "regular" | "roman");
+    let named_weight = matches!(
+        weight_name,
+        "hairline"
+            | "thin"
+            | "extralight"
+            | "ultralight"
+            | "light"
+            | "book"
+            | "medium"
+            | "semibold"
+            | "demibold"
+            | "bold"
+            | "extrabold"
+            | "ultrabold"
+            | "black"
+            | "heavy"
+    );
+    (posture_only || (named_weight && font_weight.is_some())).then_some(italic)
 }
 
 fn color_tokens(
@@ -1138,7 +1225,7 @@ fn build_source_map(rust: &str, emitted: &[IndexedNode<'_>]) -> Result<SourceMap
         .iter()
         .map(|indexed| {
             let symbol = node_symbol(indexed.ordinal).to_string();
-            let needle = format!("fn {symbol}(");
+            let needle = format!("fn {symbol}<");
             let start_line = lines
                 .iter()
                 .position(|line| line.trim_start().starts_with(&needle))
@@ -1212,7 +1299,7 @@ mod tests {
     use figma_rust_core::ir::{
         AssetRoute, Axis, AxisSize, AxisSizing, BoundValue, Color, ComponentResolution,
         DesignDocument, Edges, Effect, Layout, Paint, Positioning, Radii, Scroll, Size, Style,
-        Text,
+        Text, TextRun, TextStyle,
     };
     use figma_rust_core::raw::{
         RawAction, RawAlignment, RawAsset, RawBlendMode, RawConstraint, RawNodeKind, RawReaction,
@@ -1359,11 +1446,13 @@ mod tests {
         node.size = Size {
             horizontal: AxisSize {
                 sizing: AxisSizing::Hug,
+                measured: None,
                 min: None,
                 max: None,
             },
             vertical: AxisSize {
                 sizing: AxisSizing::Fill,
+                measured: None,
                 min: None,
                 max: None,
             },
@@ -1386,7 +1475,8 @@ mod tests {
         };
 
         assert!(syn::parse_file(&output.rust).is_ok());
-        assert!(output.rust.contains("fn node_0000("));
+        assert!(output.rust.contains("fn node_0000<"));
+        assert!(output.rust.contains("ParentElement as _"));
         assert!(output.rust.contains("TokenResolver::color"));
         assert!(output.rust.contains("TokenResolver::number_with_context"));
         assert!(
@@ -1433,9 +1523,9 @@ mod tests {
         ] {
             assert!(output.rust.contains(expected), "missing `{expected}`");
         }
-        let root_position = output.rust.find("fn node_0000(");
-        let absolute_position = output.rust.find("fn node_0001(");
-        let text_position = output.rust.find("fn node_0002(");
+        let root_position = output.rust.find("fn node_0000<");
+        let absolute_position = output.rust.find("fn node_0001<");
+        let text_position = output.rust.find("fn node_0002<");
         assert!(matches!(
             (root_position, absolute_position, text_position),
             (Some(root), Some(absolute), Some(text)) if root < absolute && absolute < text
@@ -1451,10 +1541,87 @@ mod tests {
             if let Some(entry) = entry {
                 let start = output.rust.lines().nth(entry.start_line - 1);
                 let end = output.rust.lines().nth(entry.end_line - 1);
-                assert!(start.is_some_and(|line| line.contains(&format!("fn {symbol}("))));
+                assert!(start.is_some_and(|line| line.contains(&format!("fn {symbol}<"))));
                 assert_eq!(end.map(str::trim), Some("}"));
             }
         }
+    }
+
+    #[test]
+    fn inside_stroke_is_an_absolute_overlay_that_does_not_change_layout() {
+        let output = match generate(&supported_document()) {
+            Ok(output) => output,
+            Err(error) => panic!("supported slice must generate: {error}"),
+        };
+        let compact = output.rust.split_whitespace().collect::<String>();
+
+        assert!(compact.contains(
+            ".child(gpui::div().absolute().inset_0().border(gpui::px(1f32)).border_color("
+        ));
+    }
+
+    #[test]
+    fn hug_width_text_does_not_wrap_when_local_font_metrics_are_wider() {
+        let document = supported_document();
+        let output = match generate(&document) {
+            Ok(output) => output,
+            Err(error) => panic!("supported text must generate: {error}"),
+        };
+        let Some(entry) = output.source_map.nodes.get("1:3") else {
+            panic!("text child must be source mapped");
+        };
+        let function = output
+            .rust
+            .lines()
+            .skip(entry.start_line - 1)
+            .take(entry.end_line - entry.start_line + 1)
+            .collect::<Vec<_>>()
+            .join("\n");
+
+        assert!(function.contains(".whitespace_nowrap()"));
+    }
+
+    #[test]
+    fn lowers_figma_weight_style_names_without_losing_posture() {
+        let mut document = supported_document();
+        document.roots[0].children[1].text = Some(Text {
+            characters: "Foundations".to_owned(),
+            runs: vec![TextRun {
+                start_utf16: 0,
+                end_utf16: 11,
+                text: "Foundations".to_owned(),
+                style: TextStyle {
+                    font_family: Some("Inter".to_owned()),
+                    font_style: Some("Semi Bold".to_owned()),
+                    font_weight: Some(600),
+                    ..TextStyle::default()
+                },
+            }],
+        });
+
+        let output = match generate(&document) {
+            Ok(output) => output,
+            Err(error) => panic!("Figma weight style must generate: {error}"),
+        };
+        assert!(
+            output
+                .rust
+                .contains(".font_weight(gpui::FontWeight(600f32))")
+        );
+        assert!(!output.rust.contains(".italic()"));
+
+        if let Some(run) = document.roots[0].children[1]
+            .text
+            .as_mut()
+            .and_then(|text| text.runs.first_mut())
+        {
+            run.style.font_style = Some("Condensed".to_owned());
+        }
+        assert!(matches!(
+            generate(&document),
+            Err(CodegenError::Unsupported { location, .. })
+                if location.property == "text.runs.style.font_style"
+        ));
     }
 
     #[test]
@@ -1608,7 +1775,31 @@ mod tests {
         assert!(output.rust.contains("AssetResolver::asset_path"));
         assert!(output.rust.contains("asset-6e6f64653a313a313a737667.svg"));
         assert_eq!(output.source_map.nodes.len(), 1);
-        assert!(!output.rust.contains("fn node_0001("));
+        assert!(!output.rust.contains("fn node_0001<"));
+    }
+
+    #[test]
+    fn asset_aware_functions_remain_warning_free_when_they_do_not_use_assets_directly() {
+        let mut document = supported_document();
+        document.roots[0].children[0].kind = RawNodeKind::Vector;
+        document.roots[0].children[0].asset_decision.route = AssetRoute::Svg;
+        document.assets = vec![RawAsset {
+            id: "node:1:2:svg".to_owned(),
+            source_node_id: "1:2".to_owned(),
+            media_type: "image/svg+xml".to_owned(),
+            content_hash: None,
+            export_settings: BTreeMap::from([("format".to_owned(), "SVG".to_owned())]),
+            payload_base64: Some("PHN2Zy8+".to_owned()),
+        }];
+
+        let output = match generate(&document) {
+            Ok(output) => output,
+            Err(error) => panic!("mixed native/asset document must generate: {error}"),
+        };
+        assert_eq!(
+            output.rust.matches("let _ = assets;").count(),
+            output.source_map.nodes.len()
+        );
     }
 
     #[test]

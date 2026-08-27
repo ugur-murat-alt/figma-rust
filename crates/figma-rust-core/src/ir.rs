@@ -52,6 +52,8 @@ pub struct Size {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct AxisSize {
     pub sizing: AxisSizing,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub measured: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub min: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]

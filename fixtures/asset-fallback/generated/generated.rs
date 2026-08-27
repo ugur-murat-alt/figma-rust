@@ -1,17 +1,26 @@
 use gpui::{InteractiveElement as _, Styled as _};
-pub fn generated_view(
-    tokens: &impl figma_gpui_runtime::TokenResolver,
-    assets: &impl figma_gpui_runtime::AssetResolver,
-) -> impl gpui::IntoElement {
+pub fn generated_view<Tokens, Assets>(
+    tokens: &Tokens,
+    assets: &Assets,
+) -> impl gpui::IntoElement + use<Tokens, Assets>
+where
+    Tokens: figma_gpui_runtime::TokenResolver,
+    Assets: figma_gpui_runtime::AssetResolver,
+{
     let _ = tokens;
     node_0000(tokens, assets)
 }
 #[allow(clippy::too_many_lines)]
-fn node_0000(
-    tokens: &impl figma_gpui_runtime::TokenResolver,
-    assets: &impl figma_gpui_runtime::AssetResolver,
-) -> impl gpui::IntoElement {
+fn node_0000<Tokens, Assets>(
+    tokens: &Tokens,
+    assets: &Assets,
+) -> impl gpui::IntoElement + use<Tokens, Assets>
+where
+    Tokens: figma_gpui_runtime::TokenResolver,
+    Assets: figma_gpui_runtime::AssetResolver,
+{
     let _ = tokens;
+    let _ = assets;
     gpui::svg()
         .external_path(
             figma_gpui_runtime::AssetResolver::asset_path(

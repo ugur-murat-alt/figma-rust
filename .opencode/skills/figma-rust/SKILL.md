@@ -13,6 +13,28 @@ metadata:
 
 Use this skill for every end-to-end figma-rust task. The system is a structural design compiler, not screenshot-to-code: Figma data becomes a versioned Raw Model, target-neutral Design IR, deterministic GPUI Rust, and verification evidence. Never infer business logic from a design.
 
+figma-rust is not an MCP server. It consists of a local Figma development plugin for authoritative schema-v2 extraction, a Rust CLI for inspect/lint/compile/serve/verify, a loopback HTTP bridge used by the plugin, and project-local OpenCode skills that tell agents how to operate those parts. Figma MCP is a separate tool and never replaces the compiler extraction bundle.
+
+## Task router
+
+Load this umbrella first, then load every specialized skill required by the task:
+
+| Task | Required project skill | Output |
+| --- | --- | --- |
+| Export a Figma selection, inspect/lint JSON, compile artifacts, run the plugin bridge, prove deterministic generation, or change extractor/core/codegen/CLI | `figma-rust-extract-compile` | Understood schema-v2 bundle and complete compiler-owned artifact set |
+| Build Foundation tokens, handwritten semantic GPUI components, variants/actions, application integration, or resolver wiring | `figma-rust-semantic-gpui` | Maintainable typed GPUI API with generated output used only as evidence/scaffold |
+| Compare bounds/pixels, capture Linux windows, validate fonts/alpha/hashes/provenance, or diagnose visual regressions | `figma-rust-visual-verification` | Source-linked geometry/pixel report with explicit thresholds and provenance |
+
+For a full design-to-production task, run them in this order:
+
+```text
+figma-rust-extract-compile
+  -> figma-rust-semantic-gpui
+      -> figma-rust-visual-verification
+```
+
+Do not collapse the gates between phases. Compile success does not prove GPUI integration; GPUI construction does not prove geometry; geometry does not prove pixels. If only one phase is requested, load only that specialized skill plus this umbrella.
+
 ## Mandatory boundaries
 
 - Keep generated view code separate from handwritten application state, navigation, network access, validation, and domain behavior.
@@ -31,7 +53,9 @@ Use this skill for every end-to-end figma-rust task. The system is a structural 
 4. Load `opencode-rust-coder` before substantial Rust implementation or debugging.
 5. For Linux transparent-window evidence, load `transparent-window-rgba-capture` and `atomic-artifact-publication`, then use the project command `/capture-linux`.
 6. Inspect the owning source and existing fixture before changing behavior. Prefer the smallest correct change.
-7. Select one mode: extract, inspect/lint, compile, plugin bridge, verify, capture, or compiler development. Do not mix evidence from different modes.
+7. Use the task router to load `figma-rust-extract-compile`, `figma-rust-semantic-gpui`, and/or `figma-rust-visual-verification`. Keep each phase's evidence and gates distinct.
+8. For pixel verification, read `references/fidelity-fonts.md`; use exact source
+   font files and configure grayscale fidelity rendering before opening the window.
 
 ## Core operating sequence
 
@@ -39,7 +63,7 @@ Use this skill for every end-to-end figma-rust task. The system is a structural 
 2. **Inspect**: run `figma-rust inspect` and review the raw preorder tree plus normalized diagnostic summary.
 3. **Lint**: run `figma-rust lint`; use `--strict` only when warnings are intended to fail the gate. Exit 1 means domain diagnostics, not a CLI crash.
 4. **Compile**: run `figma-rust compile` only after required errors are understood. Treat `generated.rs`, `source-map.json`, `ir.json`, and `diagnostics.json` as one compiler-owned artifact set.
-5. **Integrate**: call generated view functions from handwritten application code. Never edit generated files to add business behavior.
+5. **Integrate**: use generated views as replaceable presentation scaffolds or measurable references. For production Foundation work, build handwritten semantic GPUI components through `figma-rust-semantic-gpui`; never edit generated files to add business behavior.
 6. **Verify**: compare hierarchy/bounds and optional images with an explicit manifest. Read the machine report; exit 1 is a completed comparison that failed thresholds, while exit 2 is a verification/configuration error.
 7. **Capture**: on Linux, use a real compositor-backed fixture and preserve readiness, exact window identity, dimensions, scale, source captures, hashes, reconstruction/decoding details, and verifier output.
 8. **Close**: run the applicable plugin and Rust gates, inspect all changed artifacts, then apply the mandatory issue decision below.
@@ -50,6 +74,8 @@ Use this skill for every end-to-end figma-rust task. The system is a structural 
 - A hand-authored GPUI proof must be labeled hand-authored and must not be represented as compiler output.
 - A zero-tolerance comparison with `passed:false` is valid diagnostic evidence, but it is not a passing fidelity fixture.
 - Linux capture evidence must identify the ready process and exact compositor window. If a video source is lossy, state that clearly and retain the source plus decoder evidence.
+- Treat font file hashes and GPUI text rendering mode as capture provenance. Do
+  not install fixture-specific font versions globally.
 - Publish generated artifacts with a directory lock, unique same-directory temporary file, sync, and atomic rename. Preserve the previous final on validation failure.
 
 ## Mandatory GitHub issue decision
@@ -91,8 +117,12 @@ Report only checks that actually ran. Distinguish passed checks, expected thresh
 
 ## Reference map
 
+- `figma-rust-extract-compile`: authoritative extraction, diagnostics, deterministic compilation, artifact ownership, and plugin bridge operation.
+- `figma-rust-semantic-gpui`: handwritten Foundation/component architecture, token/asset/action contracts, and production GPUI integration.
+- `figma-rust-visual-verification`: geometry, pixels, exact fonts, Linux compositor capture, thresholds, hashes, and provenance.
 - `references/usage.md`: installation, plugin setup, CLI commands, server bridge, verification, capture, and development loops.
 - `references/capability-and-diagnostics.md`: architecture boundaries, diagnostic interpretation, current limitations, and evidence meanings.
 - `references/issue-policy.md`: mandatory issue classification, evidence, duplicate search, creation, and verification steps.
+- `references/fidelity-fonts.md`: exact font isolation and grayscale rendering for deterministic pixel proof.
 - `templates/bug-report.md`: sanitized bug body template for CLI-based issue creation.
 - `templates/feature-request.md`: actionable improvement body template for CLI-based issue creation.

@@ -35,6 +35,15 @@ pub mod generated_asset_fallback {
     ));
 }
 
+/// Asset-backed generated output must not borrow its local resolvers.
+pub fn generated_asset_fallback_view() -> impl IntoElement {
+    let assets = figma_gpui_runtime::DirectoryAssets::new(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../asset-fallback/generated"
+    ));
+    generated_asset_fallback::generated_view(&figma_gpui_runtime::FallbackTokens, &assets)
+}
+
 /// Representative generated view for the first codegen slice.
 pub fn generated_view() -> impl IntoElement {
     div()
