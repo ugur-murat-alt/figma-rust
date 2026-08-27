@@ -310,7 +310,16 @@ fn lower_node(
             )
         })?;
         let mut element = match node.asset_decision.route {
-            AssetRoute::Svg | AssetRoute::Raster => quote! {
+            AssetRoute::Svg => quote! {
+                gpui::svg()
+                    .external_path(
+                        figma_gpui_runtime::AssetResolver::asset_path(assets, #file_name)
+                            .to_string_lossy()
+                            .into_owned()
+                    )
+                    .debug_selector(|| figma_gpui_runtime::source_selector(#ordinal))
+            },
+            AssetRoute::Raster => quote! {
                 gpui::img(figma_gpui_runtime::AssetResolver::asset_path(assets, #file_name))
                     .debug_selector(|| figma_gpui_runtime::source_selector(#ordinal))
             },
@@ -1762,8 +1771,7 @@ mod tests {
             Err(error) => panic!("SVG fallback must generate: {error}"),
         };
         assert!(output.rust.contains("AssetResolver"));
-        assert!(output.rust.contains("gpui::img("));
-        assert!(!output.rust.contains("gpui::svg()"));
+        assert!(output.rust.contains("gpui::svg()"));
         assert!(output.rust.contains("AssetResolver::asset_path"));
         assert!(output.rust.contains("asset-6e6f64653a313a313a737667.svg"));
         assert_eq!(output.source_map.nodes.len(), 1);
