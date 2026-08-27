@@ -13,6 +13,8 @@ not stop after describing commands.
    capture or exact window targeting is unavailable.
 3. Build `capture-real-group` with feature `capture-real-window` and build
    `figma-rust-cli`. Use Cargo from `PATH`, or the executable named by `$CARGO`.
+   The checked-in display binary must call
+   `figma_gpui_runtime::configure_figma_fidelity(cx)` before opening its window.
 4. Ensure no stale `capture-real-group` process or window exists before starting.
 5. For each backdrop in this exact order, `black` then `white`:
    - Create one private unique directory below `${TMPDIR:-/tmp}`, then create
@@ -24,7 +26,8 @@ not stop after describing commands.
      `wm_class` is `figma-rust-real-group`. Require its PID to equal the retained
      launch PID.
    - Read exactly one JSON readiness event. Require matching PID, backdrop,
-     `100x60` logical size, expected title/class, and pinned GPUI revision.
+      `100x60` logical size, expected title/class, pinned GPUI revision, and
+      `text_rendering=grayscale`.
    - Require compositor bounds `100x60`.
    - Capture that exact window with Computer Use `get_app_state`: PNG, scale `1`,
      `max_width=100`, `max_height=60`, and `max_bytes=2097152`.
@@ -56,6 +59,9 @@ not stop after describing commands.
    before replacing metadata.
 9. Re-run the image verifier, confirm no `capture-real-group` process and no
    `.*.tmp-*` capture artifact remains, and report hashes plus pixel metrics.
+   When the fixture contains text, also report the exact font-file hashes and run
+   the display process with the matching isolated `FONTCONFIG_FILE`; never change
+   the global Fontconfig configuration for a fixture capture.
 10. Update durable project memory only if verified capture facts changed, then
     refresh the exact repository's full codebase-memory index and wait for `ready`.
 

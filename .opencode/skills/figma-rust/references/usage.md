@@ -12,7 +12,7 @@ Required tools:
 - Node.js and npm for the Figma plugin.
 - Figma Desktop for loading the local development plugin.
 - Linux Wayland plus Computer Use/desktop-portal access for fresh Linux pixel capture.
-- `jq`, `sha256sum`, and `ffmpeg`/`ffprobe` for capture provenance workflows.
+- `jq`, `sha256sum`, `unzip`, `fc-match`, and `ffmpeg`/`ffprobe` for capture provenance workflows.
 - GitHub CLI `gh` authenticated for mandatory issue creation.
 
 Use Cargo from `PATH`, or set `CARGO` to an absolute executable path when the environment does not expose it:
@@ -33,6 +33,28 @@ npm --prefix plugin run build
 ```
 
 Expected plugin build outputs are ignored artifacts under `plugin/dist/`.
+
+Install or update the local CLI after all release checks pass:
+
+```sh
+cargo install --path crates/figma-rust-cli --root ~/.local --locked --force
+~/.local/bin/figma-rust version
+```
+
+This is a local path installation; the workspace crates remain `publish = false`
+and are not published to crates.io.
+
+For the canonical Foundation `419:2` pixel profile, prepare exact fonts without
+changing global Fontconfig state:
+
+```sh
+export FONTCONFIG_FILE="$(
+  .opencode/skills/figma-rust/scripts/prepare-fidelity-fonts.sh
+)"
+```
+
+See `references/fidelity-fonts.md` for hashes, scope, and the required GPUI
+grayscale configuration. Other Figma files require their own source-font proof.
 
 ## 2. Load the Figma development plugin
 
@@ -145,7 +167,7 @@ Start the loopback-only service:
 "${CARGO:-cargo}" run -p figma-rust-cli -- serve --port 38421
 ```
 
-The plugin manifest permits only `http://127.0.0.1:38421`. The service exposes fixed `POST /lint` and `POST /compile` endpoints, rejects query/command paths, limits requests to 8 MiB, and performs no Cargo/render work.
+The development plugin manifest permits only `http://localhost:38421`; the service remains bound to the IPv4 loopback address `127.0.0.1`. The service exposes fixed `POST /lint` and `POST /compile` endpoints, rejects query/command paths, limits requests to 8 MiB, and performs no Cargo/render work.
 
 Use this bridge for quick Figma Dev Mode feedback. Use the CLI for output files, assets, Cargo, render capture, and fidelity verification.
 
@@ -184,6 +206,12 @@ Interpretation:
 - exit `2`: verification could not be performed.
 
 A report with `passed:false` can be useful evidence but is not a passing fixture. Preserve the report and state whether failure is expected or a regression.
+
+Before opening a pixel-verification window, call
+`figma_gpui_runtime::configure_figma_fidelity(cx)`. Run that process with an
+isolated `FONTCONFIG_FILE` containing the exact source font files, and record the
+font hashes and text mode in provenance. Geometry can pass while font mismatch,
+subpixel antialiasing, or unintended text wrapping still fails pixels.
 
 The canonical real fixture is reproducible offline:
 
