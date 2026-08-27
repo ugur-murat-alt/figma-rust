@@ -11,6 +11,7 @@ use std::{
 };
 
 use base64::Engine as _;
+use figma_gpui_runtime::configure_figma_fidelity;
 use gpui::{
     App, AppContext, Bounds, Context, Div, FontWeight, IntoElement, ParentElement, Render, Styled,
     Window, WindowBackgroundAppearance, WindowBounds, WindowOptions, div, point, px, rgb, size,
@@ -125,6 +126,7 @@ impl Render for ProofView {
                     "logical_width": width,
                     "logical_height": height,
                     "gpui_revision": GPUI_REVISION,
+                    "text_rendering": "grayscale",
                 });
                 println!("{event}");
                 if let Err(error) = io::stdout().flush() {
@@ -356,6 +358,7 @@ fn run_display(target: Target) -> ExitCode {
     let ready = Rc::new(Cell::new(false));
     let app_ready = Rc::clone(&ready);
     gpui_platform::application().run(move |cx: &mut App| {
+        configure_figma_fidelity(cx);
         let view_ready = Rc::clone(&app_ready);
         let (logical_width, logical_height) = target.logical_dimensions();
         let result = cx.open_window(

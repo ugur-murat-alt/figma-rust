@@ -12,10 +12,15 @@ import {
   type ExportKind,
 } from "./export";
 import type { CompilerResponse, ExtractionDiagnostic, ExtractionBundle } from "./schema";
+import {
+  cleanupTemporaryTransferNodes,
+  findTemporaryTransferNodes,
+  isTemporaryTransferNodeName,
+} from "./transfer";
 
 declare const __html__: string;
 
-const COMPILER_URL = "http://127.0.0.1:38421";
+const COMPILER_URL = "http://localhost:38421";
 const CODEGEN_TIMEOUT_MS = 2_500;
 const UI_COMPILER_TIMEOUT_MS = 10_000;
 
@@ -52,9 +57,13 @@ if (figma.editorType === "dev") {
     }
   });
 } else {
-  figma.showUI(__html__, { width: 420, height: 560, themeColors: true });
+  figma.showUI(__html__, { width: 420, height: 640, themeColors: true });
 
-  figma.ui.onmessage = async (message: { type?: string; export_kind?: ExportKind }) => {
+  figma.ui.onmessage = async (message: {
+    type?: string;
+    export_kind?: ExportKind;
+    export_verified?: boolean;
+  }) => {
     if (message.type === "extract") {
       try {
         const exportKind: ExportKind = message.export_kind === "EVIDENCE" ? "EVIDENCE" : "COMPILER";
@@ -65,6 +74,33 @@ if (figma.editorType === "dev") {
           export_kind: exportKind,
           summary: summarizeBundle(bundle),
         });
+      } catch (error) {
+        postUiError(error);
+      }
+      return;
+    }
+    if (message.type === "scan-temporary-transfer-nodes") {
+      try {
+        const nodes = findTemporaryTransferNodes(
+          figma.currentPage.findAll((node) => isTemporaryTransferNodeName(node.name)),
+        );
+        figma.ui.postMessage({
+          type: "temporary-transfer-scan",
+          count: nodes.length,
+          node_ids: nodes.map((node) => node.id),
+        });
+      } catch (error) {
+        postUiError(error);
+      }
+      return;
+    }
+    if (message.type === "cleanup-temporary-transfer-nodes") {
+      try {
+        const result = cleanupTemporaryTransferNodes(
+          figma.currentPage.findAll((node) => isTemporaryTransferNodeName(node.name)),
+          message.export_verified === true,
+        );
+        figma.ui.postMessage({ type: "temporary-transfer-cleanup", result });
       } catch (error) {
         postUiError(error);
       }

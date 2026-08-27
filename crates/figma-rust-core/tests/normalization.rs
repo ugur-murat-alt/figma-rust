@@ -4,7 +4,9 @@ use figma_rust_core::diagnostic::codes;
 use figma_rust_core::ir::{
     AssetRoute, AxisSizing, ComponentResolution, Layout, Paint, Positioning,
 };
-use figma_rust_core::raw::{RawAsset, RawColor, RawComponent, RawLiteral, RawVariable};
+use figma_rust_core::raw::{
+    RawAsset, RawColor, RawComponent, RawConstraint, RawLiteral, RawVariable,
+};
 use figma_rust_core::{
     ComponentMapping, ComponentRegistry, normalize_bundle, normalize_bundle_with_registry,
     parse_and_normalize, parse_bundle,
@@ -116,6 +118,7 @@ fn grid_absolute_and_min_max_contracts_are_normalized() {
     grid["children"] = json!([grid_child]);
 
     let mut absolute = fixed_node("4:1", "FRAME");
+    absolute["size"]["horizontal"] = json!("HUG");
     let mut absolute_child = fixed_node("4:2", "RECTANGLE");
     absolute_child["position"] = json!({
         "x": 12.0,
@@ -192,6 +195,107 @@ fn grid_absolute_and_min_max_contracts_are_normalized() {
     assert!(output.diagnostics.iter().any(|diagnostic| {
         diagnostic.code == codes::RUNTIME_FALLBACK && diagnostic.node_id.as_deref() == Some("3:1")
     }));
+}
+
+#[test]
+fn hug_axes_retain_the_figma_measured_dimensions() {
+    let mut node = fixed_node("4:5", "FRAME");
+    node["size"] = json!({
+        "width": 120.5,
+        "height": 48.25,
+        "horizontal": "HUG",
+        "vertical": "HUG"
+    });
+
+    let output = normalize_bundle(&bundle_with_roots(&json!([node])));
+    let document = serde_json::to_value(&output.document).expect("IR must serialize");
+
+    assert_eq!(
+        document["roots"][0]["size"]["horizontal"]["measured"],
+        json!(120.5)
+    );
+    assert_eq!(
+        document["roots"][0]["size"]["vertical"]["measured"],
+        json!(48.25)
+    );
+    assert!(matches!(
+        output.document.roots[0].size.horizontal.sizing,
+        AxisSizing::Hug
+    ));
+    assert!(matches!(
+        output.document.roots[0].size.vertical.sizing,
+        AxisSizing::Hug
+    ));
+}
+
+#[test]
+fn constraints_under_fixed_parents_canonicalize_to_min() {
+    let mut parent = fixed_node("4:10", "FRAME");
+    parent["size"] = json!({
+        "width": 28.0,
+        "height": 28.0,
+        "horizontal": "FIXED",
+        "vertical": "FIXED"
+    });
+    let mut full_size_child = fixed_node("4:11", "FRAME");
+    full_size_child["size"] = json!({
+        "width": 28.0,
+        "height": 28.0,
+        "horizontal": "FIXED",
+        "vertical": "FIXED"
+    });
+    full_size_child["position"] = json!({
+        "x": 0.0,
+        "y": 0.0,
+        "horizontal_constraint": "SCALE",
+        "vertical_constraint": "SCALE"
+    });
+    let mut scaled_child = fixed_node("4:12", "FRAME");
+    scaled_child["position"] = json!({
+        "x": 4.0,
+        "y": 4.0,
+        "horizontal_constraint": "SCALE",
+        "vertical_constraint": "SCALE"
+    });
+    parent["children"] = json!([full_size_child, scaled_child]);
+
+    let output = normalize_bundle(&bundle_with_roots(&json!([parent])));
+    let Positioning::Absolute {
+        horizontal_constraint,
+        vertical_constraint,
+        ..
+    } = output.document.roots[0].children[0].positioning
+    else {
+        panic!("child of a plain frame must use absolute positioning");
+    };
+    assert_eq!(horizontal_constraint, RawConstraint::Min);
+    assert_eq!(vertical_constraint, RawConstraint::Min);
+    assert_eq!(
+        output.document.roots[0].children[0].asset_decision.route,
+        AssetRoute::Native
+    );
+    assert_eq!(
+        output.document.roots[0].children[1].asset_decision.route,
+        AssetRoute::Native
+    );
+
+    let mut hug_parent = fixed_node("4:20", "FRAME");
+    hug_parent["size"]["horizontal"] = json!("HUG");
+    let mut constrained_child = fixed_node("4:21", "FRAME");
+    constrained_child["position"] = json!({
+        "x": 4.0,
+        "y": 4.0,
+        "horizontal_constraint": "SCALE",
+        "vertical_constraint": "MIN"
+    });
+    hug_parent["children"] = json!([constrained_child]);
+    let hug_output = normalize_bundle(&bundle_with_roots(&json!([hug_parent])));
+    assert_eq!(
+        hug_output.document.roots[0].children[0]
+            .asset_decision
+            .route,
+        AssetRoute::Runtime
+    );
 }
 
 #[test]
@@ -646,16 +750,26 @@ fn text_runs_use_utf16_offsets_without_splitting_unicode() {
 }
 
 #[test]
-fn opaque_pass_through_group_stays_native_but_translucent_group_does_not() {
+fn inert_leaf_and_opaque_container_pass_through_stay_native() {
     let mut opaque = fixed_node("11:1", "GROUP");
     opaque["style"] = json!({"blend_mode": "PASS_THROUGH"});
+    opaque["children"] = json!([fixed_node("11:1:1", "RECTANGLE")]);
     let mut translucent = fixed_node("11:2", "GROUP");
     translucent["opacity"] = json!(0.5);
     translucent["style"] = json!({"blend_mode": "PASS_THROUGH"});
+    translucent["children"] = json!([fixed_node("11:2:1", "RECTANGLE")]);
     let mut rectangle = fixed_node("11:3", "RECTANGLE");
     rectangle["style"] = json!({"blend_mode": "PASS_THROUGH"});
+    let mut frame = fixed_node("11:4", "FRAME");
+    frame["style"] = json!({"blend_mode": "PASS_THROUGH"});
+    frame["children"] = json!([fixed_node("11:4:1", "RECTANGLE")]);
 
-    let output = normalize_bundle(&bundle_with_roots(&json!([opaque, translucent, rectangle])));
+    let output = normalize_bundle(&bundle_with_roots(&json!([
+        opaque,
+        translucent,
+        rectangle,
+        frame
+    ])));
     assert_eq!(
         output.document.roots[0].asset_decision.route,
         AssetRoute::Native
@@ -666,6 +780,34 @@ fn opaque_pass_through_group_stays_native_but_translucent_group_does_not() {
     );
     assert_eq!(
         output.document.roots[2].asset_decision.route,
+        AssetRoute::Native
+    );
+    assert_eq!(
+        output.document.roots[3].asset_decision.route,
+        AssetRoute::Native
+    );
+}
+
+#[test]
+fn stroke_alignment_without_strokes_stays_native() {
+    let mut no_stroke = fixed_node("11:10", "TEXT");
+    no_stroke["style"] = json!({"stroke_align": "OUTSIDE", "strokes": []});
+    let mut outside_stroke = fixed_node("11:11", "RECTANGLE");
+    outside_stroke["style"] = json!({
+        "stroke_align": "OUTSIDE",
+        "strokes": [{
+            "kind": "SOLID",
+            "color": {"literal": {"r": 0.0, "g": 0.0, "b": 0.0, "a": 1.0}}
+        }]
+    });
+
+    let output = normalize_bundle(&bundle_with_roots(&json!([no_stroke, outside_stroke])));
+    assert_eq!(
+        output.document.roots[0].asset_decision.route,
+        AssetRoute::Native
+    );
+    assert_eq!(
+        output.document.roots[1].asset_decision.route,
         AssetRoute::Runtime
     );
 }

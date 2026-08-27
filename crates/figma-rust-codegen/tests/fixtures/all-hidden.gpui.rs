@@ -1,6 +1,7 @@
-pub fn generated_view(
-    tokens: &impl figma_gpui_runtime::TokenResolver,
-) -> impl gpui::IntoElement {
+pub fn generated_view<Tokens>(tokens: &Tokens) -> impl gpui::IntoElement + use<Tokens>
+where
+    Tokens: figma_gpui_runtime::TokenResolver,
+{
     let _ = tokens;
     gpui::div()
 }

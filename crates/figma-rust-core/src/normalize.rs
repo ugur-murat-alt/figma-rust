@@ -246,7 +246,45 @@ pub fn normalize_bundle_with_registry(
 enum ParentLayout {
     Stack,
     Grid,
-    Absolute,
+    Absolute {
+        fixed_width: Option<f64>,
+        fixed_height: Option<f64>,
+    },
+}
+
+fn canonicalize_fixed_parent_constraint(
+    constraint: crate::raw::RawConstraint,
+    parent_size: Option<f64>,
+) -> crate::raw::RawConstraint {
+    if constraint != crate::raw::RawConstraint::Min && parent_size.is_some_and(f64::is_finite) {
+        crate::raw::RawConstraint::Min
+    } else {
+        constraint
+    }
+}
+
+fn has_parent_size_aware_constraints(positioning: &Positioning) -> bool {
+    matches!(
+        positioning,
+        Positioning::Absolute {
+            horizontal_constraint,
+            vertical_constraint,
+            ..
+        } if *horizontal_constraint != crate::raw::RawConstraint::Min
+            || *vertical_constraint != crate::raw::RawConstraint::Min
+    )
+}
+
+fn pass_through_requires_runtime(raw: &RawNode) -> bool {
+    let is_container = matches!(
+        raw.kind,
+        RawNodeKind::Frame
+            | RawNodeKind::Group
+            | RawNodeKind::Component
+            | RawNodeKind::Instance
+            | RawNodeKind::Scroll
+    );
+    !raw.children.is_empty() && (!is_container || raw.opacity.to_bits() != 1.0_f64.to_bits())
 }
 
 struct Context<'a> {
@@ -272,7 +310,14 @@ impl Context<'_> {
         let child_parent = match raw.layout.mode {
             RawLayoutMode::Horizontal | RawLayoutMode::Vertical => ParentLayout::Stack,
             RawLayoutMode::Grid => ParentLayout::Grid,
-            RawLayoutMode::None => ParentLayout::Absolute,
+            RawLayoutMode::None => ParentLayout::Absolute {
+                fixed_width: (raw.size.horizontal == Some(RawAxisSizing::Fixed))
+                    .then_some(raw.size.width)
+                    .flatten(),
+                fixed_height: (raw.size.vertical == Some(RawAxisSizing::Fixed))
+                    .then_some(raw.size.height)
+                    .flatten(),
+            },
         };
         let style = self.normalize_style(raw);
         let text = raw.text.as_ref().map(|text| self.normalize_text(raw, text));
@@ -290,7 +335,7 @@ impl Context<'_> {
             }
             None
         };
-        let asset_decision = self.decide_asset(raw, parent);
+        let asset_decision = self.decide_asset(raw, &positioning);
         self.emit_asset_diagnostic(raw, &asset_decision);
         let children = raw
             .children
@@ -400,6 +445,9 @@ impl Context<'_> {
 
         AxisSize {
             sizing,
+            measured: (source_sizing == Some(RawAxisSizing::Hug))
+                .then(|| fixed.map(|value| self.finite_non_negative(raw, value, path)))
+                .flatten(),
             min: normalized_min,
             max: normalized_max,
         }
@@ -418,13 +466,27 @@ impl Context<'_> {
                 .map(|value| self.finite_or_zero(raw, value, "position.transform.matrix")),
         };
         let absolute = raw.position.positioning == RawPositioning::Absolute
-            || matches!(parent, Some(ParentLayout::Absolute));
+            || matches!(parent, Some(ParentLayout::Absolute { .. }));
         if absolute {
+            let (mut horizontal_constraint, mut vertical_constraint) = (
+                raw.position.horizontal_constraint,
+                raw.position.vertical_constraint,
+            );
+            if let Some(ParentLayout::Absolute {
+                fixed_width,
+                fixed_height,
+            }) = parent
+            {
+                horizontal_constraint =
+                    canonicalize_fixed_parent_constraint(horizontal_constraint, fixed_width);
+                vertical_constraint =
+                    canonicalize_fixed_parent_constraint(vertical_constraint, fixed_height);
+            }
             Positioning::Absolute {
                 x: self.finite_or_zero(raw, raw.position.x, "position.x"),
                 y: self.finite_or_zero(raw, raw.position.y, "position.y"),
-                horizontal_constraint: raw.position.horizontal_constraint,
-                vertical_constraint: raw.position.vertical_constraint,
+                horizontal_constraint,
+                vertical_constraint,
                 transform,
             }
         } else {
@@ -883,7 +945,7 @@ impl Context<'_> {
         }
     }
 
-    fn decide_asset(&self, raw: &RawNode, parent: Option<ParentLayout>) -> AssetDecision {
+    fn decide_asset(&self, raw: &RawNode, positioning: &Positioning) -> AssetDecision {
         let mut route = AssetRoute::Native;
         let mut reasons = Vec::new();
         let mut require = |required: AssetRoute, reason: &str| {
@@ -910,16 +972,15 @@ impl Context<'_> {
         {
             require(AssetRoute::Runtime, "stack baseline alignment");
         }
-        if matches!(parent, Some(ParentLayout::Absolute))
-            && (raw.position.horizontal_constraint != crate::raw::RawConstraint::Min
-                || raw.position.vertical_constraint != crate::raw::RawConstraint::Min)
-        {
+        if has_parent_size_aware_constraints(positioning) {
             require(
                 AssetRoute::Runtime,
                 "parent-size-aware absolute constraints",
             );
         }
-        if raw.style.stroke_align != crate::raw::RawStrokeAlign::Inside {
+        if !raw.style.strokes.is_empty()
+            && raw.style.stroke_align != crate::raw::RawStrokeAlign::Inside
+        {
             require(AssetRoute::Runtime, "center/outside stroke alignment");
         }
         if raw.style.strokes.len() > 1 {
@@ -931,7 +992,7 @@ impl Context<'_> {
         match raw.style.blend_mode {
             crate::raw::RawBlendMode::Normal => {}
             crate::raw::RawBlendMode::PassThrough => {
-                if raw.kind != RawNodeKind::Group || raw.opacity.to_bits() != 1.0_f64.to_bits() {
+                if pass_through_requires_runtime(raw) {
                     require(AssetRoute::Runtime, "pass-through compositing");
                 }
             }

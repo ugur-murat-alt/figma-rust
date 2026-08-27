@@ -10,6 +10,9 @@
       .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
       button { border: 1px solid var(--figma-color-border); border-radius: 6px; padding: 7px 11px; background: var(--figma-color-bg-secondary); color: inherit; cursor: pointer; }
       button.primary { border-color: var(--figma-color-bg-brand); background: var(--figma-color-bg-brand); color: var(--figma-color-text-onbrand); }
+      button:disabled { cursor: not-allowed; opacity: 0.5; }
+      .cleanup { margin-bottom: 14px; padding: 10px; border: 1px solid var(--figma-color-border); border-radius: 6px; }
+      .cleanup label { display: block; margin: 8px 0; }
       #status { padding: 10px; border: 1px solid var(--figma-color-border); border-radius: 6px; white-space: pre-wrap; max-height: 360px; overflow: auto; }
       .error { color: var(--figma-color-text-danger); }
     </style>
@@ -22,12 +25,25 @@
       <button id="extract-evidence">Export evidence JSON</button>
       <button id="lint">Lint selection</button>
     </div>
+    <div class="cleanup">
+      <button id="scan-transfer">Scan temporary transfer nodes</button>
+      <label><input id="export-verified" type="checkbox" disabled /> I verified the downloaded compiler JSON on disk.</label>
+      <button id="cleanup-transfer" disabled>Remove temporary transfer nodes</button>
+    </div>
     <div id="status">Select a frame or component.</div>
     <script>
       const status = document.getElementById("status");
+      const exportVerified = document.getElementById("export-verified");
+      const cleanupTransfer = document.getElementById("cleanup-transfer");
       document.getElementById("extract-compiler").onclick = () => parent.postMessage({ pluginMessage: { type: "extract", export_kind: "COMPILER" } }, "*");
       document.getElementById("extract-evidence").onclick = () => parent.postMessage({ pluginMessage: { type: "extract", export_kind: "EVIDENCE" } }, "*");
       document.getElementById("lint").onclick = () => parent.postMessage({ pluginMessage: { type: "lint" } }, "*");
+      document.getElementById("scan-transfer").onclick = () => parent.postMessage({ pluginMessage: { type: "scan-temporary-transfer-nodes" } }, "*");
+      exportVerified.onchange = () => { cleanupTransfer.disabled = !exportVerified.checked; };
+      cleanupTransfer.onclick = () => parent.postMessage({ pluginMessage: {
+        type: "cleanup-temporary-transfer-nodes",
+        export_verified: exportVerified.checked,
+      } }, "*");
       const formatBytes = (bytes) => bytes >= 1024 * 1024
         ? `${(bytes / (1024 * 1024)).toFixed(2)} MiB`
         : `${Math.ceil(bytes / 1024)} KiB`;
@@ -56,7 +72,10 @@
             : "figma-rust-extraction.json";
           link.click();
           URL.revokeObjectURL(url);
-          status.textContent = `Exported ${link.download}\n${formatSummary(message.summary)}`;
+          exportVerified.disabled = false;
+          exportVerified.checked = false;
+          cleanupTransfer.disabled = true;
+          status.textContent = `Exported ${link.download}\nVerify its schema, root ID, byte length, and hash on disk before enabling cleanup.\n${formatSummary(message.summary)}`;
         } else if (message.type === "bundle-preview") {
           const preview = message.bundle.extraction_diagnostics
             .slice(0, 20)
@@ -69,6 +88,13 @@
           ].join("\n");
         } else if (message.type === "lint-result") {
           status.textContent = JSON.stringify(message.result, null, 2);
+        } else if (message.type === "temporary-transfer-scan") {
+          status.textContent = `Found ${message.count} temporary transfer node(s).\n${message.node_ids.join("\n")}`;
+        } else if (message.type === "temporary-transfer-cleanup") {
+          exportVerified.checked = false;
+          exportVerified.disabled = true;
+          cleanupTransfer.disabled = true;
+          status.textContent = `Removed ${message.result.removed_count} temporary transfer node(s).\n${message.result.removed_node_ids.join("\n")}`;
         } else if (message.type === "error") {
           status.textContent = message.message;
           status.className = "error";

@@ -5,7 +5,18 @@
 
 use std::path::{Path, PathBuf};
 
-use gpui::Hsla;
+use gpui::{App, Hsla, TextRenderingMode};
+
+const FIGMA_FIDELITY_TEXT_RENDERING_MODE: TextRenderingMode = TextRenderingMode::Grayscale;
+
+/// Configures deterministic grayscale glyph rasterization for Figma pixel comparisons.
+///
+/// Call this once in the `gpui_platform::application().run` callback before opening
+/// the verification window. Normal opaque Linux GPUI windows default to subpixel
+/// text, while Figma image exports use grayscale antialiasing.
+pub fn configure_figma_fidelity(cx: &mut App) {
+    cx.set_text_rendering_mode(FIGMA_FIDELITY_TEXT_RENDERING_MODE);
+}
 
 /// Source variable identity and the consumer's resolved collection modes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -97,10 +108,10 @@ pub trait ActionSink<A> {
 #[cfg(test)]
 mod tests {
     use super::{
-        AssetResolver, DirectoryAssets, FallbackTokens, TokenContext, TokenResolver,
-        source_selector,
+        AssetResolver, DirectoryAssets, FIGMA_FIDELITY_TEXT_RENDERING_MODE, FallbackTokens,
+        TokenContext, TokenResolver, source_selector,
     };
-    use gpui::hsla;
+    use gpui::{TextRenderingMode, hsla};
 
     #[test]
     fn fallback_tokens_preserve_literals() {
@@ -134,6 +145,14 @@ mod tests {
         assert_eq!(
             assets.asset_path("asset-01.svg"),
             std::path::PathBuf::from("generated-assets/asset-01.svg")
+        );
+    }
+
+    #[test]
+    fn figma_fidelity_rendering_uses_grayscale_text() {
+        assert_eq!(
+            FIGMA_FIDELITY_TEXT_RENDERING_MODE,
+            TextRenderingMode::Grayscale
         );
     }
 }
