@@ -2,6 +2,44 @@
 
 All notable changes to this project are documented in this file.
 
+## [0.3.1] - 2026-08-27
+
+### Added
+
+- Project-local agent skills for schema-v2 extraction/compilation, handwritten
+  semantic GPUI integration, and source-linked visual verification.
+- Isolated Inter 3.19 and JetBrains Mono 2.304 preparation with SHA-256 checks for
+  the canonical Foundation pixel profile.
+- Explicit cleanup for verified temporary Figma transfer nodes.
+
+### Changed
+
+- Generated GPUI functions retain precise Rust 2024 resolver captures and preserve
+  SVG fallback semantics separately from raster image rendering.
+- Width-hugging text keeps its measured Figma width without unintended wrapping;
+  inside strokes render as absolute overlays without changing layout.
+- Pixel verification configures grayscale glyph rendering and records exact font
+  identity as provenance.
+
+### Fixed
+
+- Large Foundation-style fallback exports no longer stop at the previous asset
+  count guard.
+- Generated asset-backed views no longer retain resolver borrows beyond their
+  required lifetime.
+- The plugin bridge uses the manifest-compatible `localhost` origin while the
+  service remains bound to IPv4 loopback.
+
+### Known Limitations
+
+- Authored-color SVG fallback is still tracked by issue
+  [#6](https://github.com/ugur-murat-alt/figma-rust/issues/6); compile success does
+  not prove that every SVG paints correctly on pinned GPUI.
+- Private Foundation and DataTable extraction bundles, SVG payloads, screenshots,
+  and unsanitized evidence are intentionally excluded from this release.
+- The canonical Foundation profile is source-specific and must not be reused as a
+  universal font or pixel threshold policy.
+
 ## [0.3.0] - 2026-08-26
 
 ### Added
@@ -59,5 +97,6 @@ All notable changes to this project are documented in this file.
 - Enterprise extended-variable-collection overrides are not yet covered by a public fixture.
 - Runtime asset routes remain an explicit GPUI code-generation boundary.
 
+[0.3.1]: https://github.com/ugur-murat-alt/figma-rust/releases/tag/v0.3.1
 [0.3.0]: https://github.com/ugur-murat-alt/figma-rust/releases/tag/v0.3.0
 [0.2.0]: https://github.com/ugur-murat-alt/figma-rust/releases/tag/v0.2.0
