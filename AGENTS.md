@@ -7,6 +7,11 @@ These instructions apply to the entire repository.
 - Load the project `figma-rust` skill for extraction, compilation, integration,
   verification, capture, or compiler development. Read the matching references
   before changing behavior.
+- After the umbrella skill routes the task, load `figma-rust-extract-compile`
+  for extraction/compiler work, `figma-rust-semantic-gpui` for handwritten
+  Foundation or application integration, and `figma-rust-visual-verification`
+  for geometry, pixel, capture, or provenance work. Multi-stage delivery uses
+  them in that order and keeps each phase's acceptance gates separate.
 - Load `opencode-rust-coder` for non-trivial Rust work. Treat the compiler and
   tests as authoritative.
 - Before Figma `get_design_context`, load `figma-design-to-code`; before Figma

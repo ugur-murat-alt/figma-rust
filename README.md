@@ -54,7 +54,18 @@ opencode2
 ```
 
 Ask OpenCode2 to load `figma-rust` explicitly for extraction, compilation,
-verification, capture, debugging, or compiler development work. The skill contains:
+semantic GPUI integration, verification, capture, debugging, or compiler
+development work. It is the umbrella router for three task skills:
+
+- `figma-rust-extract-compile`: schema-v2 plugin extraction, diagnostics,
+  deterministic compilation, generated artifacts, and the loopback bridge;
+- `figma-rust-semantic-gpui`: handwritten Foundation tokens/components,
+  variants/actions, resolver wiring, and application ownership boundaries;
+- `figma-rust-visual-verification`: source-linked geometry and pixels, exact
+  fonts, Linux compositor capture, thresholds, hashes, and provenance.
+
+For end-to-end work, agents use them in that order and keep compilation, GPUI
+integration, geometry, and pixel evidence as separate gates. The suite contains:
 
 - the complete plugin, CLI, server, verification, capture, and development workflow;
 - capability and diagnostic interpretation rules;
