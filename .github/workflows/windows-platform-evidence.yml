@@ -30,7 +30,7 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Build DPI helper
         shell: cmd
-        run: if not exist target mkdir target && cl /nologo /std:c++20 /EHsc /W4 /WX scripts\windows-dpi-profile.cpp /Fe:target\windows-dpi-profile.exe
+        run: if not exist target mkdir target && cl /nologo /std:c++20 /EHsc /W4 /WX scripts\windows-dpi-profile.cpp /Fe:target\windows-dpi-profile.exe /link user32.lib
       - name: Apply and verify display scale
         shell: pwsh
         run: target/windows-dpi-profile.exe ${{ matrix.dpi }} | Set-Content "$env:RUNNER_TEMP/dpi-profile.json"
