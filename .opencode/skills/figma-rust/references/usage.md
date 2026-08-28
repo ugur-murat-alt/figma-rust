@@ -34,6 +34,16 @@ npm --prefix plugin run build
 
 Expected plugin build outputs are ignored artifacts under `plugin/dist/`.
 
+Install or update the local CLI after all release checks pass:
+
+```sh
+cargo install --path crates/figma-rust-cli --root ~/.local --locked --force
+~/.local/bin/figma-rust version
+```
+
+This is a local path installation; the workspace crates remain `publish = false`
+and are not published to crates.io.
+
 For the canonical Foundation `419:2` pixel profile, prepare exact fonts without
 changing global Fontconfig state:
 

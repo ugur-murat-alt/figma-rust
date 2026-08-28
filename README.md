@@ -27,6 +27,30 @@ figma-rust verify <verification.json>
 figma-rust serve
 ```
 
+## Local Installation
+
+Install or update the CLI from this checkout without publishing to crates.io:
+
+```sh
+cargo install --path crates/figma-rust-cli --root ~/.local --locked --force
+~/.local/bin/figma-rust version
+```
+
+Build the local Figma development plugin, then import `plugin/manifest.json`
+from Figma Desktop:
+
+```sh
+npm --prefix plugin ci
+npm --prefix plugin run build
+```
+
+For Dev Mode Codegen feedback, keep the loopback compiler bridge running in a
+separate terminal:
+
+```sh
+~/.local/bin/figma-rust serve --port 38421
+```
+
 Generated code never owns handwritten application behavior. Unsupported source
 features produce node-scoped diagnostics instead of disappearing silently.
 The plugin's **Export compiler JSON** path omits the optional REST snapshot and

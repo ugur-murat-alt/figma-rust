@@ -45,7 +45,7 @@ The successful outcome is a source-linked report with explicit thresholds, passi
 - Use exact source font files through an isolated `FONTCONFIG_FILE`. Never rely on whichever fonts are globally installed and never alter global Fontconfig state.
 - Treat hand-authored GPUI and compiler-generated GPUI as different evidence classes. Label each honestly.
 - Do not publish private Figma URLs, extraction bundles, screenshots, assets, or unsanitized reports.
-- Do not read or modify `/home/ugur/Projects/OrbitLineV2` from this repository.
+- Do not read or modify any local OrbitLineV2 checkout from this repository.
 
 ## Evidence model
 

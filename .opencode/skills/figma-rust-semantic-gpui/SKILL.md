@@ -45,7 +45,7 @@ The successful outcome is a small, typed, reusable GPUI API with tests and visua
 - Preserve Figma node IDs in mapping notes, fixture manifests, diagnostics, source maps, and test/evidence names.
 - Preserve literal fallbacks when resolving tokens; absence of an application token mapping must not make the generated reference unusable.
 - Do not silently flatten unsupported variants, text runs, effects, transforms, masks, or assets. Keep a node/property-scoped diagnostic or explicit fallback.
-- Do not read or modify `/home/ugur/Projects/OrbitLineV2` while operating from this repository.
+- Do not read or modify any local OrbitLineV2 checkout while operating from this repository.
 - Do not expose private extraction content, asset payloads, screenshots, file URLs, or credentials.
 
 ## Runtime contracts to use

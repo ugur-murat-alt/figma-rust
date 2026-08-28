@@ -41,7 +41,7 @@ The successful outcome is a schema-v2 extraction with understood diagnostics plu
 - Preserve Figma node IDs and property paths through extraction diagnostics, IR, source maps, fixtures, and reports.
 - Never edit `generated.rs`, generated sidecars, or decoded compiler assets to repair behavior. Change the owning extractor/core/codegen/runtime layer and regenerate.
 - Do not merge roots from different Figma pages; `source.page_id` is singular.
-- Do not read or modify `/home/ugur/Projects/OrbitLineV2` from this repository.
+- Do not read or modify any local OrbitLineV2 checkout from this repository.
 - Treat extraction bundles, Figma URLs, screenshots, and decoded assets as private until explicitly sanitized.
 
 ## Choose one input path

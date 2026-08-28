@@ -30,7 +30,7 @@ These instructions apply to the entire repository.
   Model, Design IR, code generator, or runtime owner and regenerate artifacts.
 - Preserve Figma node IDs in diagnostics, source maps, fixtures, and evidence.
   Unsupported behavior must remain node/property scoped rather than disappear.
-- Do not read or modify `/home/ugur/Projects/OrbitLineV2` from this repository.
+- Do not read or modify any local OrbitLineV2 checkout from this repository.
 - Do not publish private extraction bundles, Figma URLs, screenshots, assets,
   credentials, or unsanitized evidence.
 
