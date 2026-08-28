@@ -1,0 +1,61 @@
+{
+  "schema_version": 2,
+  "source": {
+    "page_id": "fixture:diagnostic-groups",
+    "selected_node_ids": ["9:a", "9:b"],
+    "plugin_api_version": "1.135.0"
+  },
+  "roots": [
+    {
+      "id": "9:a",
+      "name": "Diagnostic root A",
+      "kind": "FRAME",
+      "size": {
+        "width": { "literal": 200.0 },
+        "height": { "literal": 80.0 },
+        "horizontal": "FIXED",
+        "vertical": "FIXED"
+      },
+      "layout": { "mode": "HORIZONTAL" },
+      "children": [
+        { "id": "9:a:1", "name": "A1", "kind": "RECTANGLE", "size": { "width": { "literal": 20.0 }, "height": { "literal": 20.0 }, "horizontal": "FIXED", "vertical": "FIXED" } },
+        { "id": "9:a:2", "name": "A2", "kind": "RECTANGLE", "size": { "width": { "literal": 20.0 }, "height": { "literal": 20.0 }, "horizontal": "FIXED", "vertical": "FIXED" } },
+        { "id": "9:a:3", "name": "A3", "kind": "RECTANGLE", "size": { "width": { "literal": 20.0 }, "height": { "literal": 20.0 }, "horizontal": "FIXED", "vertical": "FIXED" } },
+        { "id": "9:a:4", "name": "A4", "kind": "RECTANGLE", "size": { "width": { "literal": 20.0 }, "height": { "literal": 20.0 }, "horizontal": "FIXED", "vertical": "FIXED" } }
+      ]
+    },
+    {
+      "id": "9:b",
+      "name": "Diagnostic root B",
+      "kind": "FRAME",
+      "size": {
+        "width": { "literal": 120.0 },
+        "height": { "literal": 80.0 },
+        "horizontal": "FIXED",
+        "vertical": "FIXED"
+      },
+      "layout": { "mode": "VERTICAL" },
+      "children": [
+        { "id": "9:b:1", "name": "B1", "kind": "RECTANGLE", "size": { "width": { "literal": 20.0 }, "height": { "literal": 20.0 }, "horizontal": "FIXED", "vertical": "FIXED" } },
+        { "id": "9:b:2", "name": "B2", "kind": "RECTANGLE", "size": { "width": { "literal": 20.0 }, "height": { "literal": 20.0 }, "horizontal": "FIXED", "vertical": "FIXED" } }
+      ]
+    }
+  ],
+  "variables": [],
+  "components": [],
+  "assets": [],
+  "extraction_diagnostics": [
+    { "severity": "ERROR", "code": "FR-TOKEN-LOSS-002", "message": "Repeated token loss A1", "node_id": "9:a:1", "property_path": "component.properties" },
+    { "severity": "ERROR", "code": "FR-TOKEN-LOSS-002", "message": "Repeated token loss A2", "node_id": "9:a:2", "property_path": "component.properties" },
+    { "severity": "ERROR", "code": "FR-TOKEN-LOSS-002", "message": "Repeated token loss B1", "node_id": "9:b:1", "property_path": "component.properties" },
+    { "severity": "ERROR", "code": "FR-TOKEN-LOSS-002", "message": "Repeated token loss B2", "node_id": "9:b:2", "property_path": "component.properties" },
+    { "severity": "ERROR", "code": "FR-FATAL-001", "message": "Unique fatal blocker", "node_id": "9:b", "property_path": "component" },
+    { "severity": "WARNING", "code": "FR-EXTRACT-LOSS-001", "message": "Repeated extraction loss A1", "node_id": "9:a:1", "property_path": "text.wrap_style" },
+    { "severity": "WARNING", "code": "FR-EXTRACT-LOSS-001", "message": "Repeated extraction loss A2", "node_id": "9:a:2", "property_path": "text.wrap_style" },
+    { "severity": "WARNING", "code": "FR-EXTRACT-LOSS-001", "message": "Repeated extraction loss A3", "node_id": "9:a:3", "property_path": "text.wrap_style" },
+    { "severity": "WARNING", "code": "FR-EXTRACT-LOSS-001", "message": "Repeated extraction loss A4", "node_id": "9:a:4", "property_path": "text.wrap_style" },
+    { "severity": "WARNING", "code": "FR-EXTRACT-LOSS-001", "message": "Repeated extraction loss B1", "node_id": "9:b:1", "property_path": "text.wrap_style" },
+    { "severity": "WARNING", "code": "FR-EXTRACT-LOSS-001", "message": "Repeated extraction loss B2", "node_id": "9:b:2", "property_path": "text.wrap_style" },
+    { "severity": "INFO", "code": "FR-FIXTURE-INFO-001", "message": "Global fixture note" }
+  ]
+}

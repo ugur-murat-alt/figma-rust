@@ -1,5 +1,6 @@
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
+    fmt::Write as _,
     fs::{self, OpenOptions},
     io::Write as _,
     path::{Component, Path, PathBuf},
@@ -27,6 +28,7 @@ const ARTIFACT_NAMES: [&str; 5] = [
     ASSET_MANIFEST_JSON,
 ];
 const ARTIFACT_LOCK: &str = ".figma-rust.lock";
+const DIAGNOSTIC_SAMPLE_LIMIT: usize = 3;
 
 #[derive(Debug, Error)]
 pub enum CliError {
@@ -89,6 +91,35 @@ impl DiagnosticSummary {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+pub struct DiagnosticSample {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub node_id: Option<String>,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub help: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DiagnosticGroup {
+    pub severity: Severity,
+    pub code: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub property_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selected_root_id: Option<String>,
+    pub count: usize,
+    pub samples: Vec<DiagnosticSample>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct DiagnosticGroupKey {
+    severity_rank: u8,
+    code: String,
+    property_path: Option<String>,
+    selected_root_id: Option<String>,
+}
+
 #[derive(Debug, Serialize)]
 pub struct InspectNode {
     pub id: String,
@@ -142,12 +173,13 @@ pub struct InspectReport {
     pub node_count: usize,
     pub diagnostic_summary: DiagnosticSummary,
     pub tree: Vec<InspectNode>,
+    pub diagnostic_groups: Vec<DiagnosticGroup>,
     pub diagnostics: Vec<Diagnostic>,
 }
 
 impl InspectReport {
     #[must_use]
-    pub fn text(&self) -> String {
+    pub fn text(&self, grouped: bool) -> String {
         let mut output = format!(
             "schema {} ({}): {} root(s), {} node(s)\nfingerprint v{} {}: {}\ndiagnostics: {} error(s), {} warning(s), {} info\n",
             self.schema_version,
@@ -161,12 +193,16 @@ impl InspectReport {
             self.diagnostic_summary.warnings,
             self.diagnostic_summary.info
         );
-        for root in &self.tree {
-            root.append_text(0, &mut output);
-        }
-        for diagnostic in &self.diagnostics {
-            output.push_str(&format_diagnostic(diagnostic));
-            output.push('\n');
+        if grouped {
+            append_diagnostic_groups(&self.diagnostic_groups, &mut output);
+            for root in &self.tree {
+                root.append_text(0, &mut output);
+            }
+        } else {
+            for root in &self.tree {
+                root.append_text(0, &mut output);
+            }
+            append_diagnostics(&self.diagnostics, &mut output);
         }
         output
     }
@@ -175,6 +211,7 @@ impl InspectReport {
 #[derive(Debug, Serialize)]
 pub struct LintReport {
     pub summary: DiagnosticSummary,
+    pub diagnostic_groups: Vec<DiagnosticGroup>,
     pub diagnostics: Vec<Diagnostic>,
 }
 
@@ -185,14 +222,15 @@ impl LintReport {
     }
 
     #[must_use]
-    pub fn text(&self) -> String {
+    pub fn text(&self, grouped: bool) -> String {
         let mut output = format!(
             "lint: {} error(s), {} warning(s), {} info\n",
             self.summary.errors, self.summary.warnings, self.summary.info
         );
-        for diagnostic in &self.diagnostics {
-            output.push_str(&format_diagnostic(diagnostic));
-            output.push('\n');
+        if grouped {
+            append_diagnostic_groups(&self.diagnostic_groups, &mut output);
+        } else {
+            append_diagnostics(&self.diagnostics, &mut output);
         }
         output
     }
@@ -208,6 +246,7 @@ pub struct CompileResult {
 pub struct CompilerResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub code: Option<String>,
+    pub diagnostic_groups: Vec<DiagnosticGroup>,
     pub diagnostics: Vec<Diagnostic>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_map: Option<figma_rust_codegen::SourceMap>,
@@ -224,6 +263,8 @@ fn inspect_bundle(
     bundle: &figma_rust_core::raw::ExtractionBundle,
 ) -> Result<InspectReport, CliError> {
     let normalization = normalize_bundle(bundle);
+    let diagnostics = normalization.diagnostics;
+    let diagnostic_groups = group_diagnostics(bundle, &diagnostics);
     let tree = bundle
         .roots
         .iter()
@@ -241,9 +282,10 @@ fn inspect_bundle(
         })?,
         root_count: tree.len(),
         node_count,
-        diagnostic_summary: DiagnosticSummary::from_diagnostics(&normalization.diagnostics),
+        diagnostic_summary: DiagnosticSummary::from_diagnostics(&diagnostics),
         tree,
-        diagnostics: normalization.diagnostics,
+        diagnostic_groups,
+        diagnostics,
     })
 }
 
@@ -254,9 +296,11 @@ pub fn lint_file(path: &Path) -> Result<LintReport, CliError> {
 
 fn lint_bundle(bundle: &figma_rust_core::raw::ExtractionBundle) -> LintReport {
     let normalization = normalize_bundle(bundle);
+    let diagnostics = normalization.diagnostics;
     LintReport {
-        summary: DiagnosticSummary::from_diagnostics(&normalization.diagnostics),
-        diagnostics: normalization.diagnostics,
+        summary: DiagnosticSummary::from_diagnostics(&diagnostics),
+        diagnostic_groups: group_diagnostics(bundle, &diagnostics),
+        diagnostics,
     }
 }
 
@@ -296,9 +340,11 @@ pub fn lint_source(input: &str) -> Result<CompilerResponse, String> {
     let bundle = parse_bundle(input).map_err(|error| error.to_string())?;
     let normalization = normalize_bundle(&bundle);
     let has_errors = normalization.has_errors();
+    let diagnostics = normalization.diagnostics;
     Ok(CompilerResponse {
         code: None,
-        diagnostics: normalization.diagnostics,
+        diagnostic_groups: group_diagnostics(&bundle, &diagnostics),
+        diagnostics,
         source_map: None,
         error: has_errors.then(|| "normalization failed".to_owned()),
     })
@@ -308,31 +354,162 @@ pub fn compile_source(input: &str) -> Result<CompilerResponse, String> {
     let bundle = parse_bundle(input).map_err(|error| error.to_string())?;
     let normalization = normalize_bundle(&bundle);
     if normalization.has_errors() {
+        let diagnostics = normalization.diagnostics;
         return Ok(CompilerResponse {
             code: None,
-            diagnostics: normalization.diagnostics,
+            diagnostic_groups: group_diagnostics(&bundle, &diagnostics),
+            diagnostics,
             source_map: None,
             error: Some("normalization failed".to_owned()),
         });
     }
 
     match figma_rust_codegen::generate(&normalization.document) {
-        Ok(generated) => Ok(CompilerResponse {
-            code: Some(generated.rust),
-            diagnostics: normalization.diagnostics,
-            source_map: Some(generated.source_map),
-            error: None,
-        }),
+        Ok(generated) => {
+            let diagnostics = normalization.diagnostics;
+            Ok(CompilerResponse {
+                code: Some(generated.rust),
+                diagnostic_groups: group_diagnostics(&bundle, &diagnostics),
+                diagnostics,
+                source_map: Some(generated.source_map),
+                error: None,
+            })
+        }
         Err(error) => {
             let message = error.to_string();
             let mut diagnostics = normalization.diagnostics;
             diagnostics.push(codegen_diagnostic(&error));
             Ok(CompilerResponse {
                 code: None,
+                diagnostic_groups: group_diagnostics(&bundle, &diagnostics),
                 diagnostics,
                 source_map: None,
                 error: Some(message),
             })
+        }
+    }
+}
+
+fn group_diagnostics(
+    bundle: &figma_rust_core::raw::ExtractionBundle,
+    diagnostics: &[Diagnostic],
+) -> Vec<DiagnosticGroup> {
+    let root_owners = selected_root_owners(bundle);
+    let mut grouped = BTreeMap::<DiagnosticGroupKey, (usize, BTreeSet<DiagnosticSample>)>::new();
+    for diagnostic in diagnostics {
+        let selected_root_id = diagnostic
+            .node_id
+            .as_ref()
+            .and_then(|node_id| root_owners.get(node_id))
+            .cloned()
+            .flatten();
+        let key = DiagnosticGroupKey {
+            severity_rank: severity_rank(diagnostic.severity),
+            code: diagnostic.code.clone(),
+            property_path: diagnostic.property_path.clone(),
+            selected_root_id,
+        };
+        let (count, samples) = grouped.entry(key).or_default();
+        *count += 1;
+        samples.insert(DiagnosticSample {
+            node_id: diagnostic.node_id.clone(),
+            message: diagnostic.message.clone(),
+            help: diagnostic.help.clone(),
+        });
+        if samples.len() > DIAGNOSTIC_SAMPLE_LIMIT {
+            samples.pop_last();
+        }
+    }
+    grouped
+        .into_iter()
+        .map(|(key, (count, samples))| DiagnosticGroup {
+            severity: severity_from_rank(key.severity_rank),
+            code: key.code,
+            property_path: key.property_path,
+            selected_root_id: key.selected_root_id,
+            count,
+            samples: samples.into_iter().collect(),
+        })
+        .collect()
+}
+
+fn selected_root_owners(
+    bundle: &figma_rust_core::raw::ExtractionBundle,
+) -> BTreeMap<String, Option<String>> {
+    let mut owners = BTreeMap::new();
+    for root in &bundle.roots {
+        collect_root_owners(root, &root.id, &mut owners);
+    }
+    owners
+}
+
+fn collect_root_owners(
+    node: &figma_rust_core::raw::RawNode,
+    root_id: &str,
+    owners: &mut BTreeMap<String, Option<String>>,
+) {
+    owners
+        .entry(node.id.clone())
+        .and_modify(|owner| {
+            if owner.as_deref() != Some(root_id) {
+                *owner = None;
+            }
+        })
+        .or_insert_with(|| Some(root_id.to_owned()));
+    for child in &node.children {
+        collect_root_owners(child, root_id, owners);
+    }
+}
+
+const fn severity_rank(severity: Severity) -> u8 {
+    match severity {
+        Severity::Error => 0,
+        Severity::Warning => 1,
+        Severity::Info => 2,
+    }
+}
+
+const fn severity_from_rank(rank: u8) -> Severity {
+    match rank {
+        0 => Severity::Error,
+        1 => Severity::Warning,
+        _ => Severity::Info,
+    }
+}
+
+fn append_diagnostics(diagnostics: &[Diagnostic], output: &mut String) {
+    for diagnostic in diagnostics {
+        output.push_str(&format_diagnostic(diagnostic));
+        output.push('\n');
+    }
+}
+
+fn append_diagnostic_groups(groups: &[DiagnosticGroup], output: &mut String) {
+    for group in groups {
+        write!(
+            output,
+            "[{:?}] {} count={}",
+            group.severity, group.code, group.count
+        )
+        .expect("writing diagnostic group to String cannot fail");
+        if let Some(root_id) = &group.selected_root_id {
+            output.push_str(" root=");
+            output.push_str(root_id);
+        }
+        if let Some(property) = &group.property_path {
+            output.push_str(" property=");
+            output.push_str(property);
+        }
+        output.push('\n');
+        for sample in &group.samples {
+            output.push_str("  sample");
+            if let Some(node_id) = &sample.node_id {
+                output.push_str(" node=");
+                output.push_str(node_id);
+            }
+            output.push_str(": ");
+            output.push_str(&sample.message);
+            output.push('\n');
         }
     }
 }
@@ -1018,6 +1195,8 @@ mod tests {
 
     const BASIC: &str = include_str!("../../figma-rust-core/tests/fixtures/basic.raw.json");
     const BASIC_V1: &str = include_str!("../../figma-rust-core/tests/fixtures/basic.v1.raw.json");
+    const DIAGNOSTIC_GROUPS: &str =
+        include_str!("../../../fixtures/diagnostic-groups/extraction.json");
 
     #[test]
     fn inspect_is_deterministic_and_counts_preorder_tree() -> Result<(), Box<dyn std::error::Error>>
@@ -1031,6 +1210,49 @@ mod tests {
         assert!(first.contains("\"value\":"));
         assert!(first.contains("\"node_count\": 1"));
         assert!(first.contains("\"id\": \"1:1\""));
+        Ok(())
+    }
+
+    #[test]
+    fn diagnostic_groups_are_bounded_blocker_first_and_root_scoped()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let bundle = parse_bundle(DIAGNOSTIC_GROUPS)?;
+        let first = inspect_bundle(&bundle)?;
+        let second = inspect_bundle(&bundle)?;
+        assert_eq!(
+            serde_json::to_vec_pretty(&first)?,
+            serde_json::to_vec_pretty(&second)?
+        );
+        assert_eq!(first.diagnostics.len(), 12);
+        assert!(first.diagnostic_groups.windows(2).all(|groups| {
+            super::severity_rank(groups[0].severity) <= super::severity_rank(groups[1].severity)
+        }));
+        let repeated = first
+            .diagnostic_groups
+            .iter()
+            .find(|group| {
+                group.code == "FR-EXTRACT-LOSS-001"
+                    && group.selected_root_id.as_deref() == Some("9:a")
+            })
+            .ok_or("missing root-A extraction-loss group")?;
+        assert_eq!(repeated.count, 4);
+        assert_eq!(repeated.samples.len(), 3);
+        assert_eq!(repeated.samples[0].node_id.as_deref(), Some("9:a:1"));
+        assert_eq!(repeated.samples[2].node_id.as_deref(), Some("9:a:3"));
+        let grouped_text = first.text(true);
+        assert!(!grouped_text.contains("Repeated extraction loss A4"));
+        let blocker = grouped_text
+            .find("[Error] FR-FATAL-001")
+            .ok_or("missing grouped blocker")?;
+        let tree = grouped_text
+            .find("- [FRAME] \"Diagnostic root A\"")
+            .ok_or("missing inspect tree")?;
+        assert!(blocker < tree);
+        assert!(first.text(false).contains("Repeated extraction loss A4"));
+
+        let response = lint_source(DIAGNOSTIC_GROUPS)?;
+        assert_eq!(response.diagnostic_groups, first.diagnostic_groups);
+        assert_eq!(response.diagnostics, first.diagnostics);
         Ok(())
     }
 

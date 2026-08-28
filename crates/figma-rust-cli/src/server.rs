@@ -159,6 +159,7 @@ fn build_response_with_export(
         Err(error) => {
             let response = CompilerResponse {
                 code: None,
+                diagnostic_groups: Vec::new(),
                 diagnostics: Vec::new(),
                 source_map: None,
                 error: Some(error),

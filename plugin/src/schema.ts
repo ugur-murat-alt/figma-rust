@@ -374,8 +374,24 @@ export interface ExtractionBundle {
 
 export interface CompilerResponse {
   code?: string;
+  diagnostic_groups?: DiagnosticGroup[];
   diagnostics?: ExtractionDiagnostic[];
   error?: string;
+}
+
+export interface DiagnosticGroup {
+  severity: ExtractionDiagnostic["severity"];
+  code: string;
+  property_path?: string;
+  selected_root_id?: string;
+  count: number;
+  samples: DiagnosticSample[];
+}
+
+export interface DiagnosticSample {
+  node_id?: string;
+  message: string;
+  help?: string;
 }
 
 export interface BridgeExportResponse {

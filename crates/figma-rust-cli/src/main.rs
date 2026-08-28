@@ -4,7 +4,22 @@ mod verify;
 
 use std::{path::PathBuf, process::ExitCode};
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
+
+#[derive(Clone, Copy, Debug, Default, ValueEnum)]
+enum DiagnosticDetail {
+    /// Preserve the complete lossless diagnostic list.
+    #[default]
+    Full,
+    /// Show deterministic groups with counts and at most three unique samples.
+    Grouped,
+}
+
+impl DiagnosticDetail {
+    const fn grouped(self) -> bool {
+        matches!(self, Self::Grouped)
+    }
+}
 
 #[derive(Debug, Parser)]
 #[command(
@@ -28,6 +43,9 @@ enum Command {
         /// Emit a machine-readable report.
         #[arg(long)]
         json: bool,
+        /// Human diagnostic detail; JSON always includes groups and the full list.
+        #[arg(long, value_enum, default_value_t)]
+        diagnostics: DiagnosticDetail,
     },
     /// Normalize an extraction bundle and report diagnostics.
     Lint {
@@ -39,6 +57,9 @@ enum Command {
         /// Treat warnings as a failed lint.
         #[arg(long)]
         strict: bool,
+        /// Human diagnostic detail; JSON always includes groups and the full list.
+        #[arg(long, value_enum, default_value_t)]
+        diagnostics: DiagnosticDetail,
     },
     /// Normalize and generate deterministic GPUI Rust artifacts.
     Compile {
@@ -90,21 +111,30 @@ fn run(cli: Cli) -> Result<ExitCode, compiler::CliError> {
             );
             Ok(ExitCode::SUCCESS)
         }
-        Command::Inspect { raw, json } => {
+        Command::Inspect {
+            raw,
+            json,
+            diagnostics,
+        } => {
             let report = compiler::inspect_file(&raw)?;
             if json {
                 print!("{}", compiler::pretty_json(&report)?);
             } else {
-                print!("{}", report.text());
+                print!("{}", report.text(diagnostics.grouped()));
             }
             Ok(ExitCode::SUCCESS)
         }
-        Command::Lint { raw, json, strict } => {
+        Command::Lint {
+            raw,
+            json,
+            strict,
+            diagnostics,
+        } => {
             let report = compiler::lint_file(&raw)?;
             if json {
                 print!("{}", compiler::pretty_json(&report)?);
             } else {
-                print!("{}", report.text());
+                print!("{}", report.text(diagnostics.grouped()));
             }
             Ok(if report.failed(strict) {
                 ExitCode::from(1)

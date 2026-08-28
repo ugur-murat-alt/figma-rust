@@ -24,6 +24,7 @@ fallback or add the missing runtime proof.
 | Large selection traversal | figma-rust runtime | Deterministic preorder chunks contain at most 2,000 nodes; the schema-v2 extraction manifest records chunk/root counts and fails completeness closed on omitted subtrees. |
 | Compiler bundle transfer | figma-rust runtime | Browser download remains available; an opt-in fixed-path loopback export atomically persists validated schema-v2 bytes and reports exact size, SHA-256, transfer completion, and traversal completion. |
 | Schema compatibility and extraction fingerprint | figma-rust runtime | Schema v2 permits additive optional/defaulted fields; v1 and unknown versions are diagnostic-only. `inspect` reports a privacy-safe fingerprint-v1 SHA-256 over canonical typed semantics and sorted capability flags. |
+| Diagnostic reporting | figma-rust CLI/server | Inspect/lint JSON and loopback responses retain the complete lossless list plus deterministic blocker-first groups by severity, code, property, and selected root. Human output defaults to `--diagnostics full`; grouped mode bounds unique samples to three while preserving total counts. |
 | Frame/container | GPUI native | `div()` and Taffy layout. |
 | Horizontal Auto Layout | GPUI native | Flex row; parent-aware sizing/alignment pass. |
 | Vertical Auto Layout | GPUI native | Flex column; parent-aware sizing/alignment pass. |

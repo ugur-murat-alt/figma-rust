@@ -112,6 +112,9 @@ render fixture; runtime contains no controls or application state.
 
 - [x] Implement `figma-rust inspect` for tree/capability summaries.
 - [x] Implement `figma-rust lint` with text/JSON diagnostics and strict mode.
+- [x] Add deterministic blocker-first diagnostic groups by severity, code,
+  property, and selected root, with bounded samples and explicit
+  `--diagnostics full|grouped` human output.
 - [x] Implement `figma-rust compile` for IR, Rust, source maps, and diagnostics.
 - [x] Add compile-time asset manifest output with locked, staged SVG/PNG payload
   publication and handled-failure rollback.
