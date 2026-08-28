@@ -40,3 +40,8 @@ required-features = ["capture-real-window"]
 name = "orbitline-mcp-proof"
 path = "src/bin/orbitline_mcp_proof.rs"
 required-features = ["capture-real-window"]
+
+[[bin]]
+name = "windows-platform-probe"
+path = "src/bin/windows_platform_probe.rs"
+required-features = ["capture-real-window"]

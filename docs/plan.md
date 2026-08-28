@@ -197,7 +197,8 @@ name the differing Figma node. Compile-only success is insufficient.
 - [ ] Add REST importer with lower-fidelity diagnostics.
 - [ ] Add optional Code Connect template adapter without making it mandatory.
 - [ ] Add license inventory and release packaging.
-- [ ] Add Windows render evidence and font/DPI matrix.
+- [x] Add fail-closed Windows render, input, Segoe UI font, GPU, and
+  100%/125%/150% DPI evidence workflow with two-run pixel comparison.
 - [ ] Define strict fidelity thresholds per fixture class and platform.
 
 ## Continuous feature loop

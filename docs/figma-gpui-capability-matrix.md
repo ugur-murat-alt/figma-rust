@@ -112,6 +112,7 @@ fallback or add the missing runtime proof.
 | Node-scoped verification attribution | figma-rust CLI | Global metrics remain stable; common source-node bounds attribute changed pixels to the deepest safe node at 1:1 scale, while sibling geometry derives deterministic spacing and cross-axis alignment deltas. Ambiguous axes, unknown scale, unmapped pixels, and the bounded work limit remain explicit `FR-VERIFY-*` diagnostics. |
 | Headless pixel capture on macOS | GPUI native | `HeadlessAppContext` with the pinned platform Metal renderer; `.github/workflows/macos-headless-capture.yml` runs the canonical generated fixture twice and retains hash-bound image/verifier/platform reports. |
 | Headless pixel capture on Linux | figma-rust runtime | Pinned upstream returns no headless renderer. GNOME Wayland uses the repository-owned `gnome-screenshot` dual-backdrop adapter; other desktops retain the fail-closed Computer Use portal fallback. Both routes use the same validated ingest, reconstruction, verifier, and provenance contracts. |
+| Windows render, input, font, and DPI evidence | figma-rust runtime | A real GPUI text/input probe runs on Windows at verified 100%, 125%, and 150% display profiles. Each profile requires two byte-identical client captures, observed GPUI click input, `GetDpiForWindow`, physical dimensions, Segoe UI file hash, GPU identity, and a zero-tolerance verifier report. |
 
 ## Completion rule
 
