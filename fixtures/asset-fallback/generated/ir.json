@@ -18,13 +18,17 @@
         "horizontal": {
           "sizing": {
             "kind": "FIXED",
-            "value": 40.0
+            "value": {
+              "fallback": 40.0
+            }
           }
         },
         "vertical": {
           "sizing": {
             "kind": "FIXED",
-            "value": 20.0
+            "value": {
+              "fallback": 20.0
+            }
           }
         }
       },
@@ -104,6 +108,7 @@
       "source_node_id": "13:1",
       "media_type": "image/svg+xml",
       "export_settings": {
+        "color_policy": "authored",
         "format": "SVG"
       }
     }

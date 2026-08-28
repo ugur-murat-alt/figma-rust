@@ -3,9 +3,11 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::raw::{
-    RawAction, RawAlignment, RawAsset, RawBlendMode, RawComponent, RawComponentRole,
-    RawComponentValue, RawConstraint, RawGradientKind, RawImageScaleMode, RawLiteral, RawNodeKind,
-    RawOverride, RawReaction, RawSource, RawStrokeAlign, RawTrigger,
+    RawAction, RawAlignment, RawAsset, RawBlendMode, RawChildAlignment, RawComponent,
+    RawComponentRole, RawComponentValue, RawConstraint, RawGradientKind, RawImageScaleMode,
+    RawLiteral, RawNodeKind, RawOverride, RawReaction, RawSource, RawStrokeAlign,
+    RawTextAutoResize, RawTextHorizontalAlignment, RawTextTruncation, RawTextVerticalAlignment,
+    RawTrigger,
 };
 
 pub const DESIGN_IR_VERSION: u32 = 2;
@@ -27,10 +29,14 @@ pub struct Node {
     pub name: String,
     pub kind: RawNodeKind,
     pub visible: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visibility_binding: Option<BoundValue<bool>>,
     pub opacity: f64,
     pub size: Size,
     pub layout: Layout,
     pub positioning: Positioning,
+    #[serde(default, skip_serializing_if = "RawChildAlignment::is_inherit")]
+    pub child_counter_alignment: RawChildAlignment,
     pub style: Style,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<Text>,
@@ -53,19 +59,19 @@ pub struct Size {
 pub struct AxisSize {
     pub sizing: AxisSizing,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub measured: Option<f64>,
+    pub measured: Option<BoundValue<f64>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub min: Option<f64>,
+    pub min: Option<BoundValue<f64>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub max: Option<f64>,
+    pub max: Option<BoundValue<f64>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "value", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AxisSizing {
     Hug,
     Fill,
-    Fixed(f64),
+    Fixed(BoundValue<f64>),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -184,6 +190,12 @@ pub enum Paint {
     Image {
         asset_id: String,
         scale_mode: RawImageScaleMode,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        image_transform: Option<Transform>,
+        opacity: f64,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        rotation: Option<f64>,
+        has_filters: bool,
     },
     Unsupported {
         source_kind: String,
@@ -204,7 +216,7 @@ pub struct Color {
     pub a: f64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BoundValue<T> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token: Option<TokenRef>,
@@ -249,9 +261,21 @@ pub struct Radii {
     pub smoothing: f64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Text {
     pub characters: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub characters_binding: Option<BoundValue<String>>,
+    #[serde(default, skip_serializing_if = "crate::raw::is_default")]
+    pub auto_resize: RawTextAutoResize,
+    #[serde(default, skip_serializing_if = "crate::raw::is_default")]
+    pub horizontal_alignment: RawTextHorizontalAlignment,
+    #[serde(default, skip_serializing_if = "crate::raw::is_default")]
+    pub vertical_alignment: RawTextVerticalAlignment,
+    #[serde(default, skip_serializing_if = "crate::raw::is_default")]
+    pub truncation: RawTextTruncation,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_lines: Option<u32>,
     pub runs: Vec<TextRun>,
 }
 

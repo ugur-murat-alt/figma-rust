@@ -71,6 +71,7 @@ The bundle contract contains:
 schema_version (currently 2)
 source { file_key?, page_id, selected_node_ids, plugin_api_version }
 roots
+extraction_manifest { traversal { chunk_node_limit, node_count, complete, chunks, roots } }
 variables
 components
 assets
@@ -78,15 +79,36 @@ extraction_diagnostics
 rest_snapshot?
 ```
 
+Traversal is processed in deterministic preorder chunks of at most 2,000 nodes.
+Selections larger than one chunk remain in one schema-v2 bundle; the manifest
+records every chunk and selected root, including node counts and explicit
+completeness. Depth-limit or malformed-child omissions set the affected root and
+overall traversal to `complete: false` and retain node/property diagnostics.
+
 Assets can carry optional base64 payloads. Preview/lint extraction omits those
 payloads; compiler/evidence exports include them when an SVG/raster fallback or
 image asset is available. The UI reports the UTF-8 JSON size and warns at 2 MiB
 and above or when the 8 MiB loopback limit is exceeded.
 
 Schema v2 is required for multi-mode and modeled numeric bindings. A token-bound
-value carries its literal fallback and consumer collection/mode context. V1
+value carries its literal fallback and consumer collection/mode context. Modeled
+numeric paths include width, height, min/max dimensions, gap, padding, corner
+radii, per-edge stroke widths, and text size. Older schema-v2 bundles with scalar
+dimensions remain readable and normalize to unbound fallbacks. V1
 bundles remain readable only so lint/compile can emit `FR-SCHEMA-001`; re-extract
 or explicitly migrate them instead of relabeling them.
+
+Per-child Auto Layout counter-axis overrides are modeled as
+`layout.child_counter_alignment`. `INHERIT`, `MIN`, `CENTER`, `MAX`, and
+`STRETCH` remain source-distinct; non-inherited overrides outside an
+auto-positioned stack child fail with node/property-scoped `FR-LAYOUT-004`.
+Generated `STRETCH` suppresses the child's fixed cross-axis dimension before
+using GPUI `self_stretch`.
+
+Text extraction types auto-resize, horizontal/vertical alignment, truncation,
+and optional positive max-line values. Paragraph/list spacing and indentation,
+leading trim, and wrap style remain source metadata with separate
+`FR-EXTRACT-LOSS-001` property paths until their runtime layout is proven.
 
 Do not merge roots from different Figma pages into one bundle. Extract them separately so `source.page_id` stays truthful.
 
@@ -107,6 +129,13 @@ Build once or use Cargo directly:
 "${CARGO:-cargo}" run -p figma-rust-cli -- \
   lint path/to/extraction.json --json
 ```
+
+`inspect` also reports schema compatibility and extraction fingerprint v1.
+Matching fingerprints identify equal canonical typed bundle semantics under the
+SHA-256 collision assumption, not merely equal source bytes; JSON
+object-key/whitespace order and capability-flag order are ignored.
+Any extracted semantic, source identity, extractor/API version, diagnostic, or
+capability change produces a different privacy-safe SHA-256 digest.
 
 Use `--strict` only for a gate where warnings must fail:
 
@@ -140,10 +169,33 @@ On success the compiler owns exactly:
 - `asset-manifest.json`
 - zero or more deterministic flat asset files named by that manifest
 
+Strict all-or-nothing compilation remains the default. For a multi-root bundle
+whose roots must be qualified independently, opt in explicitly:
+
+```sh
+"${CARGO:-cargo}" run -p figma-rust-cli -- \
+  compile path/to/extraction.json --out "$output" --root-scoped
+```
+
+This writes a deterministic `root-status.json` plus one isolated
+`roots/root-<identity-hash>-<root-fingerprint>-<generation-id>/` artifact set for
+each successful root. Every selected root retains its full diagnostics and one of
+`SUCCESS`, `NORMALIZATION_FAILED`,
+`UNSUPPORTED_RUNTIME_ROUTE`, or `CODEGEN_FAILED`; failed roots publish no flat
+artifacts. The command exits `1` when any root fails even though successful roots
+remain usable. Root-scoped mode is CLI-only; the loopback bridge remains strict.
+Do not mix handwritten files into the compiler-owned `roots/` directory.
+
 Treat the fixed files, manifest, and listed asset files as one compiler-owned,
 lock-protected artifact set. Each file is staged, synced, and published with a
 same-directory rename; handled failures attempt to restore the previous set.
 Readers that do not take the directory lock can still observe rename transitions.
+Decoded SVG/PNG payloads are also addressed by bytes, media type, and sorted export
+settings under `.figma-rust-asset-cache/`. Exact matches are reused across
+immutable generations; recovery validates cache bytes and removes only bounded
+blobs unreachable from current or pending generation manifests. Flat asset files
+remain separate compatibility copies, so consumer edits cannot corrupt cache
+content. Do not edit or clean the hidden cache/generation stores manually.
 Do not add handwritten behavior to `generated.rs`. Integrate by calling generated
 view functions from application-owned code and handling actions/state outside
 generated directories. A view with fallback assets also accepts an
@@ -169,7 +221,35 @@ Start the loopback-only service:
 
 The development plugin manifest permits only `http://localhost:38421`; the service remains bound to the IPv4 loopback address `127.0.0.1`. The service exposes fixed `POST /lint` and `POST /compile` endpoints, rejects query/command paths, limits requests to 8 MiB, and performs no Cargo/render work.
 
-Use this bridge for quick Figma Dev Mode feedback. Use the CLI for output files, assets, Cargo, render capture, and fidelity verification.
+When desktop browser downloads are unavailable, configure one fixed local export
+target and use **Export compiler JSON to bridge** in the plugin:
+
+```sh
+token_file=$(mktemp "${TMPDIR:-/tmp}/figma-rust-export-token.XXXXXX")
+chmod 600 "$token_file"
+openssl rand -hex 32 > "$token_file"
+"${CARGO:-cargo}" run -p figma-rust-cli -- \
+  serve --port 38421 \
+  --export /absolute/path/to/figma-rust-extraction.json \
+  --export-token-file "$token_file"
+```
+
+Paste the token file's ASCII value into the plugin's **Bridge export token** field,
+perform the export, then remove the token file when the server stops. The token
+is neither written into the bundle nor printed by the server.
+
+The fixed `POST /export` endpoint accepts only a parseable schema-v2 bundle,
+stages and syncs the exact UTF-8 request bytes beside the target, atomically
+renames them, reads the result back, and then reports path, byte length, SHA-256,
+transfer completion, and optional traversal completion. Malformed, truncated,
+oversize, or disabled exports do not replace the previous file. The target parent
+must already exist, and symlink/non-file targets are rejected. The same 8 MiB
+request limit applies. `/export` rejects requests without the configured
+short-lived token before reading or writing a bundle.
+
+Use this bridge for quick Figma Dev Mode feedback and the explicit download-free
+bundle handoff. Use the CLI for compiler output directories, assets, Cargo, render
+capture, and fidelity verification.
 
 ## 6. Verify geometry and pixels
 

@@ -1,0 +1,19 @@
+{
+  "nodes": {
+    "16:crop": {
+      "symbol": "node_0002",
+      "start_line": 84,
+      "end_line": 117
+    },
+    "16:fill": {
+      "symbol": "node_0001",
+      "start_line": 50,
+      "end_line": 82
+    },
+    "16:fit": {
+      "symbol": "node_0000",
+      "start_line": 17,
+      "end_line": 48
+    }
+  }
+}

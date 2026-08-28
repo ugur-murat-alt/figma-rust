@@ -12,12 +12,21 @@ use crate::ir::{
     TextRun, TextStyle, TokenRef, Transform, Variable,
 };
 use crate::raw::{
-    ExtractionBundle, RawAxisSizing, RawBoundValue, RawColor, RawComponentMetadata,
-    RawComponentRole, RawEffect, RawGridTrack, RawLayoutMode, RawNode, RawNodeKind, RawPaint,
-    RawPositioning, RawText, RawTextStyle, RawVariable,
+    ExtractionBundle, RawAxisSizing, RawBoundValue, RawChildAlignment, RawColor,
+    RawComponentMetadata, RawComponentRole, RawComponentValue, RawEffect, RawGridTrack,
+    RawLayoutMode, RawNode, RawNodeKind, RawPaint, RawPositioning, RawText, RawTextStyle,
+    RawVariable,
 };
 
 pub const EXTRACTION_SCHEMA_VERSION: u32 = 2;
+
+fn unbound_number(fallback: f64) -> BoundValue<f64> {
+    BoundValue {
+        token: None,
+        mode_context: BTreeMap::new(),
+        fallback,
+    }
+}
 
 #[derive(Debug, Error)]
 #[error("extraction bundle is not valid JSON: {0}")]
@@ -217,7 +226,7 @@ pub fn normalize_bundle_with_registry(
     let roots = bundle
         .roots
         .iter()
-        .map(|root| context.normalize_node(root, None))
+        .map(|root| context.normalize_node(root, None, None))
         .collect();
 
     let normalized_variables = raw_variables
@@ -295,9 +304,29 @@ struct Context<'a> {
 }
 
 impl Context<'_> {
-    fn normalize_node(&mut self, raw: &RawNode, parent: Option<ParentLayout>) -> Node {
+    fn normalize_node(
+        &mut self,
+        raw: &RawNode,
+        parent: Option<ParentLayout>,
+        component_scope: Option<&BTreeMap<String, RawComponentValue>>,
+    ) -> Node {
         let positioning = self.normalize_positioning(raw, parent);
         let is_absolute = matches!(positioning, Positioning::Absolute { .. });
+        let child_counter_alignment = raw.layout.child_counter_alignment;
+        let valid_child_alignment = match (child_counter_alignment, parent) {
+            (RawChildAlignment::Inherit, _) => true,
+            (_, Some(ParentLayout::Stack)) if !is_absolute => true,
+            _ => false,
+        };
+        if !valid_child_alignment {
+            self.diagnostics.push(Diagnostic::node(
+                Severity::Error,
+                codes::INVALID_CHILD_ALIGNMENT,
+                "child counter-axis alignment requires an auto-positioned stack child",
+                &raw.id,
+                Some("layout.child_counter_alignment"),
+            ));
+        }
         let size = Size {
             horizontal: self.normalize_axis_size(raw, true, parent, is_absolute),
             vertical: self.normalize_axis_size(raw, false, parent, is_absolute),
@@ -312,15 +341,15 @@ impl Context<'_> {
             RawLayoutMode::Grid => ParentLayout::Grid,
             RawLayoutMode::None => ParentLayout::Absolute {
                 fixed_width: (raw.size.horizontal == Some(RawAxisSizing::Fixed))
-                    .then_some(raw.size.width)
+                    .then(|| raw.size.width.as_ref().map(|value| value.literal))
                     .flatten(),
                 fixed_height: (raw.size.vertical == Some(RawAxisSizing::Fixed))
-                    .then_some(raw.size.height)
+                    .then(|| raw.size.height.as_ref().map(|value| value.literal))
                     .flatten(),
             },
         };
         let style = self.normalize_style(raw);
-        let text = raw.text.as_ref().map(|text| self.normalize_text(raw, text));
+        let (text, visibility_binding) = self.normalize_component_consumers(raw, component_scope);
         let component = if let Some(component) = raw.component.as_ref() {
             Some(self.normalize_component(raw, component))
         } else {
@@ -337,10 +366,15 @@ impl Context<'_> {
         };
         let asset_decision = self.decide_asset(raw, &positioning);
         self.emit_asset_diagnostic(raw, &asset_decision);
+        let child_scope = raw
+            .component
+            .as_ref()
+            .map(|component| &component.properties)
+            .or(component_scope);
         let children = raw
             .children
             .iter()
-            .map(|child| self.normalize_node(child, Some(child_parent)))
+            .map(|child| self.normalize_node(child, Some(child_parent), child_scope))
             .collect();
 
         Node {
@@ -348,10 +382,12 @@ impl Context<'_> {
             name: raw.name.clone(),
             kind: raw.kind,
             visible: raw.visible,
+            visibility_binding,
             opacity: self.finite_in_range(raw, raw.opacity, 0.0, 1.0, "opacity"),
             size,
             layout,
             positioning,
+            child_counter_alignment,
             style,
             text,
             component,
@@ -368,21 +404,27 @@ impl Context<'_> {
         parent: Option<ParentLayout>,
         is_absolute: bool,
     ) -> AxisSize {
-        let (source_sizing, fixed, min, max, path) = if horizontal {
+        let (source_sizing, fixed, min, max, path, value_path, min_path, max_path) = if horizontal {
             (
                 raw.size.horizontal,
-                raw.size.width,
-                raw.size.min_width,
-                raw.size.max_width,
+                raw.size.width.as_ref(),
+                raw.size.min_width.as_ref(),
+                raw.size.max_width.as_ref(),
                 "size.horizontal",
+                "size.width",
+                "size.min_width",
+                "size.max_width",
             )
         } else {
             (
                 raw.size.vertical,
-                raw.size.height,
-                raw.size.min_height,
-                raw.size.max_height,
+                raw.size.height.as_ref(),
+                raw.size.min_height.as_ref(),
+                raw.size.max_height.as_ref(),
                 "size.vertical",
+                "size.height",
+                "size.min_height",
+                "size.max_height",
             )
         };
 
@@ -403,7 +445,7 @@ impl Context<'_> {
                 AxisSizing::Fill
             }
             Some(RawAxisSizing::Fixed) => AxisSizing::Fixed(if let Some(value) = fixed {
-                self.finite_non_negative(raw, value, path)
+                self.normalize_non_negative_number_bound(raw, value, value_path)
             } else {
                 self.diagnostics.push(Diagnostic::node(
                     Severity::Error,
@@ -412,7 +454,7 @@ impl Context<'_> {
                     &raw.id,
                     Some(path),
                 ));
-                0.0
+                unbound_number(0.0)
             }),
             None => {
                 self.diagnostics.push(Diagnostic::node(
@@ -422,17 +464,21 @@ impl Context<'_> {
                     &raw.id,
                     Some(path),
                 ));
-                AxisSizing::Fixed(
-                    fixed.map_or(0.0, |value| self.finite_non_negative(raw, value, path)),
-                )
+                AxisSizing::Fixed(fixed.map_or_else(
+                    || unbound_number(0.0),
+                    |value| self.normalize_non_negative_number_bound(raw, value, value_path),
+                ))
             }
         };
 
-        let normalized_min = min.map(|value| self.finite_non_negative(raw, value, path));
-        let normalized_max = max.map(|value| self.finite_non_negative(raw, value, path));
+        let normalized_min =
+            min.map(|value| self.normalize_non_negative_number_bound(raw, value, min_path));
+        let normalized_max =
+            max.map(|value| self.normalize_non_negative_number_bound(raw, value, max_path));
         if normalized_min
-            .zip(normalized_max)
-            .is_some_and(|(minimum, maximum)| minimum > maximum)
+            .as_ref()
+            .zip(normalized_max.as_ref())
+            .is_some_and(|(minimum, maximum)| minimum.fallback > maximum.fallback)
         {
             self.diagnostics.push(Diagnostic::node(
                 Severity::Error,
@@ -446,7 +492,11 @@ impl Context<'_> {
         AxisSize {
             sizing,
             measured: (source_sizing == Some(RawAxisSizing::Hug))
-                .then(|| fixed.map(|value| self.finite_non_negative(raw, value, path)))
+                .then(|| {
+                    fixed.map(|value| {
+                        self.normalize_non_negative_number_bound(raw, value, value_path)
+                    })
+                })
                 .flatten(),
             min: normalized_min,
             max: normalized_max,
@@ -688,6 +738,10 @@ impl Context<'_> {
             RawPaint::Image {
                 asset_id,
                 scale_mode,
+                image_transform,
+                opacity,
+                rotation,
+                has_filters,
             } => {
                 if !self.assets.contains(asset_id.as_str()) {
                     self.diagnostics.push(Diagnostic::node(
@@ -701,6 +755,15 @@ impl Context<'_> {
                 Paint::Image {
                     asset_id: asset_id.clone(),
                     scale_mode: *scale_mode,
+                    image_transform: image_transform.map(|transform| Transform {
+                        matrix: transform.matrix.map(|value| {
+                            self.finite_or_zero(raw, value, &format!("{path}.image_transform"))
+                        }),
+                    }),
+                    opacity: self.finite_in_range(raw, *opacity, 0.0, 1.0, path),
+                    rotation: rotation
+                        .map(|value| self.finite_or_zero(raw, value, &format!("{path}.rotation"))),
+                    has_filters: *has_filters,
                 }
             }
             RawPaint::Video => Paint::Unsupported {
@@ -785,6 +848,32 @@ impl Context<'_> {
         }
     }
 
+    fn normalize_string_bound(
+        &mut self,
+        raw: &RawNode,
+        value: &RawBoundValue<String>,
+        path: &str,
+    ) -> BoundValue<String> {
+        BoundValue {
+            token: self.resolve_token(raw, value.token_id.as_deref(), &value.mode_context, path),
+            mode_context: value.mode_context.clone(),
+            fallback: value.literal.clone(),
+        }
+    }
+
+    fn normalize_boolean_bound(
+        &mut self,
+        raw: &RawNode,
+        value: &RawBoundValue<bool>,
+        path: &str,
+    ) -> BoundValue<bool> {
+        BoundValue {
+            token: self.resolve_token(raw, value.token_id.as_deref(), &value.mode_context, path),
+            mode_context: value.mode_context.clone(),
+            fallback: value.literal,
+        }
+    }
+
     fn normalize_non_negative_number_bound(
         &mut self,
         raw: &RawNode,
@@ -829,6 +918,15 @@ impl Context<'_> {
     }
 
     fn normalize_text(&mut self, raw: &RawNode, text: &RawText) -> Text {
+        if text.max_lines == Some(0) {
+            self.diagnostics.push(Diagnostic::node(
+                Severity::Error,
+                codes::INVALID_TEXT_LAYOUT,
+                "Text max lines must be a positive integer when present",
+                &raw.id,
+                Some("text.max_lines"),
+            ));
+        }
         let runs = text
             .runs
             .iter()
@@ -859,8 +957,107 @@ impl Context<'_> {
             .collect();
         Text {
             characters: text.characters.clone(),
+            characters_binding: None,
+            auto_resize: text.auto_resize,
+            horizontal_alignment: text.horizontal_alignment,
+            vertical_alignment: text.vertical_alignment,
+            truncation: text.truncation,
+            max_lines: text.max_lines,
             runs,
         }
+    }
+
+    fn normalize_component_consumers(
+        &mut self,
+        raw: &RawNode,
+        scope: Option<&BTreeMap<String, RawComponentValue>>,
+    ) -> (Option<Text>, Option<BoundValue<bool>>) {
+        let mut text = raw.text.as_ref().map(|text| self.normalize_text(raw, text));
+        if let Some(reference) = raw.component_property_references.characters.as_deref() {
+            if raw.kind == RawNodeKind::Text
+                && let Some(text) = text.as_mut()
+            {
+                text.characters_binding = self.component_text_binding(raw, scope, reference);
+            } else {
+                self.diagnostics.push(Diagnostic::node(
+                    Severity::Error,
+                    codes::COMPONENT_METADATA_MISMATCH,
+                    "component characters reference requires a TEXT consumer",
+                    &raw.id,
+                    Some("component_property_references.characters"),
+                ));
+            }
+        }
+        let visibility = raw
+            .component_property_references
+            .visible
+            .as_deref()
+            .and_then(|reference| self.component_boolean_binding(raw, scope, reference));
+        (text, visibility)
+    }
+
+    fn component_text_binding(
+        &mut self,
+        raw: &RawNode,
+        scope: Option<&BTreeMap<String, RawComponentValue>>,
+        reference: &str,
+    ) -> Option<BoundValue<String>> {
+        match scope.and_then(|properties| properties.get(reference)) {
+            Some(RawComponentValue::Text(value)) => Some(BoundValue {
+                token: None,
+                mode_context: BTreeMap::new(),
+                fallback: value.clone(),
+            }),
+            Some(RawComponentValue::BoundText(value)) => Some(self.normalize_string_bound(
+                raw,
+                value,
+                "component_property_references.characters",
+            )),
+            _ => {
+                self.component_reference_error(raw, reference, "TEXT", "characters");
+                None
+            }
+        }
+    }
+
+    fn component_boolean_binding(
+        &mut self,
+        raw: &RawNode,
+        scope: Option<&BTreeMap<String, RawComponentValue>>,
+        reference: &str,
+    ) -> Option<BoundValue<bool>> {
+        match scope.and_then(|properties| properties.get(reference)) {
+            Some(RawComponentValue::Boolean(value)) => Some(BoundValue {
+                token: None,
+                mode_context: BTreeMap::new(),
+                fallback: *value,
+            }),
+            Some(RawComponentValue::BoundBoolean(value)) => Some(self.normalize_boolean_bound(
+                raw,
+                value,
+                "component_property_references.visible",
+            )),
+            _ => {
+                self.component_reference_error(raw, reference, "BOOLEAN", "visible");
+                None
+            }
+        }
+    }
+
+    fn component_reference_error(
+        &mut self,
+        raw: &RawNode,
+        reference: &str,
+        expected: &str,
+        property: &str,
+    ) {
+        self.diagnostics.push(Diagnostic::node(
+            Severity::Error,
+            codes::COMPONENT_METADATA_MISMATCH,
+            format!("component property `{reference}` is missing or is not {expected}"),
+            &raw.id,
+            Some(&format!("component_property_references.{property}")),
+        ));
     }
 
     fn normalize_text_style(&mut self, raw: &RawNode, style: &RawTextStyle) -> TextStyle {
@@ -1006,11 +1203,8 @@ impl Context<'_> {
                 continue;
             }
             match paint {
-                RawPaint::Solid { .. }
-                | RawPaint::Image {
-                    scale_mode: crate::raw::RawImageScaleMode::Fit,
-                    ..
-                } => {}
+                RawPaint::Solid { .. } => {}
+                RawPaint::Image { .. } if image_paint_is_native(paint) => {}
                 RawPaint::Gradient {
                     gradient_kind: crate::raw::RawGradientKind::Linear,
                     stops,
@@ -1050,11 +1244,16 @@ impl Context<'_> {
     fn emit_asset_diagnostic(&mut self, raw: &RawNode, decision: &AssetDecision) {
         let (severity, code, route_name) = match decision.route {
             AssetRoute::Native => return,
-            AssetRoute::Runtime => (Severity::Info, codes::RUNTIME_FALLBACK, "runtime"),
+            AssetRoute::Runtime => (Severity::Error, codes::RUNTIME_FALLBACK, "runtime"),
             AssetRoute::Svg => (Severity::Warning, codes::SVG_FALLBACK, "SVG"),
             AssetRoute::Raster => (Severity::Warning, codes::RASTER_FALLBACK, "raster"),
         };
-        self.diagnostics.push(Diagnostic::node(
+        let property_path = if decision.route == AssetRoute::Runtime {
+            "asset_decision.route"
+        } else {
+            "asset_decision"
+        };
+        let mut diagnostic = Diagnostic::node(
             severity,
             code,
             format!(
@@ -1062,8 +1261,15 @@ impl Context<'_> {
                 decision.reasons.join(", ")
             ),
             &raw.id,
-            Some("asset_decision"),
-        ));
+            Some(property_path),
+        );
+        if decision.route == AssetRoute::Runtime {
+            diagnostic.help = Some(
+                "Use a source SVG/raster fallback when semantically valid, or add a verified runtime lowering before compilation."
+                    .to_owned(),
+            );
+        }
+        self.diagnostics.push(diagnostic);
     }
 
     fn normalize_edges(
@@ -1396,6 +1602,39 @@ fn tracks_are_uniform(tracks: &[RawGridTrack]) -> bool {
         (RawGridTrack::Hug, RawGridTrack::Hug) => true,
         _ => false,
     })
+}
+
+fn axis_aligned_crop(matrix: [f64; 6]) -> bool {
+    let [scale_x, skew_y, skew_x, scale_y, translate_x, translate_y] = matrix;
+    matrix.iter().all(|value| value.is_finite())
+        && scale_x > 0.0
+        && scale_y > 0.0
+        && skew_x.abs() <= f64::EPSILON
+        && skew_y.abs() <= f64::EPSILON
+        && translate_x >= 0.0
+        && translate_y >= 0.0
+}
+
+fn image_paint_is_native(paint: &RawPaint) -> bool {
+    match paint {
+        RawPaint::Image {
+            scale_mode: crate::raw::RawImageScaleMode::Fit | crate::raw::RawImageScaleMode::Fill,
+            rotation,
+            has_filters: false,
+            ..
+        } => rotation.is_none_or(|rotation| rotation.abs() <= f64::EPSILON),
+        RawPaint::Image {
+            scale_mode: crate::raw::RawImageScaleMode::Crop,
+            image_transform: Some(transform),
+            rotation,
+            has_filters: false,
+            ..
+        } => {
+            rotation.is_none_or(|rotation| rotation.abs() <= f64::EPSILON)
+                && axis_aligned_crop(transform.matrix)
+        }
+        _ => false,
+    }
 }
 
 fn canonical_number_bits(value: f64) -> u64 {

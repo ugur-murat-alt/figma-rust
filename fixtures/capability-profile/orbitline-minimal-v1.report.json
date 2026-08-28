@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "profile_id": "orbitline-minimal-v1",
+  "input_fingerprint": {
+    "version": 1,
+    "algorithm": "SHA-256",
+    "value": "2d494f72a30f476835096ecafe87ecfbb78ae7d2b0f21e31e3a70b0516f5f659"
+  },
+  "passed": true,
+  "summary": {
+    "used": 7,
+    "unused": 9,
+    "violations": 0
+  },
+  "entries": [
+    {
+      "capability": "action-contracts",
+      "usage": "UNUSED",
+      "policy": "QUARANTINED",
+      "advertised": false,
+      "status": "DEFERRED"
+    },
+    {
+      "capability": "asset-payload-export",
+      "usage": "USED",
+      "policy": "OPTIONAL",
+      "advertised": true,
+      "status": "AVAILABLE"
+    },
+    {
+      "capability": "bound-component-properties",
+      "usage": "USED",
+      "policy": "REQUIRED",
+      "advertised": true,
+      "status": "AVAILABLE"
+    },
+    {
+      "capability": "bounded-traversal",
+      "usage": "USED",
+      "policy": "REQUIRED",
+      "advertised": true,
+      "status": "AVAILABLE"
+    },
+    {
+      "capability": "child-counter-alignment",
+      "usage": "USED",
+      "policy": "REQUIRED",
+      "advertised": true,
+      "status": "AVAILABLE"
+    },
+    {
+      "capability": "code-connect",
+      "usage": "UNUSED",
+      "policy": "QUARANTINED",
+      "advertised": false,
+      "status": "DEFERRED"
+    },
+    {
+      "capability": "custom-effects",
+      "usage": "UNUSED",
+      "policy": "QUARANTINED",
+      "advertised": false,
+      "status": "DEFERRED"
+    },
+    {
+      "capability": "media-paint",
+      "usage": "UNUSED",
+      "policy": "QUARANTINED",
+      "advertised": false,
+      "status": "DEFERRED"
+    },
+    {
+      "capability": "mixed-grid",
+      "usage": "UNUSED",
+      "policy": "QUARANTINED",
+      "advertised": false,
+      "status": "DEFERRED"
+    },
+    {
+      "capability": "modeled-bound-dimensions",
+      "usage": "USED",
+      "policy": "REQUIRED",
+      "advertised": true,
+      "status": "AVAILABLE"
+    },
+    {
+      "capability": "pattern-paint",
+      "usage": "UNUSED",
+      "policy": "QUARANTINED",
+      "advertised": false,
+      "status": "DEFERRED"
+    },
+    {
+      "capability": "rest-import",
+      "usage": "UNUSED",
+      "policy": "QUARANTINED",
+      "advertised": false,
+      "status": "DEFERRED"
+    },
+    {
+      "capability": "rest-snapshot",
+      "usage": "UNUSED",
+      "policy": "QUARANTINED",
+      "advertised": false,
+      "status": "DEFERRED"
+    },
+    {
+      "capability": "schema-v2",
+      "usage": "USED",
+      "policy": "REQUIRED",
+      "advertised": true,
+      "status": "AVAILABLE"
+    },
+    {
+      "capability": "shader-paint",
+      "usage": "UNUSED",
+      "policy": "QUARANTINED",
+      "advertised": false,
+      "status": "DEFERRED"
+    },
+    {
+      "capability": "typed-text-layout",
+      "usage": "USED",
+      "policy": "REQUIRED",
+      "advertised": true,
+      "status": "AVAILABLE"
+    }
+  ],
+  "diagnostics": []
+}

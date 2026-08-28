@@ -1,12 +1,17 @@
 import assert from "node:assert/strict";
 
-import { extractNodes, fallbackExportFormat } from "../src/extract";
+import {
+  createExtractionDeadline,
+  extractNodes,
+  fallbackExportFormat,
+} from "../src/extract";
 import {
   BRIDGE_MAX_REQUEST_BYTES,
   LARGE_BUNDLE_BYTES,
   classifyBundleBytes,
   includeRestSnapshotForExport,
   summarizeBundle,
+  validateBridgeExportResponse,
 } from "../src/export";
 import {
   cleanupTemporaryTransferNodes,
@@ -16,14 +21,16 @@ import {
 import type { ExtractionBundle } from "../src/schema";
 import realGroupFixture from "./fixtures/real-group.plugin-api.json";
 import multiModeFixture from "./fixtures/multi-mode-variables.json";
+import extendedCollectionFixture from "./fixtures/extended-variable-collection.json";
 import realExtractionFixture from "../../fixtures/real-figma/extraction.json";
+import dataTableExtractionFixture from "../../fixtures/orbitline-figma-mcp/extraction.table.json";
 
 type Transform = [[number, number, number], [number, number, number]];
 
 interface TestNode {
   id: string;
   name: string;
-  type: "GROUP" | "RECTANGLE" | "VECTOR";
+  type: "COMPONENT" | "GROUP" | "RECTANGLE" | "TEXT" | "VECTOR";
   x: number;
   y: number;
   width: number;
@@ -34,6 +41,7 @@ interface TestNode {
   gridRowSpan?: number;
   gridColumnSpan?: number;
   resolvedVariableModes?: Record<string, string>;
+  layoutAlign?: "MIN" | "CENTER" | "MAX" | "STRETCH" | "INHERIT";
   fills?: unknown[];
   children?: TestNode[];
   exportAsync?: (settings: { format: "SVG" | "PNG" }) => Promise<Uint8Array>;
@@ -73,6 +81,17 @@ async function extractsGroupLocalCoordinates(): Promise<void> {
     realGroupFixture.group as unknown as SceneNode,
   ]);
   assert.equal(bundle.source.file_key, realGroupFixture.file_key);
+  assert.equal(bundle.source.extractor, "figma-rust-plugin");
+  assert.equal(bundle.source.extractor_version, "0.3.0");
+  assert.deepEqual(bundle.extraction_manifest.capabilities, [
+    "asset-payload-export",
+    "bound-component-properties",
+    "bounded-traversal",
+    "child-counter-alignment",
+    "modeled-bound-dimensions",
+    "schema-v2",
+    "typed-text-layout",
+  ]);
   const positions = bundle.roots[0].children.map((child) => [
     child.id,
     child.position.x,
@@ -490,6 +509,123 @@ async function keepsAliasCyclesScopedToOneResolution(): Promise<void> {
   testCollections.clear();
 }
 
+async function rejectsEnterpriseExtendedModeOverridesBeforeAliasResolution(): Promise<void> {
+  const baseCollectionId = extendedCollectionFixture.base_collection_id;
+  const extendedCollectionId = extendedCollectionFixture.extended_collection_id;
+  const baseLightMode = extendedCollectionFixture.modes.base_light;
+  const baseDarkMode = extendedCollectionFixture.modes.base_dark;
+  const extendedLightMode = extendedCollectionFixture.modes.extended_light;
+  const extendedDarkMode = extendedCollectionFixture.modes.extended_dark;
+  const firstId = extendedCollectionFixture.variables.alias;
+  const secondId = extendedCollectionFixture.variables.cycle;
+  testCollections.set(baseCollectionId, {
+    id: baseCollectionId,
+    isExtension: false,
+    defaultModeId: baseLightMode,
+    modes: [
+      { modeId: baseLightMode, name: "Light" },
+      { modeId: baseDarkMode, name: "Dark" },
+    ],
+  });
+  testCollections.set(extendedCollectionId, {
+    id: extendedCollectionId,
+    isExtension: true,
+    parentVariableCollectionId: baseCollectionId,
+    rootVariableCollectionId: extendedCollectionFixture.root_collection_id,
+    defaultModeId: extendedLightMode,
+    modes: [
+      { modeId: extendedLightMode, name: "Light", parentModeId: baseLightMode },
+      { modeId: extendedDarkMode, name: "Dark", parentModeId: baseDarkMode },
+    ],
+    variableIds: [firstId, secondId],
+    variableOverrides: extendedCollectionFixture.overrides,
+  });
+  testVariables.set(firstId, {
+    id: firstId,
+    name: "enterprise/alias",
+    variableCollectionId: baseCollectionId,
+    valuesByMode: {
+      [baseLightMode]: { type: "VARIABLE_ALIAS", id: secondId },
+      [baseDarkMode]: { type: "VARIABLE_ALIAS", id: secondId },
+    },
+    resolveForConsumer: () => {
+      throw new Error("extended collections must be rejected before consumer resolution");
+    },
+  });
+  testVariables.set(secondId, {
+    id: secondId,
+    name: "enterprise/cycle",
+    variableCollectionId: baseCollectionId,
+    valuesByMode: {
+      [baseLightMode]: { type: "VARIABLE_ALIAS", id: firstId },
+      [baseDarkMode]: { type: "VARIABLE_ALIAS", id: firstId },
+    },
+    resolveForConsumer: () => {
+      throw new Error("extended collections must be rejected before alias traversal");
+    },
+  });
+  const makeNode = (id: string, modeId: string) => {
+    const node = rectangle(id, [[1, 0, 0], [0, 1, 0]]);
+    node.resolvedVariableModes = { [extendedCollectionId]: modeId };
+    node.fills = [{
+      type: "SOLID",
+      color: { r: 0, g: 0, b: 0 },
+      boundVariables: { color: { type: "VARIABLE_ALIAS", id: firstId } },
+    }];
+    return node;
+  };
+  const inherited = makeNode("26:1", extendedLightMode);
+  const overridden = makeNode("26:2", extendedDarkMode);
+
+  const first = await extractNodes([
+    inherited as unknown as SceneNode,
+    overridden as unknown as SceneNode,
+  ]);
+  const second = await extractNodes([
+    overridden as unknown as SceneNode,
+    inherited as unknown as SceneNode,
+  ]);
+  const relevantDiagnostics = (bundle: ExtractionBundle) => bundle.extraction_diagnostics
+    .filter((diagnostic) => diagnostic.code === "FR-TOKEN-MODE-005");
+  assert.deepEqual(first.variables, []);
+  assert.deepEqual(relevantDiagnostics(first), [
+    {
+      severity: "ERROR",
+      code: "FR-TOKEN-MODE-005",
+      message: `Enterprise extended variable collection ${extendedCollectionId} extends ${baseCollectionId}; override lineage is not supported by schema v2.`,
+      node_id: "26:1",
+      property_path: "style.fills[0].boundVariables.color",
+    },
+    {
+      severity: "ERROR",
+      code: "FR-TOKEN-MODE-005",
+      message: `Enterprise extended variable collection ${extendedCollectionId} extends ${baseCollectionId}; override lineage is not supported by schema v2.`,
+      node_id: "26:1",
+      property_path: "style.fills[0].color",
+    },
+    {
+      severity: "ERROR",
+      code: "FR-TOKEN-MODE-005",
+      message: `Enterprise extended variable collection ${extendedCollectionId} extends ${baseCollectionId}; override lineage is not supported by schema v2.`,
+      node_id: "26:2",
+      property_path: "style.fills[0].boundVariables.color",
+    },
+    {
+      severity: "ERROR",
+      code: "FR-TOKEN-MODE-005",
+      message: `Enterprise extended variable collection ${extendedCollectionId} extends ${baseCollectionId}; override lineage is not supported by schema v2.`,
+      node_id: "26:2",
+      property_path: "style.fills[0].color",
+    },
+  ]);
+  assert.deepEqual(relevantDiagnostics(second), relevantDiagnostics(first));
+  assert.equal(first.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.code.startsWith("FR-TOKEN-CHAIN-")
+  ), false);
+  testVariables.clear();
+  testCollections.clear();
+}
+
 async function preservesModeledNumericBindings(): Promise<void> {
   const collectionId = "VariableCollectionId:test:numbers";
   const modeId = "mode-default";
@@ -592,6 +728,227 @@ async function preservesModeledNumericBindings(): Promise<void> {
   testCollections.clear();
 }
 
+async function preservesBoundDimensionsAcrossConsumerModes(): Promise<void> {
+  const collectionId = "VariableCollectionId:test:dimensions";
+  const lightMode = "mode-light";
+  const darkMode = "mode-dark";
+  testCollections.set(collectionId, {
+    id: collectionId,
+    defaultModeId: lightMode,
+    modes: [
+      { modeId: lightMode, name: "Light" },
+      { modeId: darkMode, name: "Dark" },
+    ],
+  });
+  const dimensions = [
+    ["width", 120],
+    ["height", 40],
+    ["minWidth", 80],
+    ["maxWidth", 240],
+    ["minHeight", 24],
+    ["maxHeight", 96],
+  ] as const;
+  for (const [fieldName, lightValue] of dimensions) {
+    const id = `VariableID:test:${fieldName}`;
+    testVariables.set(id, {
+      id,
+      name: `size/${fieldName}`,
+      variableCollectionId: collectionId,
+      valuesByMode: {
+        [lightMode]: lightValue,
+        [darkMode]: lightValue + 100,
+      },
+      resolveForConsumer: (consumer: TestNode) => ({
+        value: consumer.resolvedVariableModes?.[collectionId] === darkMode
+          ? lightValue + 100
+          : lightValue,
+        resolvedType: "FLOAT",
+      }),
+    });
+  }
+  const makeNode = (id: string, modeId: string, offset: number) => {
+    const node = rectangle(id, [[1, 0, 0], [0, 1, 0]]) as TestNode & Record<string, unknown>;
+    Object.assign(node, {
+      resolvedVariableModes: { [collectionId]: modeId },
+      layoutSizingHorizontal: "FIXED",
+      layoutSizingVertical: "FIXED",
+      boundVariables: Object.fromEntries(dimensions.map(([fieldName]) => [
+        fieldName,
+        { type: "VARIABLE_ALIAS", id: `VariableID:test:${fieldName}` },
+      ])),
+    });
+    for (const [fieldName, value] of dimensions) node[fieldName] = value + offset;
+    return node;
+  };
+  const light = makeNode("8:2", lightMode, 0);
+  const dark = makeNode("8:3", darkMode, 100);
+
+  const bundle = await extractNodes([
+    light as unknown as SceneNode,
+    dark as unknown as SceneNode,
+  ]);
+  const expectedContext = (modeId: string) => ({ [collectionId]: modeId });
+  for (const [root, modeId, offset] of [
+    [bundle.roots[0], lightMode, 0],
+    [bundle.roots[1], darkMode, 100],
+  ] as const) {
+    for (const [fieldName, value] of dimensions) {
+      const rawName = fieldName.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`) as keyof typeof root.size;
+      assert.deepEqual(root.size[rawName], {
+        literal: value + offset,
+        token_id: `VariableID:test:${fieldName}`,
+        mode_context: expectedContext(modeId),
+      });
+    }
+  }
+  assert.equal(bundle.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.code === "FR-TOKEN-LOSS-003"
+    && /bound_variables\.(?:width|height|minWidth|maxWidth|minHeight|maxHeight)/.test(
+      diagnostic.property_path ?? "",
+    )
+  ), false);
+  testVariables.clear();
+  testCollections.clear();
+}
+
+async function preservesBoundTextAndBooleanComponentProperties(): Promise<void> {
+  const collectionId = "VariableCollectionId:test:content";
+  const lightMode = "mode-light";
+  const darkMode = "mode-dark";
+  const labelId = "VariableID:test:label";
+  const visibleId = "VariableID:test:visible";
+  testCollections.set(collectionId, {
+    id: collectionId,
+    defaultModeId: lightMode,
+    modes: [
+      { modeId: lightMode, name: "Light" },
+      { modeId: darkMode, name: "Dark" },
+    ],
+  });
+  testVariables.set(labelId, {
+    id: labelId,
+    name: "content/label",
+    variableCollectionId: collectionId,
+    valuesByMode: { [lightMode]: "Light label", [darkMode]: "Dark label" },
+    resolveForConsumer: (consumer: TestNode) => ({
+      value: consumer.resolvedVariableModes?.[collectionId] === darkMode
+        ? "Dark label"
+        : "Light label",
+      resolvedType: "STRING",
+    }),
+  });
+  testVariables.set(visibleId, {
+    id: visibleId,
+    name: "content/visible",
+    variableCollectionId: collectionId,
+    valuesByMode: { [lightMode]: true, [darkMode]: false },
+    resolveForConsumer: (consumer: TestNode) => ({
+      value: consumer.resolvedVariableModes?.[collectionId] !== darkMode,
+      resolvedType: "BOOLEAN",
+    }),
+  });
+  const alias = (id: string) => ({ type: "VARIABLE_ALIAS", id });
+  const makeComponent = (id: string, modeId: string, label: string, visible: boolean) => {
+    const text = {
+      ...rectangle(`${id}:label`, [[1, 0, 0], [0, 1, 0]]),
+      type: "TEXT",
+      characters: label,
+      componentPropertyReferences: { characters: "Label#27:1" },
+    } as TestNode & Record<string, unknown>;
+    const optional = {
+      ...rectangle(`${id}:optional`, [[1, 0, 0], [0, 1, 20]]),
+      visible,
+      componentPropertyReferences: { visible: "Visible#27:2" },
+    } as TestNode & Record<string, unknown>;
+    const component = {
+      ...rectangle(id, [[1, 0, 0], [0, 1, 0]]),
+      type: "COMPONENT",
+      key: `component:${id}`,
+      resolvedVariableModes: { [collectionId]: modeId },
+      componentPropertyDefinitions: {
+        "Label#27:1": {
+          type: "TEXT",
+          defaultValue: label,
+          boundVariables: { defaultValue: alias(labelId) },
+        },
+        "Visible#27:2": {
+          type: "BOOLEAN",
+          defaultValue: visible,
+          boundVariables: { defaultValue: alias(visibleId) },
+        },
+      },
+      children: [text, optional],
+    } as TestNode & Record<string, unknown>;
+    return component;
+  };
+
+  const bundle = await extractNodes([
+    makeComponent("27:light", lightMode, "Light label", true) as unknown as SceneNode,
+    makeComponent("27:dark", darkMode, "Dark label", false) as unknown as SceneNode,
+  ]);
+  for (const [root, modeId, label, visible] of [
+    [bundle.roots[0], lightMode, "Light label", true],
+    [bundle.roots[1], darkMode, "Dark label", false],
+  ] as const) {
+    assert.deepEqual(root.component?.properties["Label#27:1"], {
+      kind: "BOUND_TEXT",
+      value: {
+        literal: label,
+        token_id: labelId,
+        mode_context: { [collectionId]: modeId },
+      },
+    });
+    assert.deepEqual(root.component?.properties["Visible#27:2"], {
+      kind: "BOUND_BOOLEAN",
+      value: {
+        literal: visible,
+        token_id: visibleId,
+        mode_context: { [collectionId]: modeId },
+      },
+    });
+    assert.deepEqual(root.children[0].component_property_references, {
+      characters: "Label#27:1",
+    });
+    assert.deepEqual(root.children[1].component_property_references, {
+      visible: "Visible#27:2",
+    });
+  }
+  assert.equal(bundle.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.code === "FR-TOKEN-LOSS-002"
+  ), false);
+
+  const unsupported = rectangle("27:unsupported", [[1, 0, 0], [0, 1, 0]]) as TestNode &
+    Record<string, unknown>;
+  unsupported.componentPropertyReferences = { mainComponent: "Swap#27:3" };
+  const unsupportedBundle = await extractNodes([unsupported as unknown as SceneNode]);
+  assert.ok(unsupportedBundle.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.code === "FR-COMPONENT-EXTRACT-004"
+    && diagnostic.node_id === "27:unsupported"
+    && diagnostic.property_path === "component_property_references.mainComponent"
+  ));
+  testVariables.clear();
+  testCollections.clear();
+}
+
+async function preservesChildCounterAxisAlignmentOverrides(): Promise<void> {
+  const values = ["INHERIT", "MIN", "CENTER", "MAX", "STRETCH"] as const;
+  const roots = values.map((layoutAlign, index) => {
+    const node = rectangle(`13:${index + 1}`, [[1, 0, 0], [0, 1, 0]]);
+    node.layoutAlign = layoutAlign;
+    return node as unknown as SceneNode;
+  });
+
+  const bundle = await extractNodes(roots);
+  assert.deepEqual(
+    bundle.roots.map((root) => root.layout.child_counter_alignment),
+    values,
+  );
+  assert.equal(bundle.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.code === "FR-EXTRACT-LOSS-001"
+    && diagnostic.property_path === "layout.layout_align"
+  ), false);
+}
+
 function supportsCompactExportAndLargeSelectionFeedback(): void {
   assert.equal(includeRestSnapshotForExport("COMPILER"), false);
   assert.equal(includeRestSnapshotForExport("EVIDENCE"), true);
@@ -639,6 +996,28 @@ function supportsCompactExportAndLargeSelectionFeedback(): void {
     large_selection: true,
     bridge_compatible: false,
   });
+}
+
+function validatesBridgeExportCompletionBeforeTrustingTheFile(): void {
+  const valid = {
+    path: "/tmp/figma-rust-extraction.json",
+    byte_length: 3_145_728,
+    sha256: "a".repeat(64),
+    complete: true,
+    traversal_complete: true,
+  };
+  assert.deepEqual(validateBridgeExportResponse(valid), valid);
+  for (const invalid of [
+    { ...valid, sha256: "short" },
+    { ...valid, complete: false },
+    { ...valid, byte_length: -1 },
+    { ...valid, traversal_complete: "yes" },
+  ]) {
+    assert.throws(
+      () => validateBridgeExportResponse(invalid),
+      /did not prove exact persisted bytes and completion/,
+    );
+  }
 }
 
 function cleansOnlyTemporaryTransferNodesAfterExportVerification(): void {
@@ -713,7 +1092,7 @@ async function exportsDeterministicFallbackPayloads(): Promise<void> {
     id: "node:9:1:svg",
     source_node_id: "9:1",
     media_type: "image/svg+xml",
-    export_settings: { format: "SVG" },
+    export_settings: { color_policy: "authored", format: "SVG" },
     payload_base64: "PHN2Zy8+",
   }]);
 
@@ -770,6 +1149,11 @@ async function exportsTrackedTextFallbackPayload(): Promise<void> {
     textAlignVertical: "TOP",
     textTruncation: "DISABLED",
     maxLines: null,
+    leadingTrim: "CAP_HEIGHT_TO_BASELINE",
+    paragraphIndent: 4,
+    paragraphSpacing: 8,
+    textWrapStyle: "BALANCE",
+    listSpacing: 6,
     getStyledTextSegments: () => [{
       start: 0,
       end: 6,
@@ -787,14 +1171,99 @@ async function exportsTrackedTextFallbackPayload(): Promise<void> {
   } as unknown as SceneNode;
 
   const bundle = await extractNodes([trackedText]);
+  assert.deepEqual(bundle.roots[0].text, {
+    characters: "Symbol",
+    auto_resize: "WIDTH_AND_HEIGHT",
+    horizontal_alignment: "LEFT",
+    vertical_alignment: "TOP",
+    truncation: "DISABLED",
+    runs: [bundle.roots[0].text?.runs[0]],
+  });
   assert.equal(bundle.roots[0].text?.runs[0].style.letter_spacing, 0.4);
+  assert.deepEqual(
+    bundle.extraction_diagnostics
+      .filter((diagnostic) => diagnostic.code === "FR-EXTRACT-LOSS-001")
+      .map((diagnostic) => diagnostic.property_path)
+      .filter((path) => path?.startsWith("text.")),
+    [
+      "text.leading_trim",
+      "text.list_spacing",
+      "text.paragraph_indent",
+      "text.paragraph_spacing",
+      "text.wrap_style",
+    ],
+  );
+  assert.equal(bundle.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.property_path === "text"
+  ), false);
+
+  const truncated = await extractNodes([{
+    ...trackedText,
+    id: "9:6",
+    textAutoResize: "HEIGHT",
+    textAlignHorizontal: "JUSTIFIED",
+    textAlignVertical: "BOTTOM",
+    textTruncation: "ENDING",
+    maxLines: 3,
+  } as unknown as SceneNode]);
+  assert.deepEqual(truncated.roots[0].text, {
+    characters: "Symbol",
+    auto_resize: "HEIGHT",
+    horizontal_alignment: "JUSTIFIED",
+    vertical_alignment: "BOTTOM",
+    truncation: "ENDING",
+    max_lines: 3,
+    runs: [truncated.roots[0].text?.runs[0]],
+  });
+  const invalidMaxLines = await extractNodes([{
+    ...trackedText,
+    id: "9:7",
+    textTruncation: "ENDING",
+    maxLines: 0,
+  } as unknown as SceneNode]);
+  assert.equal(invalidMaxLines.roots[0].text?.max_lines, undefined);
+  assert.equal(invalidMaxLines.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.code === "FR-TEXT-EXTRACT-004"
+    && diagnostic.node_id === "9:7"
+    && diagnostic.property_path === "text.max_lines"
+  ), true);
   assert.deepEqual(bundle.assets, [{
     id: "node:9:5:svg",
     source_node_id: "9:5",
     media_type: "image/svg+xml",
-    export_settings: { format: "SVG" },
+    export_settings: { color_policy: "authored", format: "SVG" },
     payload_base64: "PHN2Zy8+",
   }]);
+}
+
+function checkedInDataTableExtractionCarriesRequiredFallbackPayloads(): void {
+  const bundle = dataTableExtractionFixture as unknown as ExtractionBundle;
+  const visit = (
+    node: ExtractionBundle["roots"][number],
+    capturedByAncestor = false,
+  ): void => {
+    const format = fallbackExportFormat(node);
+    if (!capturedByAncestor && format !== undefined) {
+      const mediaType = format === "SVG" ? "image/svg+xml" : "image/png";
+      const matches = bundle.assets.filter((asset) =>
+        asset.source_node_id === node.id
+        && asset.media_type === mediaType
+        && asset.export_settings.format === format
+        && typeof asset.payload_base64 === "string"
+        && asset.payload_base64.length > 0
+      );
+      assert.equal(
+        matches.length,
+        1,
+        `node ${node.id} requires one ${format} fallback payload`,
+      );
+    }
+    for (const child of node.children) {
+      visit(child, capturedByAncestor || format !== undefined);
+    }
+  };
+
+  for (const root of bundle.roots) visit(root);
 }
 
 async function exportsFoundationScaleFallbackAssets(): Promise<void> {
@@ -815,6 +1284,127 @@ async function exportsFoundationScaleFallbackAssets(): Promise<void> {
   );
 }
 
+async function extractsMoreThanTwoThousandNodesDeterministically(): Promise<void> {
+  const roots = Array.from({ length: 4 }, (_, rootIndex) => {
+    const root = rectangle(`20:${rootIndex + 1}`, [[1, 0, 0], [0, 1, 0]]);
+    root.children = Array.from({ length: 525 }, (_, childIndex) =>
+      rectangle(
+        `20:${rootIndex + 1}:${childIndex + 1}`,
+        [[1, 0, childIndex], [0, 1, rootIndex]],
+      )
+    );
+    return root;
+  });
+
+  const first = await extractNodes(
+    roots as unknown as SceneNode[],
+    false,
+    createExtractionDeadline(10_000),
+    false,
+  );
+  const second = await extractNodes(
+    roots as unknown as SceneNode[],
+    false,
+    createExtractionDeadline(10_000),
+    false,
+  );
+
+  assert.equal(first.extraction_manifest.traversal.node_count, 2_104);
+  assert.equal(first.extraction_manifest.traversal.chunk_node_limit, 2_000);
+  assert.equal(first.extraction_manifest.traversal.complete, true);
+  assert.equal(first.extraction_manifest.traversal.chunks.length, 2);
+  assert.deepEqual(first.extraction_manifest.traversal.chunks, [
+    {
+      index: 0,
+      start_node_index: 0,
+      end_node_index: 2_000,
+      node_count: 2_000,
+      first_node_id: "20:1",
+      last_node_id: "20:4:421",
+    },
+    {
+      index: 1,
+      start_node_index: 2_000,
+      end_node_index: 2_104,
+      node_count: 104,
+      first_node_id: "20:4:422",
+      last_node_id: "20:4:525",
+    },
+  ]);
+  assert.deepEqual(
+    first.extraction_manifest.traversal.roots.map((root) => [root.id, root.node_count, root.complete]),
+    [["20:1", 526, true], ["20:2", 526, true], ["20:3", 526, true], ["20:4", 526, true]],
+  );
+  assert.equal(
+    first.extraction_diagnostics.some((diagnostic) => diagnostic.code === "FR-EXTRACT-LIMIT-001"),
+    false,
+  );
+  assert.equal(JSON.stringify(first), JSON.stringify(second));
+}
+
+async function marksDepthLimitedSubtreesIncomplete(): Promise<void> {
+  const root = rectangle("21:0", [[1, 0, 0], [0, 1, 0]]);
+  let parent = root;
+  for (let depth = 1; depth <= 65; depth += 1) {
+    const child = rectangle(`21:${depth}`, [[1, 0, 0], [0, 1, depth]]);
+    parent.children = [child];
+    parent = child;
+  }
+
+  const bundle = await extractNodes([root as unknown as SceneNode], false, undefined, false);
+  assert.equal(bundle.extraction_manifest.traversal.node_count, 65);
+  assert.equal(bundle.extraction_manifest.traversal.complete, false);
+  assert.deepEqual(bundle.extraction_manifest.traversal.roots, [{
+    id: "21:0",
+    node_count: 65,
+    complete: false,
+  }]);
+  assert.ok(bundle.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.code === "FR-EXTRACT-LIMIT-002"
+    && diagnostic.node_id === "21:64"
+    && diagnostic.property_path === "children"
+  ));
+}
+
+async function preservesImageFillAndCropGeometry(): Promise<void> {
+  Object.assign(figma, {
+    getImageByHash: (hash: string) => ({
+      hash,
+      getBytesAsync: async () => new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+    }),
+  });
+  const node = rectangle("16:crop", [[1, 0, 0], [0, 1, 0]]);
+  node.width = 100;
+  node.height = 80;
+  node.fills = [{
+    type: "IMAGE",
+    imageHash: "checker",
+    scaleMode: "CROP",
+    imageTransform: [[0.5, 0, 0.25], [0, 0.8, 0.1]],
+    opacity: 0.75,
+    rotation: 0,
+    filters: { exposure: 0 },
+  }];
+
+  const bundle = await extractNodes([node as unknown as SceneNode], false, undefined, true);
+  assert.deepEqual(bundle.roots[0].style.fills[0], {
+    kind: "IMAGE",
+    asset_id: "checker",
+    scale_mode: "CROP",
+    image_transform: { matrix: [0.5, 0, 0, 0.8, 0.25, 0.1] },
+    opacity: 0.75,
+    rotation: 0,
+    has_filters: false,
+  });
+  assert.equal(bundle.assets[0].payload_base64, "iVBORw==");
+  assert.equal(
+    bundle.extraction_diagnostics.some((diagnostic) =>
+      diagnostic.property_path === "style.fills[0].imageTransform"
+    ),
+    false,
+  );
+}
+
 await extractsGroupLocalCoordinates();
 await extractsNestedGroupLocalCoordinates();
 await extractsRotatedGroupLocalCoordinates();
@@ -822,11 +1412,20 @@ await rejectsIllConditionedGroupTransform();
 await ignoresNonGridPlacementSentinels();
 await preservesAndValidatesGridPlacements();
 await keepsAliasCyclesScopedToOneResolution();
+await rejectsEnterpriseExtendedModeOverridesBeforeAliasResolution();
 await preservesVariableValuesAcrossConsumerModes();
 await preservesModeledNumericBindings();
+await preservesBoundDimensionsAcrossConsumerModes();
+await preservesBoundTextAndBooleanComponentProperties();
+await preservesChildCounterAxisAlignmentOverrides();
 supportsCompactExportAndLargeSelectionFeedback();
+validatesBridgeExportCompletionBeforeTrustingTheFile();
 cleansOnlyTemporaryTransferNodesAfterExportVerification();
 await exportsDeterministicFallbackPayloads();
 await exportsTrackedTextFallbackPayload();
+checkedInDataTableExtractionCarriesRequiredFallbackPayloads();
 await exportsFoundationScaleFallbackAssets();
+await extractsMoreThanTwoThousandNodesDeterministically();
+await marksDepthLimitedSubtreesIncomplete();
+await preservesImageFillAndCropGeometry();
 console.log("extraction tests passed");

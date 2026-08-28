@@ -1,14 +1,21 @@
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
+    fmt::Write as _,
     fs::{self, OpenOptions},
     io::Write as _,
     path::{Component, Path, PathBuf},
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use figma_rust_codegen::{CodegenError, GeneratedOutput};
-use figma_rust_core::{Diagnostic, NormalizationOutput, Severity, normalize_bundle, parse_bundle};
+use figma_rust_core::{
+    CapabilityProfileReport, Diagnostic, ExtractionFingerprint, NormalizationOutput,
+    SchemaCompatibility, Severity, evaluate_capability_profile, extraction_fingerprint,
+    normalize_bundle, parse_bundle, schema_compatibility,
+};
 use serde::{Deserialize, Serialize};
+use sha2::{Digest as _, Sha256};
 use thiserror::Error;
 
 const GENERATED_RUST: &str = "generated.rs";
@@ -24,6 +31,13 @@ const ARTIFACT_NAMES: [&str; 5] = [
     ASSET_MANIFEST_JSON,
 ];
 const ARTIFACT_LOCK: &str = ".figma-rust.lock";
+const DIAGNOSTIC_SAMPLE_LIMIT: usize = 3;
+const ROOT_STATUS_JSON: &str = "root-status.json";
+const ROOT_OUTPUTS_DIRECTORY: &str = "roots";
+const MAX_ROOT_SCOPED_ROOTS: usize = 10_000;
+const MAX_ROOT_DIRECTORY_ENTRIES: usize = MAX_ROOT_SCOPED_ROOTS * 2 + 1;
+const MAX_ROOT_OUTPUT_ENTRIES: usize = 50_000;
+static ROOT_TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Error)]
 pub enum CliError {
@@ -64,7 +78,7 @@ pub enum CliError {
     Server(String),
 }
 
-#[derive(Clone, Copy, Debug, Default, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct DiagnosticSummary {
     pub info: usize,
     pub warnings: usize,
@@ -84,6 +98,35 @@ impl DiagnosticSummary {
                 summary
             })
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+pub struct DiagnosticSample {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub node_id: Option<String>,
+    pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub help: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct DiagnosticGroup {
+    pub severity: Severity,
+    pub code: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub property_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub selected_root_id: Option<String>,
+    pub count: usize,
+    pub samples: Vec<DiagnosticSample>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+struct DiagnosticGroupKey {
+    severity_rank: u8,
+    code: String,
+    property_path: Option<String>,
+    selected_root_id: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -133,31 +176,42 @@ impl InspectNode {
 #[derive(Debug, Serialize)]
 pub struct InspectReport {
     pub schema_version: u32,
+    pub schema_compatibility: SchemaCompatibility,
+    pub extraction_fingerprint: ExtractionFingerprint,
     pub root_count: usize,
     pub node_count: usize,
     pub diagnostic_summary: DiagnosticSummary,
     pub tree: Vec<InspectNode>,
+    pub diagnostic_groups: Vec<DiagnosticGroup>,
     pub diagnostics: Vec<Diagnostic>,
 }
 
 impl InspectReport {
     #[must_use]
-    pub fn text(&self) -> String {
+    pub fn text(&self, grouped: bool) -> String {
         let mut output = format!(
-            "schema {}: {} root(s), {} node(s)\ndiagnostics: {} error(s), {} warning(s), {} info\n",
+            "schema {} ({}): {} root(s), {} node(s)\nfingerprint v{} {}: {}\ndiagnostics: {} error(s), {} warning(s), {} info\n",
             self.schema_version,
+            self.schema_compatibility,
             self.root_count,
             self.node_count,
+            self.extraction_fingerprint.version,
+            self.extraction_fingerprint.algorithm,
+            self.extraction_fingerprint.value,
             self.diagnostic_summary.errors,
             self.diagnostic_summary.warnings,
             self.diagnostic_summary.info
         );
-        for root in &self.tree {
-            root.append_text(0, &mut output);
-        }
-        for diagnostic in &self.diagnostics {
-            output.push_str(&format_diagnostic(diagnostic));
-            output.push('\n');
+        if grouped {
+            append_diagnostic_groups(&self.diagnostic_groups, &mut output);
+            for root in &self.tree {
+                root.append_text(0, &mut output);
+            }
+        } else {
+            for root in &self.tree {
+                root.append_text(0, &mut output);
+            }
+            append_diagnostics(&self.diagnostics, &mut output);
         }
         output
     }
@@ -166,6 +220,7 @@ impl InspectReport {
 #[derive(Debug, Serialize)]
 pub struct LintReport {
     pub summary: DiagnosticSummary,
+    pub diagnostic_groups: Vec<DiagnosticGroup>,
     pub diagnostics: Vec<Diagnostic>,
 }
 
@@ -176,14 +231,15 @@ impl LintReport {
     }
 
     #[must_use]
-    pub fn text(&self) -> String {
+    pub fn text(&self, grouped: bool) -> String {
         let mut output = format!(
             "lint: {} error(s), {} warning(s), {} info\n",
             self.summary.errors, self.summary.warnings, self.summary.info
         );
-        for diagnostic in &self.diagnostics {
-            output.push_str(&format_diagnostic(diagnostic));
-            output.push('\n');
+        if grouped {
+            append_diagnostic_groups(&self.diagnostic_groups, &mut output);
+        } else {
+            append_diagnostics(&self.diagnostics, &mut output);
         }
         output
     }
@@ -195,10 +251,67 @@ pub struct CompileResult {
     pub error: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RootCompileStatus {
+    Success,
+    NormalizationFailed,
+    UnsupportedRuntimeRoute,
+    CodegenFailed,
+}
+
+impl RootCompileStatus {
+    #[must_use]
+    pub const fn succeeded(self) -> bool {
+        matches!(self, Self::Success)
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct RootCompileOutcome {
+    pub index: usize,
+    pub root_id: String,
+    pub root_name: String,
+    pub root_fingerprint: ExtractionFingerprint,
+    pub status: RootCompileStatus,
+    pub diagnostic_summary: DiagnosticSummary,
+    pub diagnostics: Vec<Diagnostic>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artifact_directory: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub generation_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct RootCompileSummary {
+    pub total: usize,
+    pub succeeded: usize,
+    pub failed: usize,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct RootCompileReport {
+    pub schema_version: u32,
+    pub mode: String,
+    pub input_fingerprint: ExtractionFingerprint,
+    pub summary: RootCompileSummary,
+    pub roots: Vec<RootCompileOutcome>,
+}
+
+impl RootCompileReport {
+    #[must_use]
+    pub const fn failed(&self) -> bool {
+        self.summary.failed > 0
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub struct CompilerResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub code: Option<String>,
+    pub diagnostic_groups: Vec<DiagnosticGroup>,
     pub diagnostics: Vec<Diagnostic>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub source_map: Option<figma_rust_codegen::SourceMap>,
@@ -208,25 +321,37 @@ pub struct CompilerResponse {
 
 pub fn inspect_file(path: &Path) -> Result<InspectReport, CliError> {
     let bundle = read_bundle(path)?;
-    Ok(inspect_bundle(&bundle))
+    inspect_bundle(&bundle)
 }
 
-fn inspect_bundle(bundle: &figma_rust_core::raw::ExtractionBundle) -> InspectReport {
+fn inspect_bundle(
+    bundle: &figma_rust_core::raw::ExtractionBundle,
+) -> Result<InspectReport, CliError> {
     let normalization = normalize_bundle(bundle);
+    let diagnostics = normalization.diagnostics;
+    let diagnostic_groups = group_diagnostics(bundle, &diagnostics);
     let tree = bundle
         .roots
         .iter()
         .map(InspectNode::from_raw)
         .collect::<Vec<_>>();
     let node_count = tree.iter().map(InspectNode::node_count).sum();
-    InspectReport {
+    Ok(InspectReport {
         schema_version: bundle.schema_version,
+        schema_compatibility: schema_compatibility(bundle.schema_version),
+        extraction_fingerprint: extraction_fingerprint(bundle).map_err(|source| {
+            CliError::Serialize {
+                label: "extraction fingerprint",
+                source,
+            }
+        })?,
         root_count: tree.len(),
         node_count,
-        diagnostic_summary: DiagnosticSummary::from_diagnostics(&normalization.diagnostics),
+        diagnostic_summary: DiagnosticSummary::from_diagnostics(&diagnostics),
         tree,
-        diagnostics: normalization.diagnostics,
-    }
+        diagnostic_groups,
+        diagnostics,
+    })
 }
 
 pub fn lint_file(path: &Path) -> Result<LintReport, CliError> {
@@ -234,17 +359,58 @@ pub fn lint_file(path: &Path) -> Result<LintReport, CliError> {
     Ok(lint_bundle(&bundle))
 }
 
+pub fn profile_file(path: &Path, profile_id: &str) -> Result<CapabilityProfileReport, CliError> {
+    let bundle = read_bundle(path)?;
+    profile_bundle(&bundle, profile_id)
+}
+
+fn profile_bundle(
+    bundle: &figma_rust_core::raw::ExtractionBundle,
+    profile_id: &str,
+) -> Result<CapabilityProfileReport, CliError> {
+    evaluate_capability_profile(bundle, profile_id).map_err(|source| CliError::Serialize {
+        label: "capability profile report",
+        source,
+    })
+}
+
 fn lint_bundle(bundle: &figma_rust_core::raw::ExtractionBundle) -> LintReport {
     let normalization = normalize_bundle(bundle);
+    let diagnostics = normalization.diagnostics;
     LintReport {
-        summary: DiagnosticSummary::from_diagnostics(&normalization.diagnostics),
-        diagnostics: normalization.diagnostics,
+        summary: DiagnosticSummary::from_diagnostics(&diagnostics),
+        diagnostic_groups: group_diagnostics(bundle, &diagnostics),
+        diagnostics,
     }
 }
 
 pub fn compile_file(path: &Path, output_directory: &Path) -> Result<CompileResult, CliError> {
     let bundle = read_bundle(path)?;
-    let normalization = normalize_bundle(&bundle);
+    compile_bundle(&bundle, output_directory)
+}
+
+pub fn compile_file_with_profile(
+    path: &Path,
+    output_directory: &Path,
+    profile_id: &str,
+) -> Result<CompileResult, CliError> {
+    let bundle = read_bundle(path)?;
+    let profile = profile_bundle(&bundle, profile_id)?;
+    if !profile.passed {
+        invalidate_outputs(output_directory)?;
+        return Ok(CompileResult {
+            diagnostics: profile.diagnostics,
+            error: Some("capability profile failed".to_owned()),
+        });
+    }
+    compile_bundle(&bundle, output_directory)
+}
+
+fn compile_bundle(
+    bundle: &figma_rust_core::raw::ExtractionBundle,
+    output_directory: &Path,
+) -> Result<CompileResult, CliError> {
+    let normalization = normalize_bundle(bundle);
     if normalization.has_errors() {
         invalidate_outputs(output_directory)?;
         return Ok(CompileResult {
@@ -274,13 +440,412 @@ pub fn compile_file(path: &Path, output_directory: &Path) -> Result<CompileResul
     }
 }
 
+pub fn compile_file_root_scoped(
+    path: &Path,
+    output_directory: &Path,
+) -> Result<RootCompileReport, CliError> {
+    let bundle = read_bundle(path)?;
+    if bundle.roots.len() > MAX_ROOT_SCOPED_ROOTS {
+        return Err(CliError::UnsafeOutput {
+            path: output_directory.display().to_string(),
+            reason: format!(
+                "root-scoped compile has {} roots, exceeding {MAX_ROOT_SCOPED_ROOTS}",
+                bundle.roots.len()
+            ),
+        });
+    }
+    let mut root_ids = BTreeSet::new();
+    for root in &bundle.roots {
+        if !root_ids.insert(root.id.as_str()) {
+            return Err(CliError::UnsafeOutput {
+                path: output_directory.display().to_string(),
+                reason: format!(
+                    "root-scoped compile requires unique root IDs; repeated {}",
+                    root.id
+                ),
+            });
+        }
+    }
+    let input_fingerprint =
+        extraction_fingerprint(&bundle).map_err(|source| CliError::Serialize {
+            label: "root-scoped input fingerprint",
+            source,
+        })?;
+    let created_directory = ensure_output_directory(output_directory)?;
+    let result = with_artifact_lock(output_directory, || {
+        recover_generation(output_directory)?;
+        let roots_directory = output_directory.join(ROOT_OUTPUTS_DIRECTORY);
+        ensure_output_directory(&roots_directory)?;
+        cleanup_root_temporary_directories(&roots_directory)?;
+
+        let mut outcomes = Vec::with_capacity(bundle.roots.len());
+        let mut successful_directories = BTreeSet::new();
+        for (index, root) in bundle.roots.iter().enumerate() {
+            let (outcome, successful_directory) =
+                compile_root_outcome(&bundle, root, index, &roots_directory)?;
+            successful_directories.extend(successful_directory);
+            outcomes.push(outcome);
+        }
+
+        let succeeded = outcomes
+            .iter()
+            .filter(|outcome| outcome.status.succeeded())
+            .count();
+        let report = RootCompileReport {
+            schema_version: 1,
+            mode: "ROOT_SCOPED".to_owned(),
+            input_fingerprint,
+            summary: RootCompileSummary {
+                total: outcomes.len(),
+                succeeded,
+                failed: outcomes.len() - succeeded,
+            },
+            roots: outcomes,
+        };
+        let outputs = [OutputArtifact {
+            name: ROOT_STATUS_JSON.to_owned(),
+            content: serialize_json("root-scoped compile report", &report)?.into_bytes(),
+            cache_key: None,
+        }];
+        commit_artifact_set_locked(output_directory, &outputs)?;
+        cleanup_root_directories_except(&roots_directory, &successful_directories)?;
+        Ok(report)
+    });
+    finish_output_directory(result, output_directory, created_directory)
+}
+
+fn compile_root_outcome(
+    bundle: &figma_rust_core::raw::ExtractionBundle,
+    root: &figma_rust_core::raw::RawNode,
+    index: usize,
+    roots_directory: &Path,
+) -> Result<(RootCompileOutcome, Option<PathBuf>), CliError> {
+    let root_bundle = root_bundle(bundle, root);
+    let root_fingerprint =
+        extraction_fingerprint(&root_bundle).map_err(|source| CliError::Serialize {
+            label: "root-scoped root fingerprint",
+            source,
+        })?;
+    let identity_hash = root_identity_hash(&root.id);
+    let temporary_output = roots_directory.join(format!(
+        ".tmp-root-{identity_hash}-{}-{}",
+        std::process::id(),
+        ROOT_TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+    ));
+    let result = compile_bundle(&root_bundle, &temporary_output)?;
+    let status = root_compile_status(&result);
+    let (artifact_directory, generation_id, successful_directory) = if status.succeeded() {
+        let generation_id = crate::generation::current_generation_id(&temporary_output)
+            .map_err(|error| transaction_error(error, &[]))?;
+        let directory_name =
+            root_directory_name(&identity_hash, &root_fingerprint.value, &generation_id);
+        let relative_directory = format!("{ROOT_OUTPUTS_DIRECTORY}/{directory_name}");
+        let root_output = roots_directory.join(directory_name);
+        publish_root_output(
+            &temporary_output,
+            &root_output,
+            &generation_id,
+            roots_directory,
+        )?;
+        (
+            Some(relative_directory),
+            Some(generation_id),
+            Some(root_output),
+        )
+    } else {
+        cleanup_inactive_root_output(&temporary_output)?;
+        (None, None, None)
+    };
+    Ok((
+        RootCompileOutcome {
+            index,
+            root_id: root.id.clone(),
+            root_name: root.name.clone(),
+            root_fingerprint,
+            status,
+            diagnostic_summary: DiagnosticSummary::from_diagnostics(&result.diagnostics),
+            diagnostics: result.diagnostics,
+            error: result.error,
+            artifact_directory,
+            generation_id,
+        },
+        successful_directory,
+    ))
+}
+
+fn publish_root_output(
+    temporary_output: &Path,
+    root_output: &Path,
+    generation_id: &str,
+    roots_directory: &Path,
+) -> Result<(), CliError> {
+    if validate_existing_output_directory(root_output)? {
+        with_artifact_lock(root_output, || recover_generation(root_output))?;
+        let existing_id = crate::generation::current_generation_id(root_output)
+            .map_err(|error| transaction_error(error, &[]))?;
+        if existing_id != generation_id {
+            return Err(CliError::UnsafeOutput {
+                path: root_output.display().to_string(),
+                reason: "root output directory generation does not match its name".to_owned(),
+            });
+        }
+        cleanup_inactive_root_output(temporary_output)
+    } else {
+        fs::rename(temporary_output, root_output).map_err(|source| CliError::Write {
+            path: root_output.display().to_string(),
+            source,
+        })?;
+        sync_directory(roots_directory)
+    }
+}
+
+fn root_bundle(
+    bundle: &figma_rust_core::raw::ExtractionBundle,
+    root: &figma_rust_core::raw::RawNode,
+) -> figma_rust_core::raw::ExtractionBundle {
+    let mut node_ids = BTreeSet::new();
+    collect_node_ids(root, &mut node_ids);
+    let mut scoped = bundle.clone();
+    scoped.source.selected_node_ids = vec![root.id.clone()];
+    scoped.roots = vec![root.clone()];
+    scoped
+        .assets
+        .retain(|asset| node_ids.contains(asset.source_node_id.as_str()));
+    scoped.extraction_diagnostics.retain(|diagnostic| {
+        diagnostic
+            .node_id
+            .as_deref()
+            .is_none_or(|node_id| node_ids.contains(node_id))
+    });
+    scoped.extraction_manifest = None;
+    scoped
+}
+
+fn collect_node_ids<'a>(node: &'a figma_rust_core::raw::RawNode, ids: &mut BTreeSet<&'a str>) {
+    ids.insert(&node.id);
+    for child in &node.children {
+        collect_node_ids(child, ids);
+    }
+}
+
+fn root_compile_status(result: &CompileResult) -> RootCompileStatus {
+    if result.error.is_none() {
+        RootCompileStatus::Success
+    } else if result
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == figma_rust_core::diagnostic::codes::RUNTIME_FALLBACK)
+    {
+        RootCompileStatus::UnsupportedRuntimeRoute
+    } else if result
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code.starts_with("FR-CODEGEN-"))
+    {
+        RootCompileStatus::CodegenFailed
+    } else {
+        RootCompileStatus::NormalizationFailed
+    }
+}
+
+fn root_identity_hash(root_id: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(b"figma-rust-root-directory-v1\0");
+    hasher.update(root_id.as_bytes());
+    let digest = hasher.finalize();
+    let mut identity = String::with_capacity(64);
+    for byte in digest {
+        write!(identity, "{byte:02x}").expect("writing a SHA-256 digest to String cannot fail");
+    }
+    identity
+}
+
+fn root_directory_name(identity_hash: &str, root_fingerprint: &str, generation_id: &str) -> String {
+    format!("root-{identity_hash}-{root_fingerprint}-{generation_id}")
+}
+
+fn cleanup_inactive_root_output(output_directory: &Path) -> Result<(), CliError> {
+    if !validate_existing_output_directory(output_directory)? {
+        return Ok(());
+    }
+    invalidate_outputs(output_directory)?;
+    with_artifact_lock(output_directory, || recover_generation(output_directory))?;
+    remove_compiler_owned_tree(output_directory)
+}
+
+fn cleanup_root_directories_except(
+    roots_directory: &Path,
+    retained: &BTreeSet<PathBuf>,
+) -> Result<(), CliError> {
+    if !validate_existing_output_directory(roots_directory)? {
+        return Ok(());
+    }
+    let entries = fs::read_dir(roots_directory).map_err(|source| CliError::Read {
+        path: roots_directory.display().to_string(),
+        source,
+    })?;
+    let mut seen = 0_usize;
+    for entry in entries {
+        seen += 1;
+        if seen > MAX_ROOT_DIRECTORY_ENTRIES {
+            return Err(CliError::UnsafeOutput {
+                path: roots_directory.display().to_string(),
+                reason: format!(
+                    "root output directory exceeds {MAX_ROOT_DIRECTORY_ENTRIES} entries"
+                ),
+            });
+        }
+        let entry = entry.map_err(|source| CliError::Read {
+            path: roots_directory.display().to_string(),
+            source,
+        })?;
+        let name = entry
+            .file_name()
+            .into_string()
+            .map_err(|_| CliError::UnsafeOutput {
+                path: entry.path().display().to_string(),
+                reason: "root output directory name is not UTF-8".to_owned(),
+            })?;
+        if name.starts_with(".tmp-root-") {
+            remove_compiler_owned_tree(&entry.path())?;
+            continue;
+        }
+        if !valid_root_directory_name(&name) {
+            return Err(CliError::UnsafeOutput {
+                path: entry.path().display().to_string(),
+                reason: "unexpected path in compiler-owned roots directory".to_owned(),
+            });
+        }
+        if !retained.contains(&entry.path()) {
+            remove_compiler_owned_tree(&entry.path())?;
+        }
+    }
+    if retained.is_empty() {
+        fs::remove_dir(roots_directory).map_err(|source| CliError::Write {
+            path: roots_directory.display().to_string(),
+            source,
+        })?;
+    }
+    Ok(())
+}
+
+fn cleanup_root_temporary_directories(roots_directory: &Path) -> Result<(), CliError> {
+    let entries = fs::read_dir(roots_directory).map_err(|source| CliError::Read {
+        path: roots_directory.display().to_string(),
+        source,
+    })?;
+    for (index, entry) in entries.enumerate() {
+        if index >= MAX_ROOT_DIRECTORY_ENTRIES {
+            return Err(CliError::UnsafeOutput {
+                path: roots_directory.display().to_string(),
+                reason: format!(
+                    "root output directory exceeds {MAX_ROOT_DIRECTORY_ENTRIES} entries"
+                ),
+            });
+        }
+        let entry = entry.map_err(|source| CliError::Read {
+            path: roots_directory.display().to_string(),
+            source,
+        })?;
+        let name = entry
+            .file_name()
+            .into_string()
+            .map_err(|_| CliError::UnsafeOutput {
+                path: entry.path().display().to_string(),
+                reason: "root output directory name is not UTF-8".to_owned(),
+            })?;
+        if name.starts_with(".tmp-root-") {
+            remove_compiler_owned_tree(&entry.path())?;
+        } else if !valid_root_directory_name(&name) {
+            return Err(CliError::UnsafeOutput {
+                path: entry.path().display().to_string(),
+                reason: "unexpected path in compiler-owned roots directory".to_owned(),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn valid_root_directory_name(name: &str) -> bool {
+    let hashes = name
+        .strip_prefix("root-")
+        .unwrap_or_default()
+        .split('-')
+        .collect::<Vec<_>>();
+    hashes.len() == 3
+        && hashes.iter().all(|hash| {
+            hash.len() == 64
+                && hash
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        })
+}
+
+fn sync_directory(path: &Path) -> Result<(), CliError> {
+    fs::File::open(path)
+        .and_then(|directory| directory.sync_all())
+        .map_err(|source| CliError::Write {
+            path: path.display().to_string(),
+            source,
+        })
+}
+
+fn remove_compiler_owned_tree(path: &Path) -> Result<(), CliError> {
+    let mut entries = 0_usize;
+    validate_compiler_owned_tree(path, &mut entries)?;
+    fs::remove_dir_all(path).map_err(|source| CliError::Write {
+        path: path.display().to_string(),
+        source,
+    })
+}
+
+fn validate_compiler_owned_tree(path: &Path, entries: &mut usize) -> Result<(), CliError> {
+    let metadata = fs::symlink_metadata(path).map_err(|source| CliError::Read {
+        path: path.display().to_string(),
+        source,
+    })?;
+    if metadata.file_type().is_symlink() {
+        return Err(CliError::UnsafeOutput {
+            path: path.display().to_string(),
+            reason: "compiler-owned root output contains a symbolic link".to_owned(),
+        });
+    }
+    *entries += 1;
+    if *entries > MAX_ROOT_OUTPUT_ENTRIES {
+        return Err(CliError::UnsafeOutput {
+            path: path.display().to_string(),
+            reason: format!("compiler-owned root output exceeds {MAX_ROOT_OUTPUT_ENTRIES} entries"),
+        });
+    }
+    if metadata.is_dir() {
+        for entry in fs::read_dir(path).map_err(|source| CliError::Read {
+            path: path.display().to_string(),
+            source,
+        })? {
+            let entry = entry.map_err(|source| CliError::Read {
+                path: path.display().to_string(),
+                source,
+            })?;
+            validate_compiler_owned_tree(&entry.path(), entries)?;
+        }
+    } else if !metadata.is_file() {
+        return Err(CliError::UnsafeOutput {
+            path: path.display().to_string(),
+            reason: "compiler-owned root output contains a non-file entry".to_owned(),
+        });
+    }
+    Ok(())
+}
+
 pub fn lint_source(input: &str) -> Result<CompilerResponse, String> {
     let bundle = parse_bundle(input).map_err(|error| error.to_string())?;
     let normalization = normalize_bundle(&bundle);
     let has_errors = normalization.has_errors();
+    let diagnostics = normalization.diagnostics;
     Ok(CompilerResponse {
         code: None,
-        diagnostics: normalization.diagnostics,
+        diagnostic_groups: group_diagnostics(&bundle, &diagnostics),
+        diagnostics,
         source_map: None,
         error: has_errors.then(|| "normalization failed".to_owned()),
     })
@@ -290,31 +855,162 @@ pub fn compile_source(input: &str) -> Result<CompilerResponse, String> {
     let bundle = parse_bundle(input).map_err(|error| error.to_string())?;
     let normalization = normalize_bundle(&bundle);
     if normalization.has_errors() {
+        let diagnostics = normalization.diagnostics;
         return Ok(CompilerResponse {
             code: None,
-            diagnostics: normalization.diagnostics,
+            diagnostic_groups: group_diagnostics(&bundle, &diagnostics),
+            diagnostics,
             source_map: None,
             error: Some("normalization failed".to_owned()),
         });
     }
 
     match figma_rust_codegen::generate(&normalization.document) {
-        Ok(generated) => Ok(CompilerResponse {
-            code: Some(generated.rust),
-            diagnostics: normalization.diagnostics,
-            source_map: Some(generated.source_map),
-            error: None,
-        }),
+        Ok(generated) => {
+            let diagnostics = normalization.diagnostics;
+            Ok(CompilerResponse {
+                code: Some(generated.rust),
+                diagnostic_groups: group_diagnostics(&bundle, &diagnostics),
+                diagnostics,
+                source_map: Some(generated.source_map),
+                error: None,
+            })
+        }
         Err(error) => {
             let message = error.to_string();
             let mut diagnostics = normalization.diagnostics;
             diagnostics.push(codegen_diagnostic(&error));
             Ok(CompilerResponse {
                 code: None,
+                diagnostic_groups: group_diagnostics(&bundle, &diagnostics),
                 diagnostics,
                 source_map: None,
                 error: Some(message),
             })
+        }
+    }
+}
+
+fn group_diagnostics(
+    bundle: &figma_rust_core::raw::ExtractionBundle,
+    diagnostics: &[Diagnostic],
+) -> Vec<DiagnosticGroup> {
+    let root_owners = selected_root_owners(bundle);
+    let mut grouped = BTreeMap::<DiagnosticGroupKey, (usize, BTreeSet<DiagnosticSample>)>::new();
+    for diagnostic in diagnostics {
+        let selected_root_id = diagnostic
+            .node_id
+            .as_ref()
+            .and_then(|node_id| root_owners.get(node_id))
+            .cloned()
+            .flatten();
+        let key = DiagnosticGroupKey {
+            severity_rank: severity_rank(diagnostic.severity),
+            code: diagnostic.code.clone(),
+            property_path: diagnostic.property_path.clone(),
+            selected_root_id,
+        };
+        let (count, samples) = grouped.entry(key).or_default();
+        *count += 1;
+        samples.insert(DiagnosticSample {
+            node_id: diagnostic.node_id.clone(),
+            message: diagnostic.message.clone(),
+            help: diagnostic.help.clone(),
+        });
+        if samples.len() > DIAGNOSTIC_SAMPLE_LIMIT {
+            samples.pop_last();
+        }
+    }
+    grouped
+        .into_iter()
+        .map(|(key, (count, samples))| DiagnosticGroup {
+            severity: severity_from_rank(key.severity_rank),
+            code: key.code,
+            property_path: key.property_path,
+            selected_root_id: key.selected_root_id,
+            count,
+            samples: samples.into_iter().collect(),
+        })
+        .collect()
+}
+
+fn selected_root_owners(
+    bundle: &figma_rust_core::raw::ExtractionBundle,
+) -> BTreeMap<String, Option<String>> {
+    let mut owners = BTreeMap::new();
+    for root in &bundle.roots {
+        collect_root_owners(root, &root.id, &mut owners);
+    }
+    owners
+}
+
+fn collect_root_owners(
+    node: &figma_rust_core::raw::RawNode,
+    root_id: &str,
+    owners: &mut BTreeMap<String, Option<String>>,
+) {
+    owners
+        .entry(node.id.clone())
+        .and_modify(|owner| {
+            if owner.as_deref() != Some(root_id) {
+                *owner = None;
+            }
+        })
+        .or_insert_with(|| Some(root_id.to_owned()));
+    for child in &node.children {
+        collect_root_owners(child, root_id, owners);
+    }
+}
+
+const fn severity_rank(severity: Severity) -> u8 {
+    match severity {
+        Severity::Error => 0,
+        Severity::Warning => 1,
+        Severity::Info => 2,
+    }
+}
+
+const fn severity_from_rank(rank: u8) -> Severity {
+    match rank {
+        0 => Severity::Error,
+        1 => Severity::Warning,
+        _ => Severity::Info,
+    }
+}
+
+fn append_diagnostics(diagnostics: &[Diagnostic], output: &mut String) {
+    for diagnostic in diagnostics {
+        output.push_str(&format_diagnostic(diagnostic));
+        output.push('\n');
+    }
+}
+
+fn append_diagnostic_groups(groups: &[DiagnosticGroup], output: &mut String) {
+    for group in groups {
+        write!(
+            output,
+            "[{:?}] {} count={}",
+            group.severity, group.code, group.count
+        )
+        .expect("writing diagnostic group to String cannot fail");
+        if let Some(root_id) = &group.selected_root_id {
+            output.push_str(" root=");
+            output.push_str(root_id);
+        }
+        if let Some(property) = &group.property_path {
+            output.push_str(" property=");
+            output.push_str(property);
+        }
+        output.push('\n');
+        for sample in &group.samples {
+            output.push_str("  sample");
+            if let Some(node_id) = &sample.node_id {
+                output.push_str(" node=");
+                output.push_str(node_id);
+            }
+            output.push_str(": ");
+            output.push_str(&sample.message);
+            output.push('\n');
         }
     }
 }
@@ -396,14 +1092,88 @@ fn write_outputs(
 
     let created_directory = ensure_output_directory(output_directory)?;
     let result = with_artifact_lock(output_directory, || {
-        let paths = prepare_publish(output_directory, &outputs)?;
-        if let Err(error) = stage_outputs(&paths, &outputs) {
-            let cleanup_errors = cleanup_temps(&paths);
-            return Err(transaction_error(error, &cleanup_errors));
-        }
-        publish_outputs(&paths)
+        recover_generation(output_directory)?;
+        commit_artifact_set_locked(output_directory, &outputs)?;
+        cleanup_root_directories_except(
+            &output_directory.join(ROOT_OUTPUTS_DIRECTORY),
+            &BTreeSet::new(),
+        )
     });
     finish_output_directory(result, output_directory, created_directory)
+}
+
+fn commit_artifact_set_locked(
+    output_directory: &Path,
+    outputs: &[OutputArtifact],
+) -> Result<(), CliError> {
+    let prepared = crate::generation::prepare(output_directory, outputs)
+        .map_err(|error| transaction_error(error, &[]))?;
+    if let Err(error) = project_outputs(output_directory, outputs) {
+        let recovery_error = recover_generation(output_directory).err();
+        return Err(match recovery_error {
+            Some(recovery_error) => {
+                transaction_error(error.to_string(), &[recovery_error.to_string()])
+            }
+            None => error,
+        });
+    }
+    crate::generation::commit(output_directory, &prepared)
+        .map_err(|error| transaction_error(error, &[]))
+}
+
+fn recover_generation(output_directory: &Path) -> Result<(), CliError> {
+    crate::generation::recover(output_directory, |outputs, owned_names| {
+        project_outputs_with_owned(output_directory, outputs, owned_names.clone())
+            .map_err(|error| error.to_string())
+    })
+    .map_err(|error| transaction_error(error, &[]))
+}
+
+fn project_outputs(output_directory: &Path, outputs: &[OutputArtifact]) -> Result<(), CliError> {
+    let paths = prepare_publish(output_directory, outputs)?;
+    stage_and_publish(&paths, outputs)
+}
+
+fn project_outputs_with_owned(
+    output_directory: &Path,
+    outputs: &[OutputArtifact],
+    owned_names: BTreeSet<String>,
+) -> Result<(), CliError> {
+    cleanup_projection_work_files(output_directory, &owned_names)?;
+    let paths = prepare_publish_with_owned(output_directory, outputs, owned_names)?;
+    stage_and_publish(&paths, outputs)
+}
+
+fn cleanup_projection_work_files(
+    output_directory: &Path,
+    owned_names: &BTreeSet<String>,
+) -> Result<(), CliError> {
+    let mut cleanup_errors = Vec::new();
+    for name in owned_names {
+        validate_artifact_name(name)?;
+        for suffix in ["tmp", "backup"] {
+            let path = work_path(output_directory, name, suffix);
+            if let Err(error) = remove_regular_if_exists(&path) {
+                cleanup_errors.push(error);
+            }
+        }
+    }
+    if cleanup_errors.is_empty() {
+        Ok(())
+    } else {
+        Err(transaction_error(
+            "cleaning interrupted artifact projection",
+            &cleanup_errors,
+        ))
+    }
+}
+
+fn stage_and_publish(paths: &[ArtifactPaths], outputs: &[OutputArtifact]) -> Result<(), CliError> {
+    if let Err(error) = stage_outputs(paths, outputs) {
+        let cleanup_errors = cleanup_temps(paths);
+        return Err(transaction_error(error, &cleanup_errors));
+    }
+    publish_outputs(paths)
 }
 
 fn output_artifacts(
@@ -422,18 +1192,22 @@ fn output_artifacts(
         OutputArtifact {
             name: GENERATED_RUST.to_owned(),
             content: generated.rust.as_bytes().to_vec(),
+            cache_key: None,
         },
         OutputArtifact {
             name: SOURCE_MAP_JSON.to_owned(),
             content: serialize_json("source map", &generated.source_map)?.into_bytes(),
+            cache_key: None,
         },
         OutputArtifact {
             name: IR_JSON.to_owned(),
             content: serialize_json("normalized IR", &document_without_payloads)?.into_bytes(),
+            cache_key: None,
         },
         OutputArtifact {
             name: DIAGNOSTICS_JSON.to_owned(),
             content: serialize_json("diagnostics", &normalization.diagnostics)?.into_bytes(),
+            cache_key: None,
         },
     ];
     for asset in &normalization.document.assets {
@@ -441,6 +1215,26 @@ fn output_artifacts(
             .payload_base64
             .as_ref()
             .and_then(|_| asset.file_name());
+        let mut cache_key = None;
+        if let (Some(payload), Some(file_name)) = (&asset.payload_base64, file_name.clone()) {
+            let content = BASE64
+                .decode(payload)
+                .map_err(|source| CliError::DecodeAsset {
+                    id: asset.id.clone(),
+                    source,
+                })?;
+            let key = crate::generation::asset_cache_key(
+                &content,
+                &asset.media_type,
+                &asset.export_settings,
+            );
+            outputs.push(OutputArtifact {
+                name: file_name,
+                cache_key: Some(key.clone()),
+                content,
+            });
+            cache_key = Some(key);
+        }
         manifest.assets.push(AssetManifestEntry {
             id: asset.id.clone(),
             source_node_id: asset.source_node_id.clone(),
@@ -448,24 +1242,14 @@ fn output_artifacts(
             content_hash: asset.content_hash.clone(),
             export_settings: asset.export_settings.clone(),
             file_name: file_name.clone(),
+            cache_key,
             payload_available: asset.payload_base64.is_some(),
         });
-        if let (Some(payload), Some(file_name)) = (&asset.payload_base64, file_name) {
-            let content = BASE64
-                .decode(payload)
-                .map_err(|source| CliError::DecodeAsset {
-                    id: asset.id.clone(),
-                    source,
-                })?;
-            outputs.push(OutputArtifact {
-                name: file_name,
-                content,
-            });
-        }
     }
     outputs.push(OutputArtifact {
         name: ASSET_MANIFEST_JSON.to_owned(),
         content: serialize_json("asset manifest", &manifest)?.into_bytes(),
+        cache_key: None,
     });
     outputs.sort_by(|left, right| left.name.cmp(&right.name));
     Ok(outputs)
@@ -488,13 +1272,16 @@ struct AssetManifestEntry {
     export_settings: std::collections::BTreeMap<String, String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     file_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cache_key: Option<String>,
     #[serde(default)]
     payload_available: bool,
 }
 
-struct OutputArtifact {
-    name: String,
-    content: Vec<u8>,
+pub(crate) struct OutputArtifact {
+    pub(crate) name: String,
+    pub(crate) content: Vec<u8>,
+    pub(crate) cache_key: Option<String>,
 }
 
 struct ArtifactPaths {
@@ -510,11 +1297,20 @@ fn prepare_publish(
     output_directory: &Path,
     outputs: &[OutputArtifact],
 ) -> Result<Vec<ArtifactPaths>, CliError> {
+    let mut owned_names = existing_owned_artifact_names(output_directory)?;
+    owned_names.extend(outputs.iter().map(|output| output.name.clone()));
+    prepare_publish_with_owned(output_directory, outputs, owned_names)
+}
+
+fn prepare_publish_with_owned(
+    output_directory: &Path,
+    outputs: &[OutputArtifact],
+    mut owned_names: BTreeSet<String>,
+) -> Result<Vec<ArtifactPaths>, CliError> {
     let output_names = outputs
         .iter()
         .map(|output| output.name.as_str())
         .collect::<BTreeSet<_>>();
-    let mut owned_names = existing_owned_artifact_names(output_directory)?;
     owned_names.extend(outputs.iter().map(|output| output.name.clone()));
     owned_names
         .into_iter()
@@ -547,15 +1343,7 @@ fn stage_outputs(paths: &[ArtifactPaths], outputs: &[OutputArtifact]) -> Result<
             .iter()
             .find(|path| path.name == output.name)
             .ok_or_else(|| format!("missing publication path for {}", output.name))?;
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&path.temp_path)
-            .map_err(|error| format!("creating {}: {error}", path.temp_path.display()))?;
-        file.write_all(&output.content)
-            .map_err(|error| format!("writing {}: {error}", path.temp_path.display()))?;
-        file.sync_all()
-            .map_err(|error| format!("syncing {}: {error}", path.temp_path.display()))?;
+        crate::generation::stage_projection_artifact(&path.temp_path, output)?;
     }
     Ok(())
 }
@@ -645,7 +1433,11 @@ fn invalidate_outputs(output_directory: &Path) -> Result<(), CliError> {
         return Ok(());
     }
     with_artifact_lock(output_directory, || {
-        invalidate_outputs_locked(output_directory)
+        invalidate_outputs_locked(output_directory)?;
+        cleanup_root_directories_except(
+            &output_directory.join(ROOT_OUTPUTS_DIRECTORY),
+            &BTreeSet::new(),
+        )
     })
 }
 
@@ -694,6 +1486,8 @@ fn invalidate_outputs_locked(output_directory: &Path) -> Result<(), CliError> {
         .filter(|(_, _, had_previous)| *had_previous)
         .filter_map(|(_, quarantine_path, _)| remove_regular_if_exists(quarantine_path).err())
         .collect::<Vec<_>>();
+    let mut cleanup_errors = cleanup_errors;
+    cleanup_errors.extend(crate::generation::invalidate(output_directory));
     if cleanup_errors.is_empty() {
         Ok(())
     } else {
@@ -789,6 +1583,10 @@ fn existing_owned_artifact_names(output_directory: &Path) -> Result<BTreeSet<Str
         .iter()
         .map(|name| (*name).to_owned())
         .collect::<BTreeSet<_>>();
+    names.extend(
+        crate::generation::owned_artifact_names(output_directory)
+            .map_err(|error| transaction_error(error, &[]))?,
+    );
     let manifest_path = output_directory.join(ASSET_MANIFEST_JSON);
     let manifest_exists = validate_regular_or_missing(&manifest_path, "asset manifest")?;
     if !manifest_exists {
@@ -993,23 +1791,115 @@ mod tests {
     use figma_rust_core::normalize_bundle;
 
     use super::{
-        ARTIFACT_NAMES, ASSET_MANIFEST_JSON, ArtifactLock, GENERATED_RUST, compile_file,
+        ARTIFACT_NAMES, ASSET_MANIFEST_JSON, ArtifactLock, GENERATED_RUST, ROOT_STATUS_JSON,
+        RootCompileStatus, compile_file, compile_file_root_scoped, compile_file_with_profile,
         compile_source, inspect_bundle, lint_source, output_artifacts, parse_bundle,
-        prepare_publish, publish_outputs_with, stage_outputs, work_path,
+        prepare_publish, profile_bundle, publish_outputs_with, stage_outputs, work_path,
     };
 
     const BASIC: &str = include_str!("../../figma-rust-core/tests/fixtures/basic.raw.json");
     const BASIC_V1: &str = include_str!("../../figma-rust-core/tests/fixtures/basic.v1.raw.json");
+    const DIAGNOSTIC_GROUPS: &str =
+        include_str!("../../../fixtures/diagnostic-groups/extraction.json");
+    const CAPABILITY_PROFILE: &str =
+        include_str!("../../../fixtures/capability-profile/extraction.json");
+    const CAPABILITY_PROFILE_REPORT: &str =
+        include_str!("../../../fixtures/capability-profile/orbitline-minimal-v1.report.json");
 
     #[test]
     fn inspect_is_deterministic_and_counts_preorder_tree() -> Result<(), Box<dyn std::error::Error>>
     {
         let bundle = parse_bundle(BASIC)?;
-        let first = serde_json::to_string_pretty(&inspect_bundle(&bundle))?;
-        let second = serde_json::to_string_pretty(&inspect_bundle(&bundle))?;
+        let first = serde_json::to_string_pretty(&inspect_bundle(&bundle)?)?;
+        let second = serde_json::to_string_pretty(&inspect_bundle(&bundle)?)?;
         assert_eq!(first, second);
+        assert!(first.contains("\"schema_compatibility\": \"CURRENT\""));
+        assert!(first.contains("\"algorithm\": \"SHA-256\""));
+        assert!(first.contains("\"value\":"));
         assert!(first.contains("\"node_count\": 1"));
         assert!(first.contains("\"id\": \"1:1\""));
+        Ok(())
+    }
+
+    #[test]
+    fn capability_profile_report_and_compile_gate_are_deterministic_and_fail_closed()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let bundle = parse_bundle(CAPABILITY_PROFILE)?;
+        let first = profile_bundle(&bundle, figma_rust_core::ORBITLINE_MINIMAL_PROFILE_V1)?;
+        let second = profile_bundle(&bundle, figma_rust_core::ORBITLINE_MINIMAL_PROFILE_V1)?;
+        assert_eq!(
+            serde_json::to_vec_pretty(&first)?,
+            serde_json::to_vec_pretty(&second)?
+        );
+        assert!(first.passed);
+        assert_eq!(super::pretty_json(&first)?, CAPABILITY_PROFILE_REPORT);
+
+        let base = unique_test_path("capability-profile");
+        fs::create_dir_all(&base)?;
+        let raw = base.join("raw.json");
+        let out = base.join("out");
+        fs::write(&raw, CAPABILITY_PROFILE)?;
+        let success =
+            compile_file_with_profile(&raw, &out, figma_rust_core::ORBITLINE_MINIMAL_PROFILE_V1)?;
+        assert!(success.error.is_none(), "{:?}", success.diagnostics);
+        assert!(out.join(GENERATED_RUST).is_file());
+
+        let mut quarantined = serde_json::from_str::<serde_json::Value>(CAPABILITY_PROFILE)?;
+        quarantined["rest_snapshot"] = serde_json::json!({"document": "redacted"});
+        fs::write(&raw, serde_json::to_vec_pretty(&quarantined)?)?;
+        let failure =
+            compile_file_with_profile(&raw, &out, figma_rust_core::ORBITLINE_MINIMAL_PROFILE_V1)?;
+        assert_eq!(failure.error.as_deref(), Some("capability profile failed"));
+        assert!(failure.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "FR-PROFILE-002"
+                && diagnostic.property_path.as_deref() == Some("rest_snapshot")
+        }));
+        assert!(!out.join(GENERATED_RUST).exists());
+
+        fs::remove_dir_all(base)?;
+        Ok(())
+    }
+
+    #[test]
+    fn diagnostic_groups_are_bounded_blocker_first_and_root_scoped()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let bundle = parse_bundle(DIAGNOSTIC_GROUPS)?;
+        let first = inspect_bundle(&bundle)?;
+        let second = inspect_bundle(&bundle)?;
+        assert_eq!(
+            serde_json::to_vec_pretty(&first)?,
+            serde_json::to_vec_pretty(&second)?
+        );
+        assert_eq!(first.diagnostics.len(), 12);
+        assert!(first.diagnostic_groups.windows(2).all(|groups| {
+            super::severity_rank(groups[0].severity) <= super::severity_rank(groups[1].severity)
+        }));
+        let repeated = first
+            .diagnostic_groups
+            .iter()
+            .find(|group| {
+                group.code == "FR-EXTRACT-LOSS-001"
+                    && group.selected_root_id.as_deref() == Some("9:a")
+            })
+            .ok_or("missing root-A extraction-loss group")?;
+        assert_eq!(repeated.count, 4);
+        assert_eq!(repeated.samples.len(), 3);
+        assert_eq!(repeated.samples[0].node_id.as_deref(), Some("9:a:1"));
+        assert_eq!(repeated.samples[2].node_id.as_deref(), Some("9:a:3"));
+        let grouped_text = first.text(true);
+        assert!(!grouped_text.contains("Repeated extraction loss A4"));
+        let blocker = grouped_text
+            .find("[Error] FR-FATAL-001")
+            .ok_or("missing grouped blocker")?;
+        let tree = grouped_text
+            .find("- [FRAME] \"Diagnostic root A\"")
+            .ok_or("missing inspect tree")?;
+        assert!(blocker < tree);
+        assert!(first.text(false).contains("Repeated extraction loss A4"));
+
+        let response = lint_source(DIAGNOSTIC_GROUPS)?;
+        assert_eq!(response.diagnostic_groups, first.diagnostic_groups);
+        assert_eq!(response.diagnostics, first.diagnostics);
         Ok(())
     }
 
@@ -1077,7 +1967,10 @@ mod tests {
         assert_eq!(
             names,
             [
+                ".figma-rust-asset-cache",
+                ".figma-rust-generations",
                 "asset-manifest.json",
+                "current-generation.json",
                 "diagnostics.json",
                 "generated.rs",
                 "ir.json",
@@ -1085,9 +1978,135 @@ mod tests {
             ]
             .map(OsString::from)
         );
-        for name in names {
+        for name in ARTIFACT_NAMES {
             assert!(fs::read(out.join(name))?.ends_with(b"\n"));
         }
+        assert!(fs::read(out.join(crate::generation::CURRENT_GENERATION))?.ends_with(b"\n"));
+        assert!(out.join(crate::generation::GENERATION_STORE).is_dir());
+        assert!(out.join(crate::generation::ASSET_CACHE).is_dir());
+        let first_pointer = fs::read(out.join(crate::generation::CURRENT_GENERATION))?;
+        assert!(compile_file(&raw, &out)?.error.is_none());
+        assert_eq!(
+            fs::read(out.join(crate::generation::CURRENT_GENERATION))?,
+            first_pointer
+        );
+        assert_eq!(
+            fs::read_dir(out.join(crate::generation::GENERATION_STORE))?.count(),
+            1
+        );
+        fs::remove_dir_all(base)?;
+        Ok(())
+    }
+
+    #[test]
+    fn root_scoped_compile_isolates_success_and_retains_each_failure()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let base = unique_test_path("root-scoped");
+        fs::create_dir_all(&base)?;
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/root-scoped/extraction.json");
+        let strict_out = base.join("strict");
+        let strict = compile_file(&fixture, &strict_out)?;
+        assert_eq!(strict.error.as_deref(), Some("normalization failed"));
+        assert!(!strict_out.exists());
+
+        let out = base.join("scoped");
+        let first = compile_file_root_scoped(&fixture, &out)?;
+        assert_eq!(first.summary.total, 3);
+        assert_eq!(first.summary.succeeded, 1);
+        assert_eq!(first.summary.failed, 2);
+        assert_eq!(first.roots[0].status, RootCompileStatus::Success);
+        assert_eq!(
+            first.roots[1].status,
+            RootCompileStatus::NormalizationFailed
+        );
+        assert_eq!(
+            first.roots[2].status,
+            RootCompileStatus::UnsupportedRuntimeRoute
+        );
+        assert!(first.roots[1].diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "FR-LAYOUT-004"
+                && diagnostic.node_id.as_deref() == Some("28:invalid")
+                && diagnostic.property_path.as_deref() == Some("layout.child_counter_alignment")
+        }));
+        assert!(first.roots[2].diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "FR-ASSET-001"
+                && diagnostic.node_id.as_deref() == Some("28:runtime")
+                && diagnostic.property_path.as_deref() == Some("asset_decision.route")
+        }));
+        let artifact_directory = first.roots[0]
+            .artifact_directory
+            .as_deref()
+            .ok_or("successful root has no artifact directory")?;
+        let root_output = out.join(artifact_directory);
+        assert!(root_output.join(GENERATED_RUST).is_file());
+        assert!(root_output.join(ASSET_MANIFEST_JSON).is_file());
+        assert_eq!(
+            fs::read_dir(out.join(super::ROOT_OUTPUTS_DIRECTORY))?.count(),
+            1
+        );
+        let first_status = fs::read(out.join(ROOT_STATUS_JSON))?;
+        let first_pointer = fs::read(out.join(crate::generation::CURRENT_GENERATION))?;
+
+        let second = compile_file_root_scoped(&fixture, &out)?;
+        assert_eq!(second.summary.succeeded, 1);
+        assert_eq!(fs::read(out.join(ROOT_STATUS_JSON))?, first_status);
+        assert_eq!(
+            fs::read(out.join(crate::generation::CURRENT_GENERATION))?,
+            first_pointer
+        );
+
+        let strict_failure = compile_file(&fixture, &out)?;
+        assert_eq!(
+            strict_failure.error.as_deref(),
+            Some("normalization failed")
+        );
+        assert!(!out.join(ROOT_STATUS_JSON).exists());
+        assert!(!out.join(super::ROOT_OUTPUTS_DIRECTORY).exists());
+
+        let strict_raw = base.join("basic.json");
+        fs::write(&strict_raw, BASIC)?;
+        assert!(compile_file(&strict_raw, &out)?.error.is_none());
+        assert!(out.join(GENERATED_RUST).is_file());
+        assert!(!out.join(ROOT_STATUS_JSON).exists());
+        assert!(!out.join(super::ROOT_OUTPUTS_DIRECTORY).exists());
+
+        let third = compile_file_root_scoped(&fixture, &out)?;
+        assert_eq!(third.summary.succeeded, 1);
+        assert_eq!(fs::read(out.join(ROOT_STATUS_JSON))?, first_status);
+        assert!(!out.join(GENERATED_RUST).exists());
+
+        fs::remove_dir_all(base)?;
+        Ok(())
+    }
+
+    #[test]
+    fn tampered_generation_fails_closed_without_replacing_the_projection()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let base = unique_test_path("tampered-generation");
+        fs::create_dir_all(&base)?;
+        let raw = base.join("raw.json");
+        let out = base.join("out");
+        fs::write(&raw, BASIC)?;
+        assert!(compile_file(&raw, &out)?.error.is_none());
+        let projection = artifact_contents(&out)?;
+        let pointer = serde_json::from_slice::<serde_json::Value>(&fs::read(
+            out.join(crate::generation::CURRENT_GENERATION),
+        )?)?;
+        let generation_id = pointer["generation_id"]
+            .as_str()
+            .ok_or("generation pointer has no ID")?;
+        fs::write(
+            out.join(crate::generation::GENERATION_STORE)
+                .join(generation_id)
+                .join(GENERATED_RUST),
+            "tampered\n",
+        )?;
+
+        let error = compile_file(&raw, &out).expect_err("tampered generation must fail");
+        assert!(error.to_string().contains("hash/size validation"));
+        assert_eq!(artifact_contents(&out)?, projection);
+
         fs::remove_dir_all(base)?;
         Ok(())
     }
@@ -1117,7 +2136,90 @@ mod tests {
         let manifest = fs::read_to_string(out.join("asset-manifest.json"))?;
         assert!(manifest.ends_with('\n'));
         assert!(manifest.contains(&format!("\"file_name\": \"{asset_name}\"")));
+        assert!(manifest.contains("\"cache_key\":"));
         assert!(!manifest.contains("payload_base64"));
+
+        fs::remove_dir_all(base)?;
+        Ok(())
+    }
+
+    #[test]
+    fn asset_cache_fixture_reuses_exact_blobs_collects_stale_content_and_is_deterministic()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let base = unique_test_path("asset-cache-fixture");
+        fs::create_dir_all(&base)?;
+        let out = base.join("out");
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/asset-cache/extraction.v1.json");
+        let changed = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/asset-cache/extraction.v2.json");
+
+        assert!(compile_file(&fixture, &out)?.error.is_none());
+        let first_pointer = fs::read(out.join(crate::generation::CURRENT_GENERATION))?;
+        let first_cache = sorted_file_names(&out.join(crate::generation::ASSET_CACHE))?;
+        assert_eq!(
+            first_cache.len(),
+            2,
+            "three assets should use two exact blobs"
+        );
+        assert!(compile_file(&fixture, &out)?.error.is_none());
+        assert_eq!(
+            fs::read(out.join(crate::generation::CURRENT_GENERATION))?,
+            first_pointer
+        );
+        assert_eq!(
+            sorted_file_names(&out.join(crate::generation::ASSET_CACHE))?,
+            first_cache
+        );
+
+        assert!(compile_file(&changed, &out)?.error.is_none());
+        let second_pointer = fs::read(out.join(crate::generation::CURRENT_GENERATION))?;
+        let second_cache = sorted_file_names(&out.join(crate::generation::ASSET_CACHE))?;
+        assert_ne!(second_pointer, first_pointer);
+        assert_eq!(second_cache.len(), 2);
+        assert_eq!(
+            first_cache
+                .iter()
+                .filter(|name| second_cache.contains(name))
+                .count(),
+            1,
+            "only the shared exact blob should remain reachable"
+        );
+        assert!(compile_file(&changed, &out)?.error.is_none());
+        assert_eq!(
+            fs::read(out.join(crate::generation::CURRENT_GENERATION))?,
+            second_pointer
+        );
+        assert_eq!(
+            sorted_file_names(&out.join(crate::generation::ASSET_CACHE))?,
+            second_cache
+        );
+
+        fs::remove_dir_all(base)?;
+        Ok(())
+    }
+
+    #[test]
+    fn tampered_asset_cache_fails_closed_without_mutating_the_flat_projection()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let base = unique_test_path("tampered-asset-cache");
+        fs::create_dir_all(&base)?;
+        let out = base.join("out");
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/asset-cache/extraction.v1.json");
+        assert!(compile_file(&fixture, &out)?.error.is_none());
+        let projection = artifact_contents(&out)?;
+        let projected_assets = flat_asset_contents(&out)?;
+        let cache_entry = fs::read_dir(out.join(crate::generation::ASSET_CACHE))?
+            .next()
+            .ok_or("missing cache entry")??
+            .path();
+        fs::write(cache_entry, b"tampered")?;
+
+        let error = compile_file(&fixture, &out).expect_err("tampered cache must fail");
+        assert!(error.to_string().contains("hash/size validation"));
+        assert_eq!(artifact_contents(&out)?, projection);
+        assert_eq!(flat_asset_contents(&out)?, projected_assets);
 
         fs::remove_dir_all(base)?;
         Ok(())
@@ -1174,6 +2276,7 @@ mod tests {
         let result = compile_file(&raw, &out)?;
         assert_eq!(result.error.as_deref(), Some("normalization failed"));
         assert!(ARTIFACT_NAMES.iter().all(|name| !out.join(name).exists()));
+        assert!(!out.join(crate::generation::CURRENT_GENERATION).exists());
         assert_eq!(fs::read_to_string(out.join("keep.txt"))?, "unrelated");
 
         fs::write(&raw, BASIC)?;
@@ -1185,6 +2288,7 @@ mod tests {
         let result = compile_file(&raw, &out)?;
         assert!(result.error.is_some());
         assert!(ARTIFACT_NAMES.iter().all(|name| !out.join(name).exists()));
+        assert!(!out.join(crate::generation::CURRENT_GENERATION).exists());
         assert_eq!(fs::read_to_string(out.join("keep.txt"))?, "unrelated");
 
         fs::remove_dir_all(base)?;
@@ -1251,6 +2355,43 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(artifact_contents(&out)?, previous);
         lock.release().map_err(std::io::Error::other)?;
+        assert_eq!(directory_names(&out)?, final_artifact_names());
+
+        fs::remove_dir_all(base)?;
+        Ok(())
+    }
+
+    #[test]
+    fn restart_rolls_pending_generation_forward_from_a_mixed_projection()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let base = unique_test_path("projection-crash-recovery");
+        fs::create_dir_all(&base)?;
+        let raw = base.join("raw.json");
+        let out = base.join("out");
+        fs::write(&raw, BASIC)?;
+        assert!(compile_file(&raw, &out)?.error.is_none());
+
+        let changed_bundle = parse_bundle(&BASIC.replace("\"r\": 0.125", "\"r\": 0.75"))?;
+        let normalization = normalize_bundle(&changed_bundle);
+        let generated = figma_rust_codegen::generate(&normalization.document)?;
+        let outputs = output_artifacts(&normalization, &generated)?;
+        let expected = outputs
+            .iter()
+            .map(|output| (output.name.clone(), output.content.clone()))
+            .collect::<BTreeMap<_, _>>();
+        let _prepared =
+            crate::generation::prepare(&out, &outputs).map_err(std::io::Error::other)?;
+        let paths = prepare_publish(&out, &outputs)?;
+        stage_outputs(&paths, &outputs).map_err(std::io::Error::other)?;
+        for path in paths.iter().filter(|path| path.had_previous) {
+            fs::rename(&path.final_path, &path.backup_path)?;
+        }
+        for path in paths.iter().filter(|path| path.publish).take(2) {
+            fs::rename(&path.temp_path, &path.final_path)?;
+        }
+
+        super::recover_generation(&out)?;
+        assert_eq!(artifact_contents(&out)?, expected);
         assert_eq!(directory_names(&out)?, final_artifact_names());
 
         fs::remove_dir_all(base)?;
@@ -1326,8 +2467,56 @@ mod tests {
         Ok(names)
     }
 
+    fn sorted_file_names(directory: &std::path::Path) -> Result<Vec<String>, std::io::Error> {
+        let mut names = fs::read_dir(directory)?
+            .map(|entry| {
+                entry.and_then(|entry| {
+                    entry.file_name().into_string().map_err(|_| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "non-UTF-8 fixture file name",
+                        )
+                    })
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        names.sort();
+        Ok(names)
+    }
+
+    fn flat_asset_contents(
+        output_directory: &std::path::Path,
+    ) -> Result<BTreeMap<String, Vec<u8>>, std::io::Error> {
+        fs::read_dir(output_directory)?
+            .filter_map(|entry| match entry {
+                Ok(entry)
+                    if entry.file_type().is_ok_and(|kind| kind.is_file())
+                        && entry.file_name().to_string_lossy().starts_with("asset-")
+                        && entry.file_name() != ASSET_MANIFEST_JSON =>
+                {
+                    Some(Ok(entry))
+                }
+                Ok(_) => None,
+                Err(error) => Some(Err(error)),
+            })
+            .map(|entry| {
+                let entry = entry?;
+                let name = entry.file_name().into_string().map_err(|_| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "non-UTF-8 fixture file name",
+                    )
+                })?;
+                fs::read(entry.path()).map(|content| (name, content))
+            })
+            .collect()
+    }
+
     fn final_artifact_names() -> Vec<OsString> {
         let mut names = ARTIFACT_NAMES.map(OsString::from).to_vec();
+        names.push(OsString::from(crate::generation::CURRENT_GENERATION));
+        names.push(OsString::from(crate::generation::GENERATION_STORE));
+        names.push(OsString::from(crate::generation::ASSET_CACHE));
         names.sort();
         names
     }

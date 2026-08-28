@@ -31,7 +31,7 @@ The initial workspace uses four Rust crates and one TypeScript plugin:
 | `figma-rust-core` | Raw model, Design IR, parent-aware normalization, diagnostics, token/component metadata, asset decisions. No Figma or GPUI dependency. |
 | `figma-rust-codegen` | GPUI target lowering, component mappings, Rust token/AST generation, deterministic formatting, source-map production. Depends on core, not GPUI. |
 | `figma-gpui-runtime` | Only proven missing GPUI primitives, token/component contracts, source metadata, and test helpers. Depends on pinned GPUI core only. |
-| `figma-rust-cli` | `inspect`, `lint`, `compile`, `verify`, and localhost `serve`; file/asset orchestration and exit codes. |
+| `figma-rust-cli` | `inspect`, `lint`, `profile`, `compile`, `verify`, and localhost `serve`; file/asset orchestration and exit codes. |
 | `plugin/` | Figma selection extraction, diagnostics UI/export, and Dev Mode Codegen bridge. |
 
 Shared manifests, GPUI pins, schemas, and fixture contracts are owned centrally.
@@ -47,12 +47,13 @@ The plugin emits a versioned JSON bundle. The current version is `2`:
 ```text
 ExtractionBundle
   schema_version
-  source { file_key?, page_id, selected_node_ids, plugin_api_version }
+  source { extractor?, extractor_version?, file_key?, page_id, selected_node_ids, plugin_api_version }
   roots: RawNode[]
   variables: RawVariable[]
   components: RawComponent[]
   assets: RawAsset[]
   extraction_diagnostics: Diagnostic[]
+  extraction_manifest { capabilities, traversal }
   rest_snapshot?: JSON_REST_V1 object
 ```
 
@@ -77,9 +78,40 @@ new Figma fields do not disappear silently.
 V1 bundles are deserialized only far enough to produce the explicit
 `FR-SCHEMA-001` compatibility error. They are never compiled as v2 data.
 
+Schema v2 readers accept additive optional/defaulted fields. Removing a field,
+changing its meaning, or making an optional field required needs a new schema
+version. Version 1 is legacy diagnostic-only; structurally parseable
+unknown/future versions are unsupported diagnostic-only. The writer emits only
+the current version.
+
+`inspect` reports fingerprint contract v1: SHA-256 over the canonical typed
+bundle with the domain prefix `figma-rust-extraction-fingerprint-v1\0`.
+Deserialization removes JSON object-key/whitespace differences; capability flags
+are sorted and deduplicated, while semantically ordered arrays remain ordered.
+The digest binds extractor/API versions, source identity, selected roots,
+capabilities, diagnostics, and extracted semantic content without printing the
+private source values that were hashed.
+
 A direct REST-to-Raw-Model importer is planned but not implemented. The plugin
 can retain an optional `rest_snapshot` for provenance; current CLI commands
 consume the extraction bundle emitted by the plugin.
+
+### Usage-led capability profiles
+
+Capability profile report schema v1 inventories sorted extraction-manifest
+capabilities against one explicit versioned local policy. The initial
+`orbitline-minimal-v1` profile requires bounded schema-v2 extraction, component
+metadata, modeled bound dimensions, child alignment, and typed text metadata;
+asset payload export is optional. REST snapshot/import, Code Connect, mixed grid,
+media/pattern/shader paints, action contracts, and custom effects are quarantined.
+
+`figma-rust profile ... --profile orbitline-minimal-v1` emits the deterministic
+used/unused matrix and privacy-safe extraction fingerprint. `figma-rust compile
+... --profile orbitline-minimal-v1` runs the same gate before normalization.
+Missing required capabilities use `FR-PROFILE-001`, present quarantined routes use
+`FR-PROFILE-002`, and undeclared manifest capabilities or bundle-level extension
+fields use `FR-PROFILE-003`. The default compile path remains unchanged; adding or
+removing policy requires a new profile ID instead of silently widening v1.
 
 ### Design IR
 
@@ -197,6 +229,18 @@ Imports are collected from emitted target operations and component mappings.
 Stable traversal uses source order for child painting and `BTreeMap`/sorted keys
 for unordered metadata. Generated output contains no timestamps or random IDs.
 
+## Compiler output generations
+
+The CLI hashes sorted artifact names, lengths, and exact bytes into one
+platform-independent generation ID. It publishes each immutable generation under
+`.figma-rust-generations/<generation-id>/`, validates every SHA-256 and size, then
+atomically commits `current-generation.json` only after the compatible flat-file
+projection is complete. A synced pending pointer acts as a bounded recovery
+journal: after interruption, the next locked compile either rolls the pending
+generation forward or repairs the flat projection from the last validated current
+generation. Recovery touches only compiler-owned generation paths and removes at
+most a bounded number of recognized temporary/orphan directories per run.
+
 ## Tokens
 
 A bound Figma value is represented as:
@@ -222,6 +266,23 @@ Assets are content-addressed, keep their source node ID and export settings, and
 are listed in a manifest. Raster output always includes diagnostic code,
 property/effect reason, scale, and color profile. Re-generation cannot overwrite
 handwritten assets outside the generated asset directory.
+
+The CLI derives an asset cache key from decoded bytes, media type, and sorted
+export settings. Exact matches share one verified blob under
+`.figma-rust-asset-cache/`; immutable generations hard-link that blob while the
+flat compatibility projection remains a separate copy. Recovery validates cache
+and generation bytes before reuse, retains blobs reachable from current/pending
+generation manifests, and removes only bounded unreachable compiler-owned blobs.
+
+Strict compile remains the default for a full bundle. Explicit root-scoped compile
+derives one bundle per selected root, preserving shared variables while filtering
+node diagnostics and assets to that root subtree. Successful roots own isolated
+`roots/root-<identity-hash>-<root-fingerprint>-<generation-id>/` generation sets.
+`root-status.json` records the original bundle fingerprint, per-root fingerprint,
+status, full diagnostics, output path, and generation ID for every root.
+Unsupported Runtime routes remain distinct from other normalization and codegen
+failures; any failed root makes the command exit 1 without suppressing successful
+siblings. The loopback server remains strict.
 
 ## Behavior boundary
 

@@ -5,10 +5,11 @@ use std::fmt;
 
 use figma_rust_core::ir::{
     AssetRoute, Axis, AxisSize, AxisSizing, BoundValue, Color, ComponentResolution, DesignDocument,
-    Edges, Effect, Layout, Node, Paint, Positioning, TextStyle, TokenRef,
+    Edges, Effect, GridTrack, Layout, Node, Paint, Positioning, TextStyle, TokenRef, Transform,
 };
 use figma_rust_core::raw::{
-    RawAlignment, RawAsset, RawBlendMode, RawConstraint, RawNodeKind, RawStrokeAlign,
+    RawAlignment, RawAsset, RawBlendMode, RawChildAlignment, RawConstraint, RawImageScaleMode,
+    RawNodeKind, RawStrokeAlign,
 };
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
@@ -86,6 +87,11 @@ struct IndexedNode<'a> {
     parent_stack_axis: Option<Axis>,
 }
 
+struct LoweredRoot {
+    tokens: TokenStream,
+    uses_parent_element: bool,
+}
+
 /// Lowers a normalized design document into deterministic GPUI Rust.
 ///
 /// The returned Rust accepts the runtime's `TokenResolver`; bound colors use
@@ -96,6 +102,11 @@ struct IndexedNode<'a> {
 /// Returns [`CodegenError`] when the document contains an unsupported or invalid
 /// construct, generated syntax does not parse, or source spans cannot be found.
 pub fn generate(document: &DesignDocument) -> Result<GeneratedOutput, CodegenError> {
+    let prepared = prepare_transforms(document)?;
+    generate_prepared(&prepared)
+}
+
+fn generate_prepared(document: &DesignDocument) -> Result<GeneratedOutput, CodegenError> {
     let (indexed, ordinals) = index_document(document)?;
     for indexed_node in &indexed {
         validate_node(
@@ -112,53 +123,25 @@ pub fn generate(document: &DesignDocument) -> Result<GeneratedOutput, CodegenErr
 
     let uses_assets = emitted
         .iter()
-        .any(|indexed_node| is_asset_fallback(indexed_node.node));
+        .any(|indexed_node| node_uses_assets(indexed_node.node));
+    let uses_images = emitted
+        .iter()
+        .any(|indexed_node| image_fill(indexed_node.node).is_some());
     let functions = emitted
         .iter()
         .map(|indexed_node| lower_function(*indexed_node, &ordinals, &document.assets, uses_assets))
         .collect::<Result<Vec<_>, _>>()?;
-    let root_symbols = document
-        .roots
-        .iter()
-        .filter(|node| node.visible)
-        .map(|node| {
-            let ordinal = ordinals[node.source_id.as_str()];
-            node_symbol(ordinal)
-        })
-        .collect::<Vec<_>>();
-    let root_elements = root_symbols
-        .iter()
-        .map(|symbol| {
-            if uses_assets {
-                quote! { #symbol(tokens, assets) }
-            } else {
-                quote! { #symbol(tokens) }
-            }
-        })
-        .collect::<Vec<_>>();
-    let uses_parent_element = root_symbols.len() > 1
+    let root = lower_document_root(document, &ordinals, uses_assets);
+    let uses_parent_element = root.uses_parent_element
         || emitted.iter().any(|indexed| {
             !is_asset_fallback(indexed.node)
                 && (indexed.node.text.is_some()
-                    || indexed.node.children.iter().any(|child| child.visible)
+                    || indexed.node.children.iter().any(is_potentially_visible)
+                    || image_fill(indexed.node).is_some()
                     || has_visible_stroke(indexed.node))
         });
-    let imports = if emitted.is_empty() {
-        quote! {}
-    } else if uses_parent_element {
-        quote! {
-            use gpui::{InteractiveElement as _, ParentElement as _, Styled as _};
-        }
-    } else {
-        quote! {
-            use gpui::{InteractiveElement as _, Styled as _};
-        }
-    };
-    let root = match root_elements.as_slice() {
-        [] => quote! { gpui::div() },
-        [element] => quote! { #element },
-        elements => quote! { gpui::div() #(.child(#elements))* },
-    };
+    let imports = generated_imports(&emitted, uses_parent_element, uses_images);
+    let root = root.tokens;
     let generated_view = if uses_assets {
         quote! {
             pub fn generated_view<Tokens, Assets>(
@@ -202,6 +185,225 @@ pub fn generate(document: &DesignDocument) -> Result<GeneratedOutput, CodegenErr
     Ok(GeneratedOutput { rust, source_map })
 }
 
+fn lower_document_root(
+    document: &DesignDocument,
+    ordinals: &BTreeMap<&str, usize>,
+    uses_assets: bool,
+) -> LoweredRoot {
+    let roots = document
+        .roots
+        .iter()
+        .filter(|node| is_potentially_visible(node))
+        .map(|node| {
+            let symbol = node_symbol(ordinals[node.source_id.as_str()]);
+            let element = if uses_assets {
+                quote! { #symbol(tokens, assets) }
+            } else {
+                quote! { #symbol(tokens) }
+            };
+            (node, element)
+        })
+        .collect::<Vec<_>>();
+    let uses_parent_element = roots.len() > 1
+        || roots
+            .iter()
+            .any(|(node, _)| node.visibility_binding.is_some());
+    let tokens = if roots.len() == 1 && roots[0].0.visibility_binding.is_none() {
+        roots[0].1.clone()
+    } else {
+        roots
+            .iter()
+            .fold(quote! { gpui::div() }, |parent, (node, child)| {
+                append_child(&parent, child, node.visibility_binding.as_ref())
+            })
+    };
+    LoweredRoot {
+        tokens,
+        uses_parent_element,
+    }
+}
+
+fn generated_imports(
+    emitted: &[IndexedNode<'_>],
+    uses_parent: bool,
+    uses_images: bool,
+) -> TokenStream {
+    let gpui_imports = match (emitted.is_empty(), uses_parent, uses_images) {
+        (true, _, _) => quote! {},
+        (false, true, true) => quote! {
+            use gpui::{InteractiveElement as _, ParentElement as _, Styled as _, StyledImage as _};
+        },
+        (false, true, false) => quote! {
+            use gpui::{InteractiveElement as _, ParentElement as _, Styled as _};
+        },
+        (false, false, _) => quote! {
+            use gpui::{InteractiveElement as _, Styled as _};
+        },
+    };
+    let fluent_builder = if emitted
+        .iter()
+        .any(|indexed| indexed.node.visibility_binding.is_some())
+    {
+        quote! { use gpui::prelude::FluentBuilder as _; }
+    } else {
+        quote! {}
+    };
+    quote! {
+        #gpui_imports
+        #fluent_builder
+    }
+}
+
+fn prepare_transforms(document: &DesignDocument) -> Result<DesignDocument, CodegenError> {
+    let mut prepared = document.clone();
+    for root in &mut prepared.roots {
+        prepare_node_transform(root, 1.0)?;
+    }
+    Ok(prepared)
+}
+
+fn prepare_node_transform(node: &mut Node, parent_scale: f64) -> Result<(), CodegenError> {
+    let matrix = match node.positioning {
+        Positioning::Auto { transform, .. } | Positioning::Absolute { transform, .. } => {
+            transform.matrix
+        }
+    };
+    let [scale_x, skew_y, skew_x, scale_y, matrix_x, matrix_y] = matrix;
+    let valid = matrix.iter().all(|value| value.is_finite())
+        && scale_x > 0.0
+        && same_f64(scale_x, scale_y)
+        && same_f64(skew_x, 0.0)
+        && same_f64(skew_y, 0.0);
+    if !valid {
+        return unsupported(
+            node,
+            "positioning.transform",
+            "transform outside positive uniform scale and translation",
+        );
+    }
+    let scale = parent_scale * scale_x;
+    if !scale_node_geometry(node, scale) {
+        return unsupported(
+            node,
+            "positioning.transform",
+            "uniform scale over variable-bound numeric geometry",
+        );
+    }
+    let offset_x = canonical_f64(matrix_x * parent_scale);
+    let offset_y = canonical_f64(matrix_y * parent_scale);
+    match &mut node.positioning {
+        Positioning::Auto { transform, .. } => {
+            transform.matrix = [1.0, 0.0, 0.0, 1.0, offset_x, offset_y];
+        }
+        Positioning::Absolute {
+            x, y, transform, ..
+        } => {
+            *x = canonical_f64(*x * parent_scale);
+            *y = canonical_f64(*y * parent_scale);
+            transform.matrix = [1.0, 0.0, 0.0, 1.0, offset_x, offset_y];
+        }
+    }
+    for child in &mut node.children {
+        prepare_node_transform(child, scale)?;
+    }
+    Ok(())
+}
+
+fn scale_node_geometry(node: &mut Node, scale: f64) -> bool {
+    let mut supported = scale_axis_size(&mut node.size.horizontal, scale)
+        && scale_axis_size(&mut node.size.vertical, scale);
+    match &mut node.layout {
+        Layout::Stack { gap, padding, .. } => {
+            supported &= scale_bound(gap, scale) && scale_edges(padding, scale);
+        }
+        Layout::Grid {
+            columns,
+            rows,
+            column_gap,
+            row_gap,
+            padding,
+            ..
+        } => {
+            for track in columns.iter_mut().chain(rows) {
+                if let GridTrack::Fixed(value) = track {
+                    *value = canonical_f64(*value * scale);
+                }
+            }
+            *column_gap = canonical_f64(*column_gap * scale);
+            *row_gap = canonical_f64(*row_gap * scale);
+            supported &= scale_edges(padding, scale);
+        }
+        Layout::Plain { .. } | Layout::Absolute { .. } => {}
+    }
+    supported &= scale_edges(&mut node.style.stroke_widths, scale);
+    supported &= scale_bound(&mut node.style.radii.top_left, scale)
+        && scale_bound(&mut node.style.radii.top_right, scale)
+        && scale_bound(&mut node.style.radii.bottom_right, scale)
+        && scale_bound(&mut node.style.radii.bottom_left, scale);
+    for effect in &mut node.style.effects {
+        if let Effect::Shadow {
+            offset_x,
+            offset_y,
+            blur,
+            spread,
+            ..
+        } = effect
+        {
+            *offset_x = canonical_f64(*offset_x * scale);
+            *offset_y = canonical_f64(*offset_y * scale);
+            *blur = canonical_f64(*blur * scale);
+            *spread = canonical_f64(*spread * scale);
+        }
+    }
+    if let Some(text) = &mut node.text {
+        for run in &mut text.runs {
+            if let Some(font_size) = &mut run.style.font_size {
+                supported &= scale_bound(font_size, scale);
+            }
+            if let Some(line_height) = &mut run.style.line_height {
+                *line_height = canonical_f64(*line_height * scale);
+            }
+            if let Some(letter_spacing) = &mut run.style.letter_spacing {
+                *letter_spacing = canonical_f64(*letter_spacing * scale);
+            }
+        }
+    }
+    supported
+}
+
+fn scale_axis_size(axis: &mut AxisSize, scale: f64) -> bool {
+    let mut supported = true;
+    if let AxisSizing::Fixed(value) = &mut axis.sizing {
+        supported &= scale_bound(value, scale);
+    }
+    for value in [&mut axis.measured, &mut axis.min, &mut axis.max]
+        .into_iter()
+        .flatten()
+    {
+        supported &= scale_bound(value, scale);
+    }
+    supported
+}
+
+fn scale_edges(edges: &mut Edges, scale: f64) -> bool {
+    scale_bound(&mut edges.top, scale)
+        && scale_bound(&mut edges.right, scale)
+        && scale_bound(&mut edges.bottom, scale)
+        && scale_bound(&mut edges.left, scale)
+}
+
+fn scale_bound(value: &mut BoundValue<f64>, scale: f64) -> bool {
+    if !same_f64(scale, 1.0) && value.token.is_some() {
+        return false;
+    }
+    value.fallback = canonical_f64(value.fallback * scale);
+    true
+}
+
+fn canonical_f64(value: f64) -> f64 {
+    if value == 0.0 { 0.0 } else { value }
+}
+
 fn index_document(
     document: &DesignDocument,
 ) -> Result<(Vec<IndexedNode<'_>>, BTreeMap<&str, usize>), CodegenError> {
@@ -219,7 +421,7 @@ fn index_document(
                 node_id: node.source_id.clone(),
             });
         }
-        let emitted = ancestors_visible && node.visible && !captured_by_asset;
+        let emitted = ancestors_visible && is_potentially_visible(node) && !captured_by_asset;
         indexed.push(IndexedNode {
             ordinal,
             node,
@@ -309,7 +511,28 @@ fn lower_node(
                 format!("unsupported fallback media type `{}`", asset.media_type),
             )
         })?;
+        let preserve_authored_colors = match asset
+            .export_settings
+            .get("color_policy")
+            .map(String::as_str)
+        {
+            None | Some("monochrome") => false,
+            Some("authored") => true,
+            Some(policy) => {
+                return Err(unsupported_error(
+                    node,
+                    "asset_decision.route",
+                    format!("unsupported SVG color policy `{policy}`"),
+                ));
+            }
+        };
         let mut element = match node.asset_decision.route {
+            AssetRoute::Svg if preserve_authored_colors => {
+                quote! {
+                    gpui::img(figma_gpui_runtime::AssetResolver::asset_path(assets, #file_name))
+                        .debug_selector(|| figma_gpui_runtime::source_selector(#ordinal))
+                }
+            }
             AssetRoute::Svg => quote! {
                 gpui::svg()
                     .external_path(
@@ -326,6 +549,7 @@ fn lower_node(
             AssetRoute::Native | AssetRoute::Runtime => unreachable!("validated asset route"),
         };
         element = lower_position(element, node)?;
+        element = lower_child_alignment(element, node);
         element = lower_size(element, node, indexed.parent_stack_axis)?;
         return Ok(element);
     }
@@ -334,28 +558,38 @@ fn lower_node(
     };
 
     element = lower_position(element, node)?;
+    element = lower_child_alignment(element, node);
     element = lower_layout(element, node)?;
     element = lower_size(element, node, indexed.parent_stack_axis)?;
-    element = lower_fill(element, node)?;
+    element = lower_fill(element, node, assets)?;
     element = lower_radii(element, node)?;
     element = lower_opacity(element, node)?;
     element = lower_shadows(element, node)?;
     element = lower_text_style(element, node)?;
 
     if let Some(text) = &node.text {
-        if matches!(node.size.horizontal.sizing, AxisSizing::Hug) {
+        if matches!(&node.size.horizontal.sizing, AxisSizing::Hug) {
             element = quote! { #element.whitespace_nowrap() };
         }
-        let characters = &text.characters;
+        let fallback_characters = &text.characters;
+        let characters = text
+            .characters_binding
+            .as_ref()
+            .map_or_else(|| quote! { #fallback_characters }, string_tokens);
         element = quote! { #element.child(#characters) };
     }
-    for child in node.children.iter().filter(|child| child.visible) {
+    for child in node
+        .children
+        .iter()
+        .filter(|child| is_potentially_visible(child))
+    {
         let child_symbol = node_symbol(ordinals[child.source_id.as_str()]);
-        element = if uses_assets {
-            quote! { #element.child(#child_symbol(tokens, assets)) }
+        let call = if uses_assets {
+            quote! { #child_symbol(tokens, assets) }
         } else {
-            quote! { #element.child(#child_symbol(tokens)) }
+            quote! { #child_symbol(tokens) }
         };
+        element = append_child(&element, &call, child.visibility_binding.as_ref());
     }
     if let Some(stroke) = lower_stroke_overlay(node)? {
         element = quote! { #element.child(#stroke) };
@@ -363,11 +597,39 @@ fn lower_node(
     Ok(element)
 }
 
+fn is_potentially_visible(node: &Node) -> bool {
+    node.visible || node.visibility_binding.is_some()
+}
+
+fn append_child(
+    parent: &TokenStream,
+    child: &TokenStream,
+    visibility: Option<&BoundValue<bool>>,
+) -> TokenStream {
+    if let Some(visibility) = visibility {
+        let visible = boolean_tokens(visibility);
+        quote! { #parent.when(#visible, |this| this.child(#child)) }
+    } else {
+        quote! { #parent.child(#child) }
+    }
+}
+
 fn is_asset_fallback(node: &Node) -> bool {
     matches!(
         node.asset_decision.route,
         AssetRoute::Svg | AssetRoute::Raster
     )
+}
+
+fn image_fill(node: &Node) -> Option<&Paint> {
+    node.style
+        .fills
+        .first()
+        .filter(|paint| matches!(paint, Paint::Image { .. }))
+}
+
+fn node_uses_assets(node: &Node) -> bool {
+    is_asset_fallback(node) || image_fill(node).is_some()
 }
 
 fn fallback_asset<'a>(
@@ -441,9 +703,38 @@ fn validate_node(
         return unsupported(node, "reactions", "prototype reactions");
     }
     if captured_by_asset {
+        if node.visibility_binding.is_some() {
+            return unsupported(
+                node,
+                "component_property_references.visible",
+                "variable component visibility captured by an ancestor asset fallback",
+            );
+        }
+        if node
+            .text
+            .as_ref()
+            .is_some_and(|text| text.characters_binding.is_some())
+        {
+            return unsupported(
+                node,
+                "component_property_references.characters",
+                "variable component text captured by an ancestor asset fallback",
+            );
+        }
         return Ok(());
     }
     if fallback_asset(node, assets)?.is_some() {
+        if node
+            .text
+            .as_ref()
+            .is_some_and(|text| text.characters_binding.is_some())
+        {
+            return unsupported(
+                node,
+                "component_property_references.characters",
+                "variable component text cannot be represented by a static asset fallback",
+            );
+        }
         return Ok(());
     }
     match node.kind {
@@ -533,14 +824,19 @@ fn validate_transform(node: &Node) -> Result<(), CodegenError> {
     let transform = match node.positioning {
         Positioning::Auto { transform, .. } | Positioning::Absolute { transform, .. } => transform,
     };
-    let identity = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
-    if !transform
-        .matrix
-        .iter()
-        .zip(identity)
-        .all(|(actual, expected)| same_f64(*actual, expected))
+    let [scale_x, skew_y, skew_x, scale_y, translate_x, translate_y] = transform.matrix;
+    if !same_f64(scale_x, 1.0)
+        || !same_f64(scale_y, 1.0)
+        || !same_f64(skew_x, 0.0)
+        || !same_f64(skew_y, 0.0)
+        || !translate_x.is_finite()
+        || !translate_y.is_finite()
     {
-        return unsupported(node, "positioning.transform", "non-identity transform");
+        return unsupported(
+            node,
+            "positioning.transform",
+            "transform outside prepared translation",
+        );
     }
     Ok(())
 }
@@ -551,8 +847,40 @@ fn validate_paints(node: &Node, property: &str, paints: &[Paint]) -> Result<(), 
             Paint::Solid { color } => {
                 let _ = packed_rgba(node, property, color.fallback)?;
             }
-            Paint::Image { asset_id, .. } => {
-                return unsupported(node, property, format!("image asset paint `{asset_id}`"));
+            Paint::Image {
+                asset_id,
+                scale_mode,
+                image_transform,
+                opacity,
+                rotation,
+                has_filters,
+            } => {
+                checked_f32(node, &format!("{property}.opacity"), *opacity, true)?;
+                if *has_filters || rotation.is_some_and(|rotation| !same_f64(rotation, 0.0)) {
+                    return unsupported(
+                        node,
+                        property,
+                        format!("filtered or rotated image paint `{asset_id}`"),
+                    );
+                }
+                match scale_mode {
+                    RawImageScaleMode::Fit | RawImageScaleMode::Fill => {}
+                    RawImageScaleMode::Crop => match image_transform {
+                        Some(transform) => {
+                            crop_geometry(node, property, transform)?;
+                        }
+                        None => {
+                            return unsupported(
+                                node,
+                                property,
+                                "CROP image without imageTransform",
+                            );
+                        }
+                    },
+                    RawImageScaleMode::Tile => {
+                        return unsupported(node, property, "tiled image paint");
+                    }
+                }
             }
             Paint::Gradient { .. } => {
                 return unsupported(node, property, "gradient paint");
@@ -565,12 +893,115 @@ fn validate_paints(node: &Node, property: &str, paints: &[Paint]) -> Result<(), 
     Ok(())
 }
 
+#[derive(Clone, Copy)]
+struct CropGeometry {
+    left: f32,
+    top: f32,
+    width: f32,
+    height: f32,
+}
+
+fn crop_geometry(
+    node: &Node,
+    property: &str,
+    transform: &Transform,
+) -> Result<CropGeometry, CodegenError> {
+    let [scale_x, skew_y, skew_x, scale_y, translate_x, translate_y] = transform.matrix;
+    let valid = transform.matrix.iter().all(|value| value.is_finite())
+        && scale_x > 0.0
+        && scale_y > 0.0
+        && same_f64(skew_x, 0.0)
+        && same_f64(skew_y, 0.0)
+        && translate_x >= 0.0
+        && translate_y >= 0.0
+        && translate_x + scale_x <= 1.0 + f64::EPSILON
+        && translate_y + scale_y <= 1.0 + f64::EPSILON;
+    if !valid {
+        return unsupported(
+            node,
+            property,
+            "non-axis-aligned or out-of-range imageTransform",
+        );
+    }
+    let node_width = fixed_axis_fallback(node, property, &node.size.horizontal)?;
+    let node_height = fixed_axis_fallback(node, property, &node.size.vertical)?;
+    Ok(CropGeometry {
+        left: checked_f32(node, property, -node_width * translate_x / scale_x, false)?,
+        top: checked_f32(node, property, -node_height * translate_y / scale_y, false)?,
+        width: checked_f32(node, property, node_width / scale_x, true)?,
+        height: checked_f32(node, property, node_height / scale_y, true)?,
+    })
+}
+
+fn fixed_axis_fallback(node: &Node, property: &str, axis: &AxisSize) -> Result<f64, CodegenError> {
+    match &axis.sizing {
+        AxisSizing::Fixed(value) if value.token.is_none() => Ok(value.fallback),
+        _ => Err(unsupported_error(
+            node,
+            property,
+            "CROP image requires a concrete fixed node size",
+        )),
+    }
+}
+
+fn image_asset<'a>(
+    node: &Node,
+    asset_id: &str,
+    assets: &'a [RawAsset],
+) -> Result<&'a RawAsset, CodegenError> {
+    let asset = assets
+        .iter()
+        .find(|asset| asset.id == asset_id)
+        .ok_or_else(|| {
+            unsupported_error(
+                node,
+                "style.fills",
+                format!("image asset `{asset_id}` is missing"),
+            )
+        })?;
+    if asset.payload_base64.as_deref().is_none_or(str::is_empty) {
+        return Err(unsupported_error(
+            node,
+            "style.fills",
+            format!("image asset `{asset_id}` has no payload"),
+        ));
+    }
+    Ok(asset)
+}
+
 fn validate_text(node: &Node) -> Result<(), CodegenError> {
     let Some(text) = &node.text else {
         return Ok(());
     };
     if node.kind != RawNodeKind::Text {
         return unsupported(node, "text", "text payload on a non-text node");
+    }
+    if text.auto_resize == figma_rust_core::raw::RawTextAutoResize::Truncate {
+        return unsupported(
+            node,
+            "text.auto_resize",
+            "deprecated TRUNCATE auto-resize mode",
+        );
+    }
+    if text.horizontal_alignment != figma_rust_core::raw::RawTextHorizontalAlignment::Left {
+        return unsupported(
+            node,
+            "text.horizontal_alignment",
+            "non-left horizontal text alignment",
+        );
+    }
+    if text.vertical_alignment != figma_rust_core::raw::RawTextVerticalAlignment::Top {
+        return unsupported(
+            node,
+            "text.vertical_alignment",
+            "non-top vertical text alignment",
+        );
+    }
+    if text.truncation != figma_rust_core::raw::RawTextTruncation::Disabled {
+        return unsupported(node, "text.truncation", "ending text truncation");
+    }
+    if text.max_lines.is_some() {
+        return unsupported(node, "text.max_lines", "maximum text lines");
     }
     if text.runs.len() > 1 {
         return unsupported(node, "text.runs", "mixed rich-text runs");
@@ -616,15 +1047,36 @@ fn lower_position(mut element: TokenStream, node: &Node) -> Result<TokenStream, 
         Positioning::Auto { grid: Some(_), .. } => {
             return unsupported(node, "positioning.grid", "grid placement");
         }
-        Positioning::Auto { grid: None, .. } => {
+        Positioning::Auto {
+            grid: None,
+            transform,
+        } => {
             element = quote! { #element.relative() };
+            let translate_x = checked_f32(
+                node,
+                "positioning.transform.translate_x",
+                transform.matrix[4],
+                false,
+            )?;
+            let translate_y = checked_f32(
+                node,
+                "positioning.transform.translate_y",
+                transform.matrix[5],
+                false,
+            )?;
+            if translate_x != 0.0 {
+                element = quote! { #element.left(gpui::px(#translate_x)) };
+            }
+            if translate_y != 0.0 {
+                element = quote! { #element.top(gpui::px(#translate_y)) };
+            }
         }
         Positioning::Absolute {
             x,
             y,
             horizontal_constraint,
             vertical_constraint,
-            ..
+            transform,
         } => {
             if horizontal_constraint != RawConstraint::Min
                 || vertical_constraint != RawConstraint::Min
@@ -635,12 +1087,22 @@ fn lower_position(mut element: TokenStream, node: &Node) -> Result<TokenStream, 
                     "absolute constraints other than MIN/MIN",
                 );
             }
-            let x = checked_f32(node, "positioning.x", x, false)?;
-            let y = checked_f32(node, "positioning.y", y, false)?;
+            let x = checked_f32(node, "positioning.x", x + transform.matrix[4], false)?;
+            let y = checked_f32(node, "positioning.y", y + transform.matrix[5], false)?;
             element = quote! { #element.absolute().left(gpui::px(#x)).top(gpui::px(#y)) };
         }
     }
     Ok(element)
+}
+
+fn lower_child_alignment(element: TokenStream, node: &Node) -> TokenStream {
+    match node.child_counter_alignment {
+        RawChildAlignment::Inherit => element,
+        RawChildAlignment::Min => quote! { #element.self_start() },
+        RawChildAlignment::Center => quote! { #element.self_center() },
+        RawChildAlignment::Max => quote! { #element.self_end() },
+        RawChildAlignment::Stretch => quote! { #element.self_stretch() },
+    }
 }
 
 fn lower_layout(mut element: TokenStream, node: &Node) -> Result<TokenStream, CodegenError> {
@@ -768,13 +1230,26 @@ fn lower_size(
     node: &Node,
     parent_stack_axis: Option<Axis>,
 ) -> Result<TokenStream, CodegenError> {
-    element = lower_axis_size(element, node, &node.size.horizontal, true)?;
-    element = lower_axis_size(element, node, &node.size.vertical, false)?;
+    let stretches_counter_axis = node.child_counter_alignment == RawChildAlignment::Stretch;
+    element = lower_axis_size(
+        element,
+        node,
+        &node.size.horizontal,
+        true,
+        stretches_counter_axis && parent_stack_axis == Some(Axis::Vertical),
+    )?;
+    element = lower_axis_size(
+        element,
+        node,
+        &node.size.vertical,
+        false,
+        stretches_counter_axis && parent_stack_axis == Some(Axis::Horizontal),
+    )?;
     let fills_main_axis = matches!(
-        (parent_stack_axis, node.size.horizontal.sizing),
+        (parent_stack_axis, &node.size.horizontal.sizing),
         (Some(Axis::Horizontal), AxisSizing::Fill)
     ) || matches!(
-        (parent_stack_axis, node.size.vertical.sizing),
+        (parent_stack_axis, &node.size.vertical.sizing),
         (Some(Axis::Vertical), AxisSizing::Fill)
     );
     if fills_main_axis {
@@ -797,16 +1272,17 @@ fn lower_axis_size(
     node: &Node,
     axis: &AxisSize,
     horizontal: bool,
+    suppress_dimension: bool,
 ) -> Result<TokenStream, CodegenError> {
-    match axis.sizing {
+    match &axis.sizing {
         AxisSizing::Hug => {
-            if let Some(value) = axis.measured {
+            if let Some(value) = axis.measured.as_ref().filter(|_| !suppress_dimension) {
                 let property = if horizontal {
-                    "size.horizontal.measured"
+                    "size.width"
                 } else {
-                    "size.vertical.measured"
+                    "size.height"
                 };
-                let value = checked_f32(node, property, value, true)?;
+                let value = number_tokens(node, property, value)?;
                 element = if horizontal {
                     quote! { #element.w(gpui::px(#value)) }
                 } else {
@@ -814,15 +1290,16 @@ fn lower_axis_size(
                 };
             }
         }
+        AxisSizing::Fill | AxisSizing::Fixed(_) if suppress_dimension => {}
         AxisSizing::Fill if horizontal => element = quote! { #element.w_full() },
         AxisSizing::Fill => element = quote! { #element.h_full() },
         AxisSizing::Fixed(value) => {
             let property = if horizontal {
-                "size.horizontal"
+                "size.width"
             } else {
-                "size.vertical"
+                "size.height"
             };
-            let value = checked_f32(node, property, value, true)?;
+            let value = number_tokens(node, property, value)?;
             element = if horizontal {
                 quote! { #element.w(gpui::px(#value)) }
             } else {
@@ -830,26 +1307,26 @@ fn lower_axis_size(
             };
         }
     }
-    if let Some(minimum) = axis.min {
+    if let Some(minimum) = axis.min.as_ref() {
         let property = if horizontal {
-            "size.horizontal.min"
+            "size.min_width"
         } else {
-            "size.vertical.min"
+            "size.min_height"
         };
-        let minimum = checked_f32(node, property, minimum, true)?;
+        let minimum = number_tokens(node, property, minimum)?;
         element = if horizontal {
             quote! { #element.min_w(gpui::px(#minimum)) }
         } else {
             quote! { #element.min_h(gpui::px(#minimum)) }
         };
     }
-    if let Some(maximum) = axis.max {
+    if let Some(maximum) = axis.max.as_ref() {
         let property = if horizontal {
-            "size.horizontal.max"
+            "size.max_width"
         } else {
-            "size.vertical.max"
+            "size.max_height"
         };
-        let maximum = checked_f32(node, property, maximum, true)?;
+        let maximum = number_tokens(node, property, maximum)?;
         element = if horizontal {
             quote! { #element.max_w(gpui::px(#maximum)) }
         } else {
@@ -859,16 +1336,75 @@ fn lower_axis_size(
     Ok(element)
 }
 
-fn lower_fill(mut element: TokenStream, node: &Node) -> Result<TokenStream, CodegenError> {
-    let Some(Paint::Solid { color }) = node.style.fills.first() else {
+fn lower_fill(
+    mut element: TokenStream,
+    node: &Node,
+    assets: &[RawAsset],
+) -> Result<TokenStream, CodegenError> {
+    let Some(fill) = node.style.fills.first() else {
         return Ok(element);
     };
-    let color = color_tokens(node, "style.fills", color)?;
-    element = if node.kind == RawNodeKind::Text {
-        quote! { #element.text_color(#color) }
-    } else {
-        quote! { #element.bg(#color) }
-    };
+    match fill {
+        Paint::Solid { color } => {
+            let color = color_tokens(node, "style.fills", color)?;
+            element = if node.kind == RawNodeKind::Text {
+                quote! { #element.text_color(#color) }
+            } else {
+                quote! { #element.bg(#color) }
+            };
+        }
+        Paint::Image {
+            asset_id,
+            scale_mode,
+            image_transform,
+            opacity,
+            ..
+        } => {
+            let asset = image_asset(node, asset_id, assets)?;
+            let file_name = asset.file_name().ok_or_else(|| {
+                unsupported_error(
+                    node,
+                    "style.fills",
+                    format!("unsupported image media type `{}`", asset.media_type),
+                )
+            })?;
+            let opacity = checked_f32(node, "style.fills.opacity", *opacity, true)?;
+            let image = quote! {
+                gpui::img(figma_gpui_runtime::AssetResolver::asset_path(assets, #file_name))
+                    .absolute()
+                    .opacity(#opacity)
+            };
+            let image = match scale_mode {
+                RawImageScaleMode::Fit => quote! {
+                    #image.inset_0().size_full().object_fit(gpui::ObjectFit::Contain)
+                },
+                RawImageScaleMode::Fill => quote! {
+                    #image.inset_0().size_full().object_fit(gpui::ObjectFit::Cover)
+                },
+                RawImageScaleMode::Crop => {
+                    let transform = image_transform.as_ref().ok_or_else(|| {
+                        unsupported_error(node, "style.fills", "missing imageTransform")
+                    })?;
+                    let crop = crop_geometry(node, "style.fills", transform)?;
+                    let width = crop.width;
+                    let height = crop.height;
+                    let left = crop.left;
+                    let top = crop.top;
+                    quote! {
+                        #image
+                            .object_fit(gpui::ObjectFit::Fill)
+                            .left(gpui::px(#left))
+                            .top(gpui::px(#top))
+                            .w(gpui::px(#width))
+                            .h(gpui::px(#height))
+                    }
+                }
+                RawImageScaleMode::Tile => unreachable!("validated image scale mode"),
+            };
+            element = quote! { #element.overflow_hidden().child(#image) };
+        }
+        Paint::Gradient { .. } | Paint::Unsupported { .. } => {}
+    }
     Ok(element)
 }
 
@@ -1145,6 +1681,30 @@ fn number_tokens(
     })
 }
 
+fn string_tokens(value: &BoundValue<String>) -> TokenStream {
+    let fallback = &value.fallback;
+    if let Some(token) = &value.token {
+        let context = token_context_tokens(token, &value.mode_context);
+        quote! {
+            figma_gpui_runtime::TokenResolver::string_with_context(tokens, #context, #fallback)
+        }
+    } else {
+        quote! { #fallback }
+    }
+}
+
+fn boolean_tokens(value: &BoundValue<bool>) -> TokenStream {
+    let fallback = value.fallback;
+    if let Some(token) = &value.token {
+        let context = token_context_tokens(token, &value.mode_context);
+        quote! {
+            figma_gpui_runtime::TokenResolver::boolean_with_context(tokens, #context, #fallback)
+        }
+    } else {
+        quote! { #fallback }
+    }
+}
+
 fn bound_number_is_visible(number: &BoundValue<f64>) -> bool {
     number.token.is_some() || number.fallback != 0.0
 }
@@ -1299,11 +1859,12 @@ mod tests {
     use figma_rust_core::ir::{
         AssetRoute, Axis, AxisSize, AxisSizing, BoundValue, Color, ComponentResolution,
         DesignDocument, Edges, Effect, Layout, Paint, Positioning, Radii, Scroll, Size, Style,
-        Text, TextRun, TextStyle,
+        Text, TextRun, TextStyle, TokenRef,
     };
     use figma_rust_core::raw::{
-        RawAction, RawAlignment, RawAsset, RawBlendMode, RawConstraint, RawNodeKind, RawReaction,
-        RawStrokeAlign, RawTrigger,
+        RawAction, RawAlignment, RawAsset, RawBlendMode, RawChildAlignment, RawConstraint,
+        RawNodeKind, RawReaction, RawStrokeAlign, RawTextAutoResize, RawTextHorizontalAlignment,
+        RawTextTruncation, RawTextVerticalAlignment, RawTrigger,
     };
     use serde::Deserialize;
 
@@ -1313,6 +1874,48 @@ mod tests {
         BoundValue {
             token: None,
             mode_context: BTreeMap::new(),
+            fallback: value,
+        }
+    }
+
+    fn bound_number(id: &str, value: f64) -> BoundValue<f64> {
+        BoundValue {
+            token: Some(TokenRef {
+                id: id.to_owned(),
+                name: Some(id.to_owned()),
+                collection_id: Some("collection.dimensions".to_owned()),
+                mode_id: Some("mode.compact".to_owned()),
+            }),
+            mode_context: BTreeMap::from([(
+                "collection.dimensions".to_owned(),
+                "mode.compact".to_owned(),
+            )]),
+            fallback: value,
+        }
+    }
+
+    fn bound_string(id: &str, value: &str, mode: &str) -> BoundValue<String> {
+        BoundValue {
+            token: Some(TokenRef {
+                id: id.to_owned(),
+                name: Some(id.to_owned()),
+                collection_id: Some("collection.content".to_owned()),
+                mode_id: Some(mode.to_owned()),
+            }),
+            mode_context: BTreeMap::from([("collection.content".to_owned(), mode.to_owned())]),
+            fallback: value.to_owned(),
+        }
+    }
+
+    fn bound_boolean(id: &str, value: bool, mode: &str) -> BoundValue<bool> {
+        BoundValue {
+            token: Some(TokenRef {
+                id: id.to_owned(),
+                name: Some(id.to_owned()),
+                collection_id: Some("collection.content".to_owned()),
+                mode_id: Some(mode.to_owned()),
+            }),
+            mode_context: BTreeMap::from([("collection.content".to_owned(), mode.to_owned())]),
             fallback: value,
         }
     }
@@ -1336,6 +1939,106 @@ mod tests {
         let mut document = basic_document();
         configure_supported_root(&mut document.roots[0]);
         document.roots[0].children = vec![absolute_child(), text_child()];
+        document
+    }
+
+    fn child_alignment_document() -> DesignDocument {
+        let mut document = basic_document();
+        let template = document.roots.remove(0);
+        let alignments = [
+            RawChildAlignment::Inherit,
+            RawChildAlignment::Min,
+            RawChildAlignment::Center,
+            RawChildAlignment::Max,
+            RawChildAlignment::Stretch,
+        ];
+        document.roots = [Axis::Horizontal, Axis::Vertical]
+            .into_iter()
+            .enumerate()
+            .map(|(root_index, axis)| {
+                let mut root = template.clone();
+                root.source_id = format!("13:{}", root_index + 1);
+                root.name = format!("{axis:?} alignment fixture");
+                root.layout = Layout::Stack {
+                    axis,
+                    wrap: false,
+                    primary_alignment: RawAlignment::Start,
+                    counter_alignment: RawAlignment::Start,
+                    gap: number(0.0),
+                    padding: Edges {
+                        top: number(0.0),
+                        right: number(0.0),
+                        bottom: number(0.0),
+                        left: number(0.0),
+                    },
+                    clips_content: false,
+                    scroll: Scroll {
+                        horizontal: false,
+                        vertical: false,
+                    },
+                };
+                root.children = alignments
+                    .into_iter()
+                    .enumerate()
+                    .map(|(child_index, child_counter_alignment)| {
+                        let mut child = template.clone();
+                        child.source_id = format!("13:{}:{}", root_index + 1, child_index + 1);
+                        child.name = format!("{child_counter_alignment:?}");
+                        child.layout = Layout::Plain {
+                            clips_content: false,
+                            scroll: Scroll {
+                                horizontal: false,
+                                vertical: false,
+                            },
+                        };
+                        child.child_counter_alignment = child_counter_alignment;
+                        child.style = empty_style();
+                        child.children.clear();
+                        child
+                    })
+                    .collect();
+                root
+            })
+            .collect();
+        document
+    }
+
+    fn transformed_document(scale: f64, translate_x: f64, translate_y: f64) -> DesignDocument {
+        let mut document = basic_document();
+        let root = &mut document.roots[0];
+        root.layout = Layout::Plain {
+            clips_content: true,
+            scroll: Scroll {
+                horizontal: false,
+                vertical: false,
+            },
+        };
+        root.size = Size {
+            horizontal: AxisSize {
+                sizing: AxisSizing::Fixed(number(100.0)),
+                measured: None,
+                min: None,
+                max: None,
+            },
+            vertical: AxisSize {
+                sizing: AxisSizing::Fixed(number(100.0)),
+                measured: None,
+                min: None,
+                max: None,
+            },
+            aspect_ratio: None,
+        };
+        root.positioning = Positioning::Auto {
+            grid: None,
+            transform: figma_rust_core::ir::Transform {
+                matrix: [scale, 0.0, 0.0, scale, translate_x, translate_y],
+            },
+        };
+        root.style = empty_style();
+        root.text = None;
+        root.component = None;
+        root.reactions.clear();
+        root.children.clear();
         document
     }
 
@@ -1462,6 +2165,7 @@ mod tests {
         node.text = Some(Text {
             characters: "Generated from Figma".to_owned(),
             runs: Vec::new(),
+            ..Text::default()
         });
         node.children.clear();
         node
@@ -1493,11 +2197,129 @@ mod tests {
         assert!(output.rust.contains(".rounded_br("));
         assert!(output.rust.contains(".rounded_bl("));
         assert!(output.rust.contains("gpui::rgba(0x2040_80ff)"));
-        assert!(output.rust.contains(".min_w(gpui::px(80f32))"));
-        assert!(output.rust.contains(".max_w(gpui::px(240f32))"));
+        assert!(output.rust.contains("dimension.min-width"));
+        assert!(output.rust.contains("dimension.max-width"));
+        assert!(output.rust.contains("dimension.min-height"));
+        assert!(output.rust.contains("dimension.max-height"));
         let mapped = output.source_map.nodes.get("1:1");
         assert_eq!(mapped.map(|entry| entry.symbol.as_str()), Some("node_0000"));
         assert!(mapped.is_some_and(|entry| entry.start_line <= entry.end_line));
+    }
+
+    #[test]
+    fn lowers_bound_dimensions_through_context_aware_number_resolution() {
+        let mut document = basic_document();
+        let size = &mut document.roots[0].size;
+        size.horizontal.sizing = AxisSizing::Fixed(bound_number("dimension.width", 120.0));
+        size.vertical.sizing = AxisSizing::Fixed(bound_number("dimension.height", 40.0));
+        size.horizontal.min = Some(bound_number("dimension.min-width", 80.0));
+        size.horizontal.max = Some(bound_number("dimension.max-width", 240.0));
+        size.vertical.min = Some(bound_number("dimension.min-height", 24.0));
+        size.vertical.max = Some(bound_number("dimension.max-height", 96.0));
+
+        let first = generate(&document).expect("bound dimensions must generate");
+        let second = generate(&document).expect("bound dimensions must generate deterministically");
+        assert_eq!(first.rust, second.rust);
+        assert_eq!(first.source_map, second.source_map);
+        for token_id in [
+            "dimension.width",
+            "dimension.height",
+            "dimension.min-width",
+            "dimension.max-width",
+            "dimension.min-height",
+            "dimension.max-height",
+        ] {
+            assert!(first.rust.contains(token_id), "missing token {token_id}");
+        }
+        for method in [".w(", ".h(", ".min_w(", ".max_w(", ".min_h(", ".max_h("] {
+            assert!(first.rust.contains(method), "missing size method {method}");
+        }
+        assert!(first.rust.contains("TokenResolver::number_with_context"));
+    }
+
+    #[test]
+    fn lowers_bound_component_text_and_visibility_with_literal_fallbacks() {
+        let mut document = basic_document();
+        let mut label = text_child();
+        let text = label.text.as_mut().expect("text fixture must carry text");
+        text.characters_binding = Some(bound_string(
+            "content.label",
+            "Fallback label",
+            "mode.light",
+        ));
+
+        let mut optional = absolute_child();
+        optional.source_id = "1:4".to_owned();
+        optional.visible = false;
+        optional.visibility_binding = Some(bound_boolean("content.visible", false, "mode.light"));
+        document.roots[0].children = vec![label, optional];
+
+        let first = generate(&document).expect("bound component consumers must generate");
+        let second = generate(&document).expect("bound consumers must generate deterministically");
+        assert_eq!(first, second);
+        assert!(first.rust.contains("TokenResolver::string_with_context"));
+        assert!(first.rust.contains("TokenResolver::boolean_with_context"));
+        assert!(first.rust.contains("Fallback label"));
+        assert!(first.rust.contains("mode.light"));
+        assert!(first.rust.contains("FluentBuilder as _"));
+        assert!(first.rust.contains(".when("));
+        assert!(first.source_map.nodes.contains_key("1:4"));
+    }
+
+    #[test]
+    fn lowers_bound_root_visibility_with_conditional_child_insertion() {
+        let mut document = basic_document();
+        document.roots[0].visible = false;
+        document.roots[0].visibility_binding =
+            Some(bound_boolean("content.visible", false, "mode.light"));
+
+        let output = generate(&document).expect("bound root visibility must generate");
+        assert!(output.rust.contains(".when("));
+        assert!(output.rust.contains("|this| this.child(node_0000(tokens))"));
+        assert!(output.source_map.nodes.contains_key("1:1"));
+    }
+
+    #[test]
+    fn lowers_uniform_scale_and_translation_into_layout_geometry() {
+        let centered = generate(&transformed_document(0.985, 0.75, 0.75))
+            .expect("center-origin scale must generate");
+        let centered_again = generate(&transformed_document(0.985, 0.75, 0.75))
+            .expect("center-origin scale must generate deterministically");
+        let top_left =
+            generate(&transformed_document(0.985, 0.0, 0.0)).expect("top-left scale must generate");
+
+        assert_eq!(centered, centered_again);
+        assert!(centered.rust.contains(".w(gpui::px(98.5f32))"));
+        assert!(centered.rust.contains(".h(gpui::px(98.5f32))"));
+        assert!(centered.rust.contains(".left(gpui::px(0.75f32))"));
+        assert!(centered.rust.contains(".top(gpui::px(0.75f32))"));
+        assert!(!top_left.rust.contains(".left("));
+        assert!(!top_left.rust.contains(".top("));
+    }
+
+    #[test]
+    fn rejects_skew_and_scaled_variable_geometry_at_the_source_transform() {
+        let mut skewed = transformed_document(1.0, 0.0, 0.0);
+        let Positioning::Auto { transform, .. } = &mut skewed.roots[0].positioning else {
+            panic!("fixture root must be auto-positioned");
+        };
+        transform.matrix[2] = 0.25;
+        let error = generate(&skewed).expect_err("skew must stay fail-closed");
+        assert!(matches!(
+            error,
+            CodegenError::Unsupported { location, .. }
+                if location.node_id == "1:1" && location.property == "positioning.transform"
+        ));
+
+        let mut bound = transformed_document(0.985, 0.0, 0.0);
+        bound.roots[0].size.horizontal.sizing =
+            AxisSizing::Fixed(bound_number("dimension.width", 100.0));
+        let error = generate(&bound).expect_err("scaled token geometry must stay fail-closed");
+        assert!(
+            error
+                .to_string()
+                .contains("variable-bound numeric geometry")
+        );
     }
 
     #[test]
@@ -1582,6 +2404,39 @@ mod tests {
     }
 
     #[test]
+    fn rejects_text_layout_metadata_without_proven_gpui_lowering() {
+        type TextMutation = fn(&mut Text);
+        let cases: [(&str, TextMutation); 5] = [
+            ("text.auto_resize", |text| {
+                text.auto_resize = RawTextAutoResize::Truncate;
+            }),
+            ("text.horizontal_alignment", |text| {
+                text.horizontal_alignment = RawTextHorizontalAlignment::Justified;
+            }),
+            ("text.vertical_alignment", |text| {
+                text.vertical_alignment = RawTextVerticalAlignment::Bottom;
+            }),
+            ("text.truncation", |text| {
+                text.truncation = RawTextTruncation::Ending;
+            }),
+            ("text.max_lines", |text| text.max_lines = Some(2)),
+        ];
+
+        for (property, mutate) in cases {
+            let mut document = supported_document();
+            let text = document.roots[0].children[1]
+                .text
+                .as_mut()
+                .expect("supported fixture text");
+            mutate(text);
+            assert!(matches!(
+                generate(&document),
+                Err(CodegenError::Unsupported { location, .. }) if location.property == property
+            ));
+        }
+    }
+
+    #[test]
     fn lowers_figma_weight_style_names_without_losing_posture() {
         let mut document = supported_document();
         document.roots[0].children[1].text = Some(Text {
@@ -1597,6 +2452,7 @@ mod tests {
                     ..TextStyle::default()
                 },
             }],
+            ..Text::default()
         });
 
         let output = match generate(&document) {
@@ -1622,6 +2478,38 @@ mod tests {
             Err(CodegenError::Unsupported { location, .. })
                 if location.property == "text.runs.style.font_style"
         ));
+    }
+
+    #[test]
+    fn lowers_child_counter_axis_alignment_for_horizontal_and_vertical_stacks() {
+        let document = child_alignment_document();
+        let first = generate(&document).expect("child alignment fixture must generate");
+        let second = generate(&document).expect("child alignment fixture must be deterministic");
+        assert_eq!(first, second);
+        for method in [
+            ".self_start()",
+            ".self_center()",
+            ".self_end()",
+            ".self_stretch()",
+        ] {
+            assert_eq!(first.rust.matches(method).count(), 2, "missing {method}");
+        }
+        for (node_id, suppressed_dimension) in [("13:1:5", ".h("), ("13:2:5", ".w(")] {
+            let entry = first
+                .source_map
+                .nodes
+                .get(node_id)
+                .expect("stretch child must be source mapped");
+            let function = first
+                .rust
+                .lines()
+                .skip(entry.start_line - 1)
+                .take(entry.end_line - entry.start_line + 1)
+                .collect::<Vec<_>>()
+                .join("\n");
+            assert!(function.contains(".self_stretch()"));
+            assert!(!function.contains(suppressed_dimension));
+        }
     }
 
     #[test]
@@ -1776,6 +2664,101 @@ mod tests {
         assert!(output.rust.contains("asset-6e6f64653a313a313a737667.svg"));
         assert_eq!(output.source_map.nodes.len(), 1);
         assert!(!output.rust.contains("fn node_0001<"));
+    }
+
+    #[test]
+    fn asset_fallback_rejects_captured_dynamic_component_consumers() {
+        let mut document = supported_document();
+        document.roots[0].kind = RawNodeKind::Vector;
+        document.roots[0].asset_decision.route = AssetRoute::Svg;
+        document.assets = vec![RawAsset {
+            id: "node:1:1:svg".to_owned(),
+            source_node_id: "1:1".to_owned(),
+            media_type: "image/svg+xml".to_owned(),
+            content_hash: None,
+            export_settings: BTreeMap::from([("format".to_owned(), "SVG".to_owned())]),
+            payload_base64: Some("PHN2Zy8+".to_owned()),
+        }];
+
+        document.roots[0].children[0].visibility_binding =
+            Some(bound_boolean("content.visible", true, "mode.light"));
+        assert!(matches!(
+            generate(&document),
+            Err(CodegenError::Unsupported { location, .. })
+                if location.node_id == "1:2"
+                    && location.property == "component_property_references.visible"
+        ));
+
+        document.roots[0].children[0].visibility_binding = None;
+        document.roots[0].children[1]
+            .text
+            .as_mut()
+            .expect("fixture text must exist")
+            .characters_binding = Some(bound_string(
+            "content.label",
+            "Fallback label",
+            "mode.light",
+        ));
+        assert!(matches!(
+            generate(&document),
+            Err(CodegenError::Unsupported { location, .. })
+                if location.node_id == "1:3"
+                    && location.property == "component_property_references.characters"
+        ));
+    }
+
+    #[test]
+    fn authored_color_svg_uses_the_color_preserving_image_renderer() {
+        let mut document = supported_document();
+        document.roots[0].kind = RawNodeKind::Vector;
+        document.roots[0].asset_decision.route = AssetRoute::Svg;
+        document.assets = vec![RawAsset {
+            id: "node:1:1:svg".to_owned(),
+            source_node_id: "1:1".to_owned(),
+            media_type: "image/svg+xml".to_owned(),
+            content_hash: None,
+            export_settings: BTreeMap::from([
+                ("format".to_owned(), "SVG".to_owned()),
+                ("color_policy".to_owned(), "authored".to_owned()),
+            ]),
+            payload_base64: Some("PHN2Zy8+".to_owned()),
+        }];
+
+        let output = match generate(&document) {
+            Ok(output) => output,
+            Err(error) => panic!("authored-color SVG fallback must generate: {error}"),
+        };
+
+        assert!(output.rust.contains("gpui::img("));
+        assert!(!output.rust.contains("gpui::svg()"));
+    }
+
+    #[test]
+    fn unknown_svg_color_policy_is_node_scoped() {
+        let mut document = supported_document();
+        document.roots[0].kind = RawNodeKind::Vector;
+        document.roots[0].asset_decision.route = AssetRoute::Svg;
+        document.assets = vec![RawAsset {
+            id: "node:1:1:svg".to_owned(),
+            source_node_id: "1:1".to_owned(),
+            media_type: "image/svg+xml".to_owned(),
+            content_hash: None,
+            export_settings: BTreeMap::from([
+                ("format".to_owned(), "SVG".to_owned()),
+                ("color_policy".to_owned(), "unknown".to_owned()),
+            ]),
+            payload_base64: Some("PHN2Zy8+".to_owned()),
+        }];
+
+        let error = generate(&document).err();
+
+        assert!(matches!(
+            error,
+            Some(CodegenError::Unsupported { location, feature })
+                if location.node_id == "1:1"
+                    && location.property == "asset_decision.route"
+                    && feature.contains("unsupported SVG color policy")
+        ));
     }
 
     #[test]

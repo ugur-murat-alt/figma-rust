@@ -82,12 +82,26 @@ target/debug/capture-real-group \
 target/debug/figma-rust verify fixtures/real-figma/verify.image.json --json
 ```
 
-The project-local OpenCode command `/capture-linux fixtures/real-figma` runs the
-complete Computer Use workflow, including exact window checks, both ingests,
-process cleanup, reconstruction, `capture.verify.json`, and provenance
-finalization. The exact portal composites are retained as `capture.black.png` and
+On GNOME Wayland, the repository-owned adapter can perform the same workflow
+without a Computer Use service:
+
+```sh
+scripts/capture-linux-first-party.sh fixtures/real-figma
+```
+
+It launches exactly one ready process for each backdrop, validates the retained
+PID and readiness record, captures the focused 100x60 window with
+`gnome-screenshot`, and passes the PNG through the same validated data-URL ingest,
+normalizing only GNOME's near-opaque whole-window alpha range of 253 through 255,
+then through the same reconstruction, verifier, and provenance finalizer. It emits
+a machine-readable run report outside the fixture by default. Other Wayland desktops continue to use
+the project-local OpenCode command `/capture-linux fixtures/real-figma` and its
+Computer Use portal fallback.
+
+The exact compositor composites are retained as `capture.black.png` and
 `capture.white.png`. `capture.compositor.json` records their paths and hashes plus
-the portal, window, reconstruction method, final artifact hash, and complete
-verifier result. On this host image verification passes at zero tolerance: MAE 0,
-changed-pixel ratio 0, edge error 0, and SSIM 1. Every Rust publication path uses a
-crash-safe lock, unique temporary sibling, sync, and atomic rename.
+the capture source, window, reconstruction method, final artifact hash, and
+complete verifier result. On this host image verification passes at zero
+tolerance: MAE 0, changed-pixel ratio 0, edge error 0, and SSIM 1. Every Rust
+publication path uses a crash-safe lock, unique temporary sibling, sync, and
+atomic rename.

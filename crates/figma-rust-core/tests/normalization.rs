@@ -1,17 +1,39 @@
 use std::collections::BTreeMap;
 
-use figma_rust_core::diagnostic::codes;
+use figma_rust_core::diagnostic::{Diagnostic, Severity, codes};
 use figma_rust_core::ir::{
     AssetRoute, AxisSizing, ComponentResolution, Layout, Paint, Positioning,
 };
 use figma_rust_core::raw::{
-    RawAsset, RawColor, RawComponent, RawConstraint, RawLiteral, RawVariable,
+    RawAsset, RawBoundValue, RawChildAlignment, RawColor, RawComponent, RawConstraint, RawLiteral,
+    RawNodeKind, RawPaint, RawVariable,
 };
 use figma_rust_core::{
     ComponentMapping, ComponentRegistry, normalize_bundle, normalize_bundle_with_registry,
     parse_and_normalize, parse_bundle,
 };
 use serde_json::{Value, json};
+
+fn assert_runtime_route_error(diagnostics: &[Diagnostic], node_id: &str) {
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| {
+            diagnostic.code == codes::RUNTIME_FALLBACK
+                && diagnostic.node_id.as_deref() == Some(node_id)
+        })
+        .expect("runtime route diagnostic must identify the source node");
+    assert_eq!(diagnostic.severity, Severity::Error);
+    assert_eq!(
+        diagnostic.property_path.as_deref(),
+        Some("asset_decision.route")
+    );
+    assert_eq!(
+        diagnostic.help.as_deref(),
+        Some(
+            "Use a source SVG/raster fallback when semantically valid, or add a verified runtime lowering before compilation."
+        )
+    );
+}
 
 fn bundle_with_roots(roots: &Value) -> figma_rust_core::raw::ExtractionBundle {
     let value = json!({
@@ -51,6 +73,7 @@ fn mode_context(collection_id: &str, mode_id: &str) -> BTreeMap<String, String> 
 #[test]
 fn output_is_deterministic_and_unknown_fields_survive_parsing() {
     let bundle = bundle_with_roots(&json!([fixed_node("1:1", "RECTANGLE")]));
+    assert_eq!(bundle.extraction_manifest, None);
     assert_eq!(
         bundle.extensions["future_bundle_field"],
         json!({"kept": true})
@@ -60,6 +83,51 @@ fn output_is_deterministic_and_unknown_fields_survive_parsing() {
     let second =
         serde_json::to_vec_pretty(&normalize_bundle(&bundle)).expect("serialize second IR");
     assert_eq!(first, second);
+}
+
+#[test]
+fn extraction_traversal_manifest_is_typed_and_round_trips() {
+    let value = json!({
+        "schema_version": 2,
+        "source": {
+            "page_id": "0:1",
+            "selected_node_ids": ["1:1"],
+            "plugin_api_version": "1.135.0"
+        },
+        "roots": [fixed_node("1:1", "RECTANGLE")],
+        "extraction_manifest": {
+            "traversal": {
+                "chunk_node_limit": 2000,
+                "node_count": 1,
+                "complete": true,
+                "chunks": [{
+                    "index": 0,
+                    "start_node_index": 0,
+                    "end_node_index": 1,
+                    "node_count": 1,
+                    "first_node_id": "1:1",
+                    "last_node_id": "1:1"
+                }],
+                "roots": [{"id": "1:1", "node_count": 1, "complete": true}]
+            }
+        }
+    });
+
+    let bundle = parse_bundle(&value.to_string()).expect("manifest bundle must parse");
+    let traversal = &bundle
+        .extraction_manifest
+        .as_ref()
+        .expect("manifest must be retained")
+        .traversal;
+    assert_eq!(traversal.chunk_node_limit, 2_000);
+    assert_eq!(traversal.node_count, 1);
+    assert!(traversal.complete);
+    assert_eq!(traversal.chunks[0].first_node_id, "1:1");
+    assert_eq!(traversal.roots[0].id, "1:1");
+    assert_eq!(
+        serde_json::to_value(&bundle).expect("serialize bundle")["extraction_manifest"],
+        value["extraction_manifest"]
+    );
 }
 
 #[test]
@@ -94,6 +162,56 @@ fn fill_is_parent_aware() {
         .find(|diagnostic| diagnostic.code == codes::AMBIGUOUS_FILL)
         .expect("root FILL must be diagnosed");
     assert_eq!(diagnostic.node_id.as_deref(), Some("2:1"));
+}
+
+#[test]
+fn child_counter_axis_alignment_is_typed_and_parent_validated() {
+    let alignments = ["INHERIT", "MIN", "CENTER", "MAX", "STRETCH"];
+    let stack = |id: &str, mode: &str| {
+        let children = alignments
+            .iter()
+            .enumerate()
+            .map(|(index, alignment)| {
+                let mut child = fixed_node(&format!("{id}:{}", index + 1), "RECTANGLE");
+                child["layout"] = json!({"child_counter_alignment": alignment});
+                child
+            })
+            .collect::<Vec<_>>();
+        let mut parent = fixed_node(id, "FRAME");
+        parent["layout"] = json!({"mode": mode});
+        parent["children"] = json!(children);
+        parent
+    };
+    let output = normalize_bundle(&bundle_with_roots(&json!([
+        stack("13:1", "HORIZONTAL"),
+        stack("13:2", "VERTICAL")
+    ])));
+    assert!(!output.has_errors(), "{:?}", output.diagnostics);
+    let expected = [
+        RawChildAlignment::Inherit,
+        RawChildAlignment::Min,
+        RawChildAlignment::Center,
+        RawChildAlignment::Max,
+        RawChildAlignment::Stretch,
+    ];
+    for root in &output.document.roots {
+        assert_eq!(
+            root.children
+                .iter()
+                .map(|child| child.child_counter_alignment)
+                .collect::<Vec<_>>(),
+            expected,
+        );
+    }
+
+    let mut invalid_root = fixed_node("13:invalid", "RECTANGLE");
+    invalid_root["layout"] = json!({"child_counter_alignment": "CENTER"});
+    let invalid = normalize_bundle(&bundle_with_roots(&json!([invalid_root])));
+    assert!(invalid.diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == "FR-LAYOUT-004"
+            && diagnostic.node_id.as_deref() == Some("13:invalid")
+            && diagnostic.property_path.as_deref() == Some("layout.child_counter_alignment")
+    }));
 }
 
 #[test]
@@ -192,9 +310,112 @@ fn grid_absolute_and_min_max_contracts_are_normalized() {
     assert!(output.diagnostics.iter().any(|diagnostic| {
         diagnostic.code == codes::INVALID_CONSTRAINT && diagnostic.node_id.as_deref() == Some("4:1")
     }));
-    assert!(output.diagnostics.iter().any(|diagnostic| {
-        diagnostic.code == codes::RUNTIME_FALLBACK && diagnostic.node_id.as_deref() == Some("3:1")
+    assert_runtime_route_error(&output.diagnostics, "3:1");
+    assert!(output.has_errors());
+}
+
+#[test]
+fn runtime_route_fixture_is_rejected_before_codegen() {
+    let output = parse_and_normalize(include_str!(
+        "../../../fixtures/runtime-route/extraction.json"
+    ))
+    .expect("runtime-route fixture must parse");
+    assert!(output.has_errors());
+    assert_eq!(
+        output.document.roots[0].asset_decision.route,
+        AssetRoute::Runtime
+    );
+    assert_runtime_route_error(&output.diagnostics, "11:runtime");
+}
+
+#[test]
+fn component_text_and_visibility_bindings_are_mode_aware_and_fail_closed() {
+    let source = include_str!("../../../fixtures/component-properties/extraction.json");
+    let output = parse_and_normalize(source).expect("component property fixture must parse");
+    assert!(!output.has_errors(), "{:?}", output.diagnostics);
+
+    for (root, mode, label, visible) in [
+        (&output.document.roots[0], "mode-light", "Light label", true),
+        (&output.document.roots[1], "mode-dark", "Dark label", false),
+    ] {
+        let label_binding = root.children[0]
+            .text
+            .as_ref()
+            .and_then(|text| text.characters_binding.as_ref())
+            .expect("TEXT reference must normalize to a bound consumer");
+        assert_eq!(label_binding.fallback, label);
+        assert_eq!(
+            label_binding
+                .token
+                .as_ref()
+                .and_then(|token| token.mode_id.as_deref()),
+            Some(mode)
+        );
+        let visible_binding = root.children[1]
+            .visibility_binding
+            .as_ref()
+            .expect("BOOLEAN reference must normalize to a bound consumer");
+        assert_eq!(visible_binding.fallback, visible);
+        assert_eq!(
+            visible_binding
+                .token
+                .as_ref()
+                .and_then(|token| token.mode_id.as_deref()),
+            Some(mode)
+        );
+    }
+
+    let mut invalid = parse_bundle(source).expect("component property fixture must parse as raw");
+    invalid.roots[0].children[0].kind = RawNodeKind::Rectangle;
+    let invalid = normalize_bundle(&invalid);
+    assert!(invalid.diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == codes::COMPONENT_METADATA_MISMATCH
+            && diagnostic.node_id.as_deref() == Some("27:light:label")
+            && diagnostic.property_path.as_deref()
+                == Some("component_property_references.characters")
     }));
+}
+
+#[test]
+fn image_crop_fixture_is_native_and_invalid_crop_stays_fail_closed() {
+    let source = include_str!("../../../fixtures/image-crop/extraction.json");
+    let output = parse_and_normalize(source).expect("image crop fixture must parse");
+    assert!(!output.has_errors());
+    assert!(
+        output
+            .document
+            .roots
+            .iter()
+            .all(|root| root.asset_decision.route == AssetRoute::Native)
+    );
+    let Paint::Image {
+        image_transform: Some(transform),
+        opacity,
+        ..
+    } = &output.document.roots[2].style.fills[0]
+    else {
+        panic!("third image fixture root must retain its CROP transform");
+    };
+    assert!(
+        transform
+            .matrix
+            .iter()
+            .zip([0.5, 0.0, 0.0, 0.8, 0.25, 0.1])
+            .all(|(actual, expected)| (*actual - expected).abs() < f64::EPSILON)
+    );
+    assert!((*opacity - 0.75).abs() < f64::EPSILON);
+
+    let mut raw = parse_bundle(source).expect("image crop fixture must parse as raw bundle");
+    let RawPaint::Image {
+        image_transform: Some(transform),
+        ..
+    } = &mut raw.roots[2].style.fills[0]
+    else {
+        panic!("third raw fixture root must retain its CROP transform");
+    };
+    transform.matrix[2] = 0.25;
+    let invalid = normalize_bundle(&raw);
+    assert_runtime_route_error(&invalid.diagnostics, "16:crop");
 }
 
 #[test]
@@ -212,11 +433,11 @@ fn hug_axes_retain_the_figma_measured_dimensions() {
 
     assert_eq!(
         document["roots"][0]["size"]["horizontal"]["measured"],
-        json!(120.5)
+        json!({"fallback": 120.5})
     );
     assert_eq!(
         document["roots"][0]["size"]["vertical"]["measured"],
-        json!(48.25)
+        json!({"fallback": 48.25})
     );
     assert!(matches!(
         output.document.roots[0].size.horizontal.sizing,
@@ -637,6 +858,97 @@ fn modeled_numeric_bindings_preserve_tokens_and_fallbacks() {
 }
 
 #[test]
+fn bound_dimensions_preserve_tokens_modes_and_literal_fallbacks() {
+    let mut bundle = bundle_with_roots(&json!([fixed_node("5:9", "FRAME")]));
+    let collection_id = "collection.dimensions";
+    let mode_id = "mode.compact";
+    let context = mode_context(collection_id, mode_id);
+    let dimensions = [
+        ("dimension.width", 120.0),
+        ("dimension.height", 40.0),
+        ("dimension.min-width", 80.0),
+        ("dimension.max-width", 240.0),
+        ("dimension.min-height", 24.0),
+        ("dimension.max-height", 96.0),
+    ];
+    bundle.variables = dimensions
+        .iter()
+        .map(|(id, value)| RawVariable {
+            id: (*id).to_owned(),
+            name: (*id).to_owned(),
+            collection_id: collection_id.to_owned(),
+            mode_id: mode_id.to_owned(),
+            mode_context: context.clone(),
+            source_node_id: Some("5:9".to_owned()),
+            value: RawLiteral::Number(*value),
+        })
+        .collect();
+    let bound = |id: &str, literal: f64| RawBoundValue {
+        literal,
+        token_id: Some(id.to_owned()),
+        mode_context: context.clone(),
+    };
+    let size = &mut bundle.roots[0].size;
+    size.width = Some(bound("dimension.width", 120.0));
+    size.height = Some(bound("dimension.height", 40.0));
+    size.min_width = Some(bound("dimension.min-width", 80.0));
+    size.max_width = Some(bound("dimension.max-width", 240.0));
+    size.min_height = Some(bound("dimension.min-height", 24.0));
+    size.max_height = Some(bound("dimension.max-height", 96.0));
+
+    let first = normalize_bundle(&bundle);
+    let second = normalize_bundle(&bundle);
+    assert_eq!(
+        serde_json::to_vec(&first).expect("serialize first"),
+        serde_json::to_vec(&second).expect("serialize second")
+    );
+    let size = &first.document.roots[0].size;
+    let AxisSizing::Fixed(width) = &size.horizontal.sizing else {
+        panic!("width must stay fixed");
+    };
+    let AxisSizing::Fixed(height) = &size.vertical.sizing else {
+        panic!("height must stay fixed");
+    };
+    for (value, id, fallback) in [
+        (width, "dimension.width", 120.0),
+        (height, "dimension.height", 40.0),
+        (
+            size.horizontal.min.as_ref().expect("minimum width"),
+            "dimension.min-width",
+            80.0,
+        ),
+        (
+            size.horizontal.max.as_ref().expect("maximum width"),
+            "dimension.max-width",
+            240.0,
+        ),
+        (
+            size.vertical.min.as_ref().expect("minimum height"),
+            "dimension.min-height",
+            24.0,
+        ),
+        (
+            size.vertical.max.as_ref().expect("maximum height"),
+            "dimension.max-height",
+            96.0,
+        ),
+    ] {
+        assert_eq!(
+            value.token.as_ref().map(|token| token.id.as_str()),
+            Some(id)
+        );
+        assert_eq!(value.mode_context, context);
+        assert!((value.fallback - fallback).abs() < f64::EPSILON);
+    }
+    assert!(
+        !first
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == codes::UNRESOLVED_TOKEN)
+    );
+}
+
+#[test]
 fn schema_one_is_rejected_after_the_explicit_v2_change() {
     let output = parse_and_normalize(include_str!("fixtures/basic.v1.raw.json"))
         .expect("the exact v1 fixture must remain readable for an explicit version diagnostic");
@@ -681,13 +993,16 @@ fn schema_two_rejects_duplicate_known_fields() {
 #[test]
 fn negative_zero_is_canonicalized_in_node_numbers() {
     let mut bundle = bundle_with_roots(&json!([fixed_node("6:1", "RECTANGLE")]));
-    bundle.roots[0].size.width = Some(-0.0);
+    bundle.roots[0].size.width = Some(RawBoundValue {
+        literal: -0.0,
+        ..RawBoundValue::default()
+    });
     bundle.roots[0].position.transform.matrix[4] = -0.0;
     let output = normalize_bundle(&bundle);
-    let AxisSizing::Fixed(width) = output.document.roots[0].size.horizontal.sizing else {
+    let AxisSizing::Fixed(width) = &output.document.roots[0].size.horizontal.sizing else {
         panic!("fixture width must stay fixed");
     };
-    assert_eq!(width.to_bits(), 0.0_f64.to_bits());
+    assert_eq!(width.fallback.to_bits(), 0.0_f64.to_bits());
     let Positioning::Auto { transform, .. } = output.document.roots[0].positioning else {
         panic!("root must remain auto-positioned");
     };
@@ -747,6 +1062,49 @@ fn text_runs_use_utf16_offsets_without_splitting_unicode() {
     let text = output.document.roots[0].text.as_ref().expect("text IR");
     assert_eq!(text.runs[0].text, "😀");
     assert!(!output.has_errors());
+}
+
+#[test]
+fn text_layout_metadata_is_typed_and_normalized() {
+    let mut node = fixed_node("1:2", "TEXT");
+    node["text"] = json!({
+        "characters": "Line one\nLine two",
+        "auto_resize": "HEIGHT",
+        "horizontal_alignment": "JUSTIFIED",
+        "vertical_alignment": "BOTTOM",
+        "truncation": "ENDING",
+        "max_lines": 2,
+        "runs": []
+    });
+    let output = normalize_bundle(&bundle_with_roots(&json!([node])));
+    let text = output.document.roots[0].text.as_ref().expect("text IR");
+    let text_json = serde_json::to_value(text).expect("serialize text IR");
+
+    assert_eq!(text_json["auto_resize"], "HEIGHT");
+    assert_eq!(text_json["horizontal_alignment"], "JUSTIFIED");
+    assert_eq!(text_json["vertical_alignment"], "BOTTOM");
+    assert_eq!(text_json["truncation"], "ENDING");
+    assert_eq!(text_json["max_lines"], 2);
+    assert!(!output.has_errors());
+}
+
+#[test]
+fn text_max_lines_must_be_positive() {
+    let mut node = fixed_node("1:3", "TEXT");
+    node["text"] = json!({
+        "characters": "Truncated",
+        "truncation": "ENDING",
+        "max_lines": 0,
+        "runs": []
+    });
+    let output = normalize_bundle(&bundle_with_roots(&json!([node])));
+
+    assert!(output.diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == codes::INVALID_TEXT_LAYOUT
+            && diagnostic.node_id.as_deref() == Some("1:3")
+            && diagnostic.property_path.as_deref() == Some("text.max_lines")
+    }));
+    assert!(output.has_errors());
 }
 
 #[test]

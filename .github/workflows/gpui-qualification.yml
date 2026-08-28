@@ -1,0 +1,59 @@
+name: GPUI revision qualification
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate:
+        description: Full GPUI commit revision
+        required: true
+        default: 5631830c564afa89b3aba679f45d9c3345f9460f
+  pull_request:
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - fixtures/generated-gpui/**
+      - scripts/qualify-gpui-revision.sh
+      - .github/workflows/gpui-qualification.yml
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    runs-on: ubuntu-24.04
+    env:
+      CANDIDATE: ${{ inputs.candidate || '5631830c564afa89b3aba679f45d9c3345f9460f' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Install native build dependencies
+        run: >-
+          sudo apt-get update &&
+          sudo apt-get install --yes libfontconfig-dev libxkbcommon-dev
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.97.1 --profile minimal --component clippy,rustfmt
+      - name: Qualify candidate twice
+        run: |
+          scripts/qualify-gpui-revision.sh "$CANDIDATE" "$RUNNER_TEMP/pass-1.json"
+          scripts/qualify-gpui-revision.sh "$CANDIDATE" "$RUNNER_TEMP/pass-2.json"
+          cmp "$RUNNER_TEMP/pass-1.json" "$RUNNER_TEMP/pass-2.json"
+      - name: Prove incompatible API classification
+        run: |
+          scripts/qualify-gpui-revision.sh "$CANDIDATE" \
+            "$RUNNER_TEMP/expected-api-failure.json" expect-api-failure
+          jq -e '.passed and .classification == "GPUI_API_COMPILE_FAILED"' \
+            "$RUNNER_TEMP/expected-api-failure.json"
+      - name: Collect evidence
+        if: always()
+        run: |
+          mkdir -p "$RUNNER_TEMP/evidence"
+          cp "$RUNNER_TEMP"/*.json "$RUNNER_TEMP/evidence/" 2>/dev/null || true
+          cp -R "$RUNNER_TEMP"/*.json.logs "$RUNNER_TEMP/evidence/" 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gpui-qualification-${{ runner.os }}
+          path: ${{ runner.temp }}/evidence
+          if-no-files-found: error
+          retention-days: 14

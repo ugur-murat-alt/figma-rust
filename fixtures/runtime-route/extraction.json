@@ -1,0 +1,39 @@
+{
+  "schema_version": 2,
+  "source": {
+    "extractor": "synthetic-regression-fixture",
+    "extractor_version": "1",
+    "page_id": "fixture:runtime-route",
+    "selected_node_ids": ["11:runtime"],
+    "plugin_api_version": "1.135.0"
+  },
+  "roots": [
+    {
+      "id": "11:runtime",
+      "name": "Mixed runtime grid",
+      "kind": "FRAME",
+      "size": {
+        "width": 100.0,
+        "height": 100.0,
+        "horizontal": "FIXED",
+        "vertical": "FIXED"
+      },
+      "layout": {
+        "mode": "GRID",
+        "grid": {
+          "columns": [
+            { "kind": "FIXED", "value": 50.0 },
+            { "kind": "FLEX", "value": 1.0 }
+          ],
+          "rows": [{ "kind": "HUG" }],
+          "column_gap": 0.0,
+          "row_gap": 0.0
+        }
+      }
+    }
+  ],
+  "variables": [],
+  "components": [],
+  "assets": [],
+  "extraction_diagnostics": []
+}

@@ -60,9 +60,11 @@ pub mod codes {
     pub const DUPLICATE_METADATA_ID: &str = "FR-SCHEMA-004";
     pub const INVALID_VARIABLE_MODE_CONTEXT: &str = "FR-SCHEMA-005";
     pub const INVALID_TEXT_RANGE: &str = "FR-TEXT-001";
+    pub const INVALID_TEXT_LAYOUT: &str = "FR-TEXT-002";
     pub const AMBIGUOUS_FILL: &str = "FR-LAYOUT-001";
     pub const MISSING_SIZING: &str = "FR-LAYOUT-002";
     pub const INVALID_CONSTRAINT: &str = "FR-LAYOUT-003";
+    pub const INVALID_CHILD_ALIGNMENT: &str = "FR-LAYOUT-004";
     pub const UNRESOLVED_TOKEN: &str = "FR-TOKEN-001";
     pub const UNMAPPED_COMPONENT: &str = "FR-COMPONENT-001";
     pub const COMPONENT_METADATA_MISMATCH: &str = "FR-COMPONENT-002";
@@ -71,4 +73,8 @@ pub mod codes {
     pub const SVG_FALLBACK: &str = "FR-ASSET-002";
     pub const RASTER_FALLBACK: &str = "FR-ASSET-003";
     pub const MISSING_ASSET: &str = "FR-ASSET-004";
+    pub const PROFILE_REQUIRED_MISSING: &str = "FR-PROFILE-001";
+    pub const PROFILE_QUARANTINED: &str = "FR-PROFILE-002";
+    pub const PROFILE_UNDECLARED: &str = "FR-PROFILE-003";
+    pub const PROFILE_UNKNOWN: &str = "FR-PROFILE-004";
 }

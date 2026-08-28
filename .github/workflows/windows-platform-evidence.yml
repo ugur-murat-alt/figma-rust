@@ -31,7 +31,12 @@ jobs:
       - uses: ilammy/msvc-dev-cmd@v1
       - name: Build DPI helper
         shell: cmd
-        run: if not exist target mkdir target && cl /nologo /std:c++20 /EHsc /W4 /WX scripts\windows-dpi-profile.cpp /Fe:target\windows-dpi-profile.exe
+        run: if not exist target mkdir target && cl /nologo /std:c++20 /EHsc /W4 /WX scripts\windows-dpi-profile.cpp /Fe:target\windows-dpi-profile.exe /link user32.lib
+      - name: Configure qualification display
+        shell: pwsh
+        run: |
+          Set-DisplayResolution -Width 1920 -Height 1080 -Force
+          Start-Sleep -Seconds 2
       - name: Apply and verify display scale
         shell: pwsh
         run: target/windows-dpi-profile.exe ${{ matrix.dpi }} | Set-Content "$env:RUNNER_TEMP/dpi-profile.json"
@@ -48,19 +53,30 @@ jobs:
             -Executable "target/debug/windows-platform-probe.exe" -OutputDirectory $out
           Copy-Item fixtures/windows-platform/probe.geometry.json "$out/reference.geometry.json"
           Copy-Item fixtures/windows-platform/probe.geometry.json "$out/actual.geometry.json"
+          $thresholds = [ordered]@{
+            geometry_absolute_px = 0.0; geometry_relative = 0.0
+            mean_absolute_pixel_error = 0.00002; changed_pixel_ratio = 0.0005
+            edge_error = 0.0001; minimum_ssim = 0.9999
+          }
           @{
             reference_geometry = 'reference.geometry.json'
             actual_geometry = 'actual.geometry.json'
             reference_image = 'run-1.png'
             actual_image = 'run-2.png'
-            thresholds = @{
-              geometry_absolute_px = 0.0; geometry_relative = 0.0
-              mean_absolute_pixel_error = 0.0; changed_pixel_ratio = 0.0
-              edge_error = 0.0; minimum_ssim = 1.0
-            }
+            thresholds = $thresholds
           } | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 "$out/verify.json"
           target/debug/figma-rust verify "$out/verify.json" --json | Set-Content -Encoding utf8 "$out/verify.report.json"
-          if (-not ((Get-Content "$out/verify.report.json" | ConvertFrom-Json).passed)) { throw 'Windows verifier failed' }
+          $report = Get-Content "$out/verify.report.json" | ConvertFrom-Json
+          if (-not $report.passed) { throw 'Windows verifier failed' }
+          $evidence = Get-Content "$out/windows-platform-evidence.json" | ConvertFrom-Json
+          $evidence | Add-Member -NotePropertyName verification -NotePropertyValue ([ordered]@{
+            manifest_sha256 = (Get-FileHash "$out/verify.json" -Algorithm SHA256).Hash.ToLowerInvariant()
+            report_sha256 = (Get-FileHash "$out/verify.report.json" -Algorithm SHA256).Hash.ToLowerInvariant()
+            thresholds = $thresholds
+            image_metrics = $report.image_metrics
+          })
+          $evidence | Add-Member -NotePropertyName passed -NotePropertyValue $true
+          $evidence | ConvertTo-Json -Depth 8 | Set-Content -Encoding utf8 "$out/windows-platform-evidence.json"
           Copy-Item "$env:RUNNER_TEMP/dpi-profile.json" "$out/"
       - uses: actions/upload-artifact@v4
         if: always()

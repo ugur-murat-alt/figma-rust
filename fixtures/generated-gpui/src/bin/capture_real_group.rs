@@ -7,6 +7,7 @@ use std::{
     path::{Component, Path, PathBuf},
     process::{self, ExitCode},
     rc::Rc,
+    sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -14,8 +15,9 @@ use base64::Engine as _;
 use figma_generated_gpui_fixture::generated_real_group;
 use figma_gpui_runtime::{FallbackTokens, configure_figma_fidelity};
 use gpui::{
-    App, AppContext, Bounds, Context, IntoElement, ParentElement, Render, Styled, Window,
-    WindowBackgroundAppearance, WindowBounds, WindowOptions, div, point, px, rgba, size,
+    App, AppContext, Bounds, Context, HeadlessAppContext, IntoElement, ParentElement, Render,
+    Styled, Window, WindowBackgroundAppearance, WindowBounds, WindowOptions, div, point, px, rgba,
+    size,
 };
 use sha2::Digest as _;
 
@@ -68,10 +70,21 @@ enum CaptureCommand {
     Native {
         output: PathBuf,
     },
+    Headless {
+        output: PathBuf,
+    },
+    ScaleReference {
+        input: PathBuf,
+        output: PathBuf,
+        scale: u32,
+    },
     Display {
         backdrop: Backdrop,
     },
     IngestDataUrl {
+        output: PathBuf,
+    },
+    IngestGnomeDataUrl {
         output: PathBuf,
     },
     Reconstruct {
@@ -138,6 +151,7 @@ impl Render for CaptureView {
                     return;
                 }
 
+                window.activate_window();
                 window.set_window_title(EXTERNAL_READY_TITLE);
                 let event = serde_json::json!({
                     "schema_version": 1,
@@ -341,8 +355,23 @@ fn parse_command(args: impl IntoIterator<Item = OsString>) -> Result<CaptureComm
         Some("--display") => CaptureCommand::Display {
             backdrop: Backdrop::parse(&required_arg(&mut args, "--display requires BACKDROP")?)?,
         },
+        Some("--headless") => CaptureCommand::Headless {
+            output: required_arg(&mut args, "--headless requires OUTPUT")?.into(),
+        },
+        Some("--scale-reference") => CaptureCommand::ScaleReference {
+            input: required_arg(&mut args, "--scale-reference requires INPUT OUTPUT SCALE")?.into(),
+            output: required_arg(&mut args, "--scale-reference requires INPUT OUTPUT SCALE")?
+                .into(),
+            scale: parse_headless_scale(&required_arg(
+                &mut args,
+                "--scale-reference requires INPUT OUTPUT SCALE",
+            )?)?,
+        },
         Some("--ingest-data-url") => CaptureCommand::IngestDataUrl {
             output: required_arg(&mut args, "--ingest-data-url requires OUTPUT")?.into(),
+        },
+        Some("--ingest-gnome-data-url") => CaptureCommand::IngestGnomeDataUrl {
+            output: required_arg(&mut args, "--ingest-gnome-data-url requires OUTPUT")?.into(),
         },
         Some("--reconstruct") => CaptureCommand::Reconstruct {
             black: required_arg(&mut args, "--reconstruct requires BLACK WHITE OUTPUT")?.into(),
@@ -408,7 +437,30 @@ fn required_arg(
     args.next().ok_or_else(|| message.to_owned())
 }
 
+fn parse_headless_scale(value: &OsString) -> Result<u32, String> {
+    let scale = value
+        .to_str()
+        .ok_or_else(|| "headless scale must be valid UTF-8".to_owned())?
+        .parse::<u32>()
+        .map_err(|error| format!("invalid headless scale: {error}"))?;
+    if matches!(scale, 1 | 2) {
+        Ok(scale)
+    } else {
+        Err(format!("headless scale must be 1 or 2, got {scale}"))
+    }
+}
+
 fn ingest_data_url_from_stdin(output: &Path) -> Result<(), String> {
+    let input = read_data_url_from_stdin()?;
+    ingest_data_url(&input, output)
+}
+
+fn ingest_gnome_data_url_from_stdin(output: &Path) -> Result<(), String> {
+    let input = read_data_url_from_stdin()?;
+    ingest_gnome_data_url(&input, output)
+}
+
+fn read_data_url_from_stdin() -> Result<String, String> {
     let mut input = String::new();
     io::stdin()
         .take(MAX_DATA_URL_BYTES + 1)
@@ -419,20 +471,72 @@ fn ingest_data_url_from_stdin(output: &Path) -> Result<(), String> {
             "PNG data URL exceeds the {MAX_DATA_URL_BYTES}-byte input limit"
         ));
     }
-    ingest_data_url(&input, output)
+    Ok(input)
 }
 
 fn ingest_data_url(input: &str, output: &Path) -> Result<(), String> {
+    let bytes = decode_data_url(input)?;
+    let image = decode_capture_png(&bytes, "PNG data URL")?;
+    validate_opaque_composite(&image, "PNG data URL")?;
+    publish_ingested_image(output, &bytes, &image, None)
+}
+
+fn ingest_gnome_data_url(input: &str, output: &Path) -> Result<(), String> {
+    let bytes = decode_data_url(input)?;
+    let mut image = decode_capture_png(&bytes, "GNOME window PNG data URL")?;
+    let (minimum_alpha, maximum_alpha) = image
+        .pixels()
+        .map(|pixel| pixel.0[3])
+        .fold((u8::MAX, u8::MIN), |(minimum, maximum), alpha| {
+            (minimum.min(alpha), maximum.max(alpha))
+        });
+    if minimum_alpha < 253 {
+        return Err(format!(
+            "GNOME opaque-window PNG alpha range must be within 253..=255, got {minimum_alpha}..={maximum_alpha}"
+        ));
+    }
+    for pixel in image.pixels_mut() {
+        pixel.0[3] = 255;
+    }
+    let normalized = encode_capture_png(&image)?;
+    publish_ingested_image(
+        output,
+        &normalized,
+        &image,
+        Some((minimum_alpha, maximum_alpha)),
+    )
+}
+
+fn decode_data_url(input: &str) -> Result<Vec<u8>, String> {
     let encoded = input
         .trim()
         .strip_prefix(PNG_DATA_URL_PREFIX)
         .ok_or_else(|| format!("capture input must start with {PNG_DATA_URL_PREFIX}"))?;
-    let bytes = base64::engine::general_purpose::STANDARD
+    base64::engine::general_purpose::STANDARD
         .decode(encoded)
-        .map_err(|error| format!("failed to decode PNG data URL: {error}"))?;
-    let image = decode_capture_png(&bytes, "PNG data URL")?;
-    validate_opaque_composite(&image, "PNG data URL")?;
-    publish_bytes(output, &bytes)?;
+        .map_err(|error| format!("failed to decode PNG data URL: {error}"))
+}
+
+fn encode_capture_png(image: &image::RgbaImage) -> Result<Vec<u8>, String> {
+    let mut bytes = Vec::new();
+    image::ImageEncoder::write_image(
+        image::codecs::png::PngEncoder::new(&mut bytes),
+        image.as_raw(),
+        image.width(),
+        image.height(),
+        image::ExtendedColorType::Rgba8,
+    )
+    .map_err(|error| format!("failed to encode normalized capture PNG: {error}"))?;
+    Ok(bytes)
+}
+
+fn publish_ingested_image(
+    output: &Path,
+    bytes: &[u8],
+    image: &image::RgbaImage,
+    normalized_alpha_range: Option<(u8, u8)>,
+) -> Result<(), String> {
+    publish_bytes(output, bytes)?;
 
     let event = serde_json::json!({
         "schema_version": 1,
@@ -441,7 +545,10 @@ fn ingest_data_url(input: &str, output: &Path) -> Result<(), String> {
         "bytes": bytes.len(),
         "width": image.width(),
         "height": image.height(),
-        "sha256": sha256_hex(&bytes),
+        "sha256": sha256_hex(bytes),
+        "normalized_alpha_range": normalized_alpha_range.map(|(minimum, maximum)| {
+            serde_json::json!({ "minimum": minimum, "maximum": maximum })
+        }),
     });
     println!("{event}");
     Ok(())
@@ -544,11 +651,7 @@ fn finalize_provenance(
     report: &Path,
     source: &str,
 ) -> Result<(), String> {
-    if source != "xdg-desktop-portal" {
-        return Err(format!(
-            "capture source must be `xdg-desktop-portal`, got {source:?}"
-        ));
-    }
+    let engine = capture_engine(source)?;
 
     let black_name = artifact_name(metadata, black)?;
     let white_name = artifact_name(metadata, white)?;
@@ -588,8 +691,12 @@ fn finalize_provenance(
             .duration_since(UNIX_EPOCH)
             .map_err(|error| format!("system clock is before Unix epoch: {error}"))?
             .as_millis(),
-        "engine": "computer-use-linux",
+        "engine": engine,
         "source": source,
+        "capture_normalization": match source {
+            "gnome-shell-screenshot" => "opaque-window-alpha-253-through-255-to-opaque-v1",
+            _ => "none",
+        },
         "session_type": environment("XDG_SESSION_TYPE"),
         "wayland_display": environment("WAYLAND_DISPLAY"),
         "gpui_revision": GPUI_REVISION,
@@ -638,6 +745,16 @@ fn finalize_provenance(
     });
     println!("{event}");
     Ok(())
+}
+
+fn capture_engine(source: &str) -> Result<&'static str, String> {
+    match source {
+        "xdg-desktop-portal" => Ok("computer-use-linux"),
+        "gnome-shell-screenshot" => Ok("figma-rust-linux-capture"),
+        _ => Err(format!(
+            "capture source must be `xdg-desktop-portal` or `gnome-shell-screenshot`, got {source:?}"
+        )),
+    }
 }
 
 fn validate_metadata_path(
@@ -984,10 +1101,26 @@ fn main() -> ExitCode {
 
     match command {
         CaptureCommand::Native { output } => run_window_capture(Some(output), None),
+        CaptureCommand::Headless { output } => finish_command(
+            run_headless_capture(&output),
+            "failed to capture headless GPUI image",
+        ),
+        CaptureCommand::ScaleReference {
+            input,
+            output,
+            scale,
+        } => finish_command(
+            scale_headless_reference(&input, &output, scale),
+            "failed to scale headless reference image",
+        ),
         CaptureCommand::Display { backdrop } => run_window_capture(None, Some(backdrop)),
         CaptureCommand::IngestDataUrl { output } => finish_command(
             ingest_data_url_from_stdin(&output),
             "failed to ingest external capture",
+        ),
+        CaptureCommand::IngestGnomeDataUrl { output } => finish_command(
+            ingest_gnome_data_url_from_stdin(&output),
+            "failed to ingest GNOME window capture",
         ),
         CaptureCommand::Reconstruct {
             black,
@@ -1012,6 +1145,111 @@ fn main() -> ExitCode {
             "failed to finalize capture provenance",
         ),
     }
+}
+
+fn run_headless_capture(output: &Path) -> Result<(), String> {
+    let _lock = prepare_capture(output).map_err(|error| error.to_string())?;
+    let platform = gpui_platform::current_platform(true);
+    let mut context = HeadlessAppContext::with_platform(
+        platform.text_system(),
+        Arc::new(()),
+        gpui_platform::current_headless_renderer,
+    );
+    context.update(configure_figma_fidelity);
+    let window = context
+        .open_window(size(px(LOGICAL_WIDTH), px(LOGICAL_HEIGHT)), |_, cx| {
+            cx.new(|_| CaptureView {
+                output: None,
+                succeeded: Rc::new(Cell::new(false)),
+                backdrop: Some(Backdrop::Black),
+                announce_ready: false,
+            })
+        })
+        .map_err(|error| format!("failed to open headless GPUI window: {error}"))?;
+    context.run_until_parked();
+    let image = context
+        .capture_screenshot(window.into())
+        .map_err(|error| format!("headless renderer is unavailable: {error}"))?;
+    let scale = headless_capture_scale(image.width(), image.height())?;
+
+    let temporary = temporary_output_path(output);
+    write_temporary_image(&image, &temporary)?;
+    fs::rename(&temporary, output).map_err(|error| {
+        cleanup_temporary_capture(output);
+        format!("failed to publish {}: {error}", output.display())
+    })?;
+    let bytes = fs::read(output)
+        .map_err(|error| format!("failed to read published {}: {error}", output.display()))?;
+    let event = serde_json::json!({
+        "schema_version": 1,
+        "event": "headless-captured",
+        "output": output,
+        "width": image.width(),
+        "height": image.height(),
+        "scale": scale,
+        "gpui_revision": GPUI_REVISION,
+        "renderer": "gpui-platform-headless",
+        "sha256": sha256_hex(&bytes),
+    });
+    println!("{event}");
+    Ok(())
+}
+
+fn headless_capture_scale(width: u32, height: u32) -> Result<u32, String> {
+    for scale in [1, 2] {
+        if width == WIDTH * scale && height == HEIGHT * scale {
+            return Ok(scale);
+        }
+    }
+    Err(format!(
+        "headless GPUI capture returned {width}x{height}; expected {WIDTH}x{HEIGHT} at supported scale 1 or 2"
+    ))
+}
+
+fn scale_headless_reference(input: &Path, output: &Path, scale: u32) -> Result<(), String> {
+    let scale = parse_headless_scale(&OsString::from(scale.to_string()))?;
+    let image = read_capture_image(input)?;
+    if image.dimensions() != (WIDTH, HEIGHT) {
+        return Err(format!(
+            "headless reference must be {WIDTH}x{HEIGHT}, got {:?}",
+            image.dimensions()
+        ));
+    }
+    let scaled = scale_headless_reference_image(&image, scale);
+    let bytes = encode_capture_png(&scaled)?;
+    publish_bytes(output, &bytes)?;
+    let event = serde_json::json!({
+        "schema_version": 1,
+        "event": "headless-reference-scaled",
+        "input": input,
+        "output": output,
+        "width": scaled.width(),
+        "height": scaled.height(),
+        "scale": scale,
+        "filter": "nearest",
+        "background": "black",
+        "sha256": sha256_hex(&bytes),
+    });
+    println!("{event}");
+    Ok(())
+}
+
+fn scale_headless_reference_image(image: &image::RgbaImage, scale: u32) -> image::RgbaImage {
+    let mut opaque = image.clone();
+    for pixel in opaque.pixels_mut() {
+        let alpha = u16::from(pixel[3]);
+        for channel in 0..3 {
+            pixel[channel] =
+                u8::try_from((u16::from(pixel[channel]) * alpha + 127) / 255).unwrap_or(u8::MAX);
+        }
+        pixel[3] = u8::MAX;
+    }
+    image::imageops::resize(
+        &opaque,
+        image.width() * scale,
+        image.height() * scale,
+        image::imageops::FilterType::Nearest,
+    )
 }
 
 fn finish_command(result: Result<(), String>, context: &str) -> ExitCode {
@@ -1057,7 +1295,11 @@ fn run_window_capture(output: Option<PathBuf>, backdrop: Option<Backdrop>) -> Ex
                 })),
                 focus: external_capture,
                 show: true,
-                window_background: WindowBackgroundAppearance::Transparent,
+                window_background: if external_capture {
+                    WindowBackgroundAppearance::Opaque
+                } else {
+                    WindowBackgroundAppearance::Transparent
+                },
                 ..WindowOptions::default()
             },
             move |window, cx| {
@@ -1098,11 +1340,39 @@ mod tests {
     use base64::Engine as _;
 
     use super::{
-        CaptureCommand, cleanup_temporary_capture, create_temporary_file, finalize_provenance,
-        ingest_data_url, manifest_artifacts, parse_command, prepare_capture, read_capture_image,
-        reconstruct_rgba, temporary_output_path, temporary_output_prefix, validate_metadata_path,
+        CaptureCommand, capture_engine, cleanup_temporary_capture, create_temporary_file,
+        finalize_provenance, ingest_data_url, ingest_gnome_data_url, manifest_artifacts,
+        parse_command, prepare_capture, read_capture_image, reconstruct_rgba,
+        temporary_output_path, temporary_output_prefix, validate_metadata_path,
         validate_reconstruction_paths, verification_inputs, window_capture_exit_code,
     };
+
+    #[test]
+    fn headless_capture_accepts_supported_device_scales() {
+        assert_eq!(
+            super::headless_capture_scale(super::WIDTH, super::HEIGHT),
+            Ok(1)
+        );
+        assert_eq!(
+            super::headless_capture_scale(super::WIDTH * 2, super::HEIGHT * 2),
+            Ok(2)
+        );
+        assert!(
+            super::headless_capture_scale(super::WIDTH * 2, super::HEIGHT)
+                .is_err_and(|error| error.contains("supported scale 1 or 2"))
+        );
+    }
+
+    #[test]
+    fn headless_reference_is_scaled_over_an_opaque_black_backdrop() {
+        let source = image::RgbaImage::from_vec(2, 1, vec![0, 0, 0, 0, 32, 64, 128, 255])
+            .unwrap_or_else(|| panic!("test image dimensions must match its bytes"));
+        let scaled = super::scale_headless_reference_image(&source, 2);
+
+        assert_eq!(scaled.dimensions(), (4, 2));
+        assert_eq!(scaled.get_pixel(0, 0).0, [0, 0, 0, 255]);
+        assert_eq!(scaled.get_pixel(3, 1).0, [32, 64, 128, 255]);
+    }
 
     fn test_output(name: &str) -> std::path::PathBuf {
         let directory =
@@ -1501,9 +1771,20 @@ mod tests {
             .unwrap_or_else(|error| panic!("display command must parse: {error}"));
         assert!(matches!(display, CaptureCommand::Display { .. }));
 
+        let headless = parse_command(["--headless".into(), "capture.png".into()])
+            .unwrap_or_else(|error| panic!("headless command must parse: {error}"));
+        assert!(matches!(headless, CaptureCommand::Headless { .. }));
+
         let ingest = parse_command(["--ingest-data-url".into(), "capture.png".into()])
             .unwrap_or_else(|error| panic!("ingest command must parse: {error}"));
         assert!(matches!(ingest, CaptureCommand::IngestDataUrl { .. }));
+
+        let gnome_ingest = parse_command(["--ingest-gnome-data-url".into(), "capture.png".into()])
+            .unwrap_or_else(|error| panic!("GNOME ingest command must parse: {error}"));
+        assert!(matches!(
+            gnome_ingest,
+            CaptureCommand::IngestGnomeDataUrl { .. }
+        ));
 
         let reconstruct = parse_command([
             "--reconstruct".into(),
@@ -1516,6 +1797,20 @@ mod tests {
 
         let error = parse_command(["--display".into(), "white".into(), "extra".into()]).err();
         assert!(error.is_some_and(|error| error.contains("unexpected trailing")));
+    }
+
+    #[test]
+    fn provenance_accepts_only_declared_capture_adapters() {
+        assert_eq!(
+            capture_engine("xdg-desktop-portal"),
+            Ok("computer-use-linux")
+        );
+        assert_eq!(
+            capture_engine("gnome-shell-screenshot"),
+            Ok("figma-rust-linux-capture")
+        );
+        let error = capture_engine("desktop-crop").err();
+        assert!(error.is_some_and(|error| error.contains("must be")));
     }
 
     #[test]
@@ -1537,6 +1832,45 @@ mod tests {
             .unwrap_or_else(|error| panic!("valid data URL must publish: {error}"));
 
         assert_eq!(fs::read(&output).ok().as_deref(), Some(bytes.as_slice()));
+        remove_test_directory(&output);
+    }
+
+    #[test]
+    fn gnome_data_url_ingest_normalizes_only_near_opaque_window_alpha() {
+        let output = test_output("gnome-data-url-ingest");
+        let image = image::RgbaImage::from_pixel(
+            super::WIDTH,
+            super::HEIGHT,
+            image::Rgba([20, 40, 80, 254]),
+        );
+        let bytes = encode_png(&image);
+        let data_url = format!(
+            "{}{}",
+            super::PNG_DATA_URL_PREFIX,
+            base64::engine::general_purpose::STANDARD.encode(bytes)
+        );
+
+        ingest_gnome_data_url(&data_url, &output)
+            .unwrap_or_else(|error| panic!("uniform GNOME alpha must normalize: {error}"));
+        let normalized = read_capture_image(&output)
+            .unwrap_or_else(|error| panic!("normalized GNOME PNG must decode: {error}"));
+        assert!(
+            normalized
+                .pixels()
+                .all(|pixel| pixel.0 == [20, 40, 80, 255])
+        );
+
+        let mut invalid = image;
+        invalid.put_pixel(0, 0, image::Rgba([20, 40, 80, 252]));
+        let invalid_url = format!(
+            "{}{}",
+            super::PNG_DATA_URL_PREFIX,
+            base64::engine::general_purpose::STANDARD.encode(encode_png(&invalid))
+        );
+        let before = fs::read(&output).unwrap_or_else(|error| panic!("output must exist: {error}"));
+        let error = ingest_gnome_data_url(&invalid_url, &output).err();
+        assert!(error.is_some_and(|error| error.contains("alpha range")));
+        assert_eq!(fs::read(&output).ok().as_deref(), Some(before.as_slice()));
         remove_test_directory(&output);
     }
 

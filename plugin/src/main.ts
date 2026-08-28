@@ -9,9 +9,15 @@ import {
 import {
   includeRestSnapshotForExport,
   summarizeBundle,
+  validateBridgeExportResponse,
   type ExportKind,
 } from "./export";
-import type { CompilerResponse, ExtractionDiagnostic, ExtractionBundle } from "./schema";
+import type {
+  BridgeExportResponse,
+  CompilerResponse,
+  ExtractionDiagnostic,
+  ExtractionBundle,
+} from "./schema";
 import {
   cleanupTemporaryTransferNodes,
   findTemporaryTransferNodes,
@@ -63,7 +69,32 @@ if (figma.editorType === "dev") {
     type?: string;
     export_kind?: ExportKind;
     export_verified?: boolean;
+    export_token?: string;
   }) => {
+    if (message.type === "extract-to-bridge") {
+      try {
+        const exportToken = message.export_token?.trim();
+        if (!exportToken || exportToken.length < 32) {
+          throw new Error("Enter the short-lived bridge export token (at least 32 characters).");
+        }
+        const bundle = await extractSelection(false);
+        const response = await callBridge<unknown>(
+          "/export",
+          bundle,
+          createExtractionDeadline(UI_COMPILER_TIMEOUT_MS),
+          exportToken,
+        );
+        const result: BridgeExportResponse = validateBridgeExportResponse(response);
+        figma.ui.postMessage({
+          type: "bridge-export-result",
+          result,
+          summary: summarizeBundle(bundle),
+        });
+      } catch (error) {
+        postUiError(error);
+      }
+      return;
+    }
     if (message.type === "extract") {
       try {
         const exportKind: ExportKind = message.export_kind === "EVIDENCE" ? "EVIDENCE" : "COMPILER";
@@ -159,10 +190,22 @@ async function callCompiler(
   bundle: ExtractionBundle,
   deadline: ExtractionDeadline,
 ): Promise<CompilerResponse> {
+  return callBridge<CompilerResponse>(path, bundle, deadline);
+}
+
+async function callBridge<T>(
+  path: string,
+  bundle: ExtractionBundle,
+  deadline: ExtractionDeadline,
+  exportToken?: string,
+): Promise<T> {
   const response = await withExtractionDeadline(
     fetch(`${COMPILER_URL}${path}`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: {
+        "content-type": "application/json",
+        ...(exportToken ? { "x-figma-rust-export-token": exportToken } : {}),
+      },
       body: JSON.stringify(bundle),
     }),
     deadline,
@@ -170,7 +213,7 @@ async function callCompiler(
   if (!response.ok) {
     throw new Error(`compiler returned HTTP ${response.status}`);
   }
-  return (await withExtractionDeadline(response.json(), deadline)) as CompilerResponse;
+  return (await withExtractionDeadline(response.json(), deadline)) as T;
 }
 
 function formatDiagnostics(response: CompilerResponse): string {

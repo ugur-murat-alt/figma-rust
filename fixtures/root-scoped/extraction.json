@@ -1,0 +1,86 @@
+{
+  "schema_version": 2,
+  "source": {
+    "extractor": "synthetic-regression-fixture",
+    "extractor_version": "1",
+    "page_id": "fixture:root-scoped",
+    "selected_node_ids": ["28:valid", "28:invalid", "28:runtime"],
+    "plugin_api_version": "1.135.0"
+  },
+  "roots": [
+    {
+      "id": "28:valid",
+      "name": "Valid native root",
+      "kind": "FRAME",
+      "size": {"width": 100.0, "height": 40.0, "horizontal": "FIXED", "vertical": "FIXED"},
+      "layout": {"mode": "HORIZONTAL", "gap": {"literal": 8.0}},
+      "children": [
+        {
+          "id": "28:valid:rect",
+          "name": "Token rectangle",
+          "kind": "RECTANGLE",
+          "size": {"width": 40.0, "height": 40.0, "horizontal": "FIXED", "vertical": "FIXED"},
+          "style": {
+            "fills": [{
+              "kind": "SOLID",
+              "color": {
+                "literal": {"r": 0.125, "g": 0.25, "b": 0.5, "a": 1.0},
+                "token_id": "color.shared",
+                "mode_context": {"collection.theme": "mode.light"}
+              }
+            }]
+          }
+        },
+        {
+          "id": "28:valid:icon",
+          "name": "Shared asset icon",
+          "kind": "VECTOR",
+          "size": {"width": 16.0, "height": 16.0, "horizontal": "FIXED", "vertical": "FIXED"}
+        }
+      ]
+    },
+    {
+      "id": "28:invalid",
+      "name": "Invalid child alignment root",
+      "kind": "RECTANGLE",
+      "size": {"width": 40.0, "height": 40.0, "horizontal": "FIXED", "vertical": "FIXED"},
+      "layout": {"child_counter_alignment": "CENTER"}
+    },
+    {
+      "id": "28:runtime",
+      "name": "Unsupported runtime grid root",
+      "kind": "FRAME",
+      "size": {"width": 100.0, "height": 100.0, "horizontal": "FIXED", "vertical": "FIXED"},
+      "layout": {
+        "mode": "GRID",
+        "grid": {
+          "columns": [{"kind": "FIXED", "value": 50.0}, {"kind": "FLEX", "value": 1.0}],
+          "rows": [{"kind": "HUG"}],
+          "column_gap": 0.0,
+          "row_gap": 0.0
+        }
+      }
+    }
+  ],
+  "variables": [
+    {
+      "id": "color.shared",
+      "name": "Shared/Primary",
+      "collection_id": "collection.theme",
+      "mode_id": "mode.light",
+      "value": {"kind": "COLOR", "value": {"r": 0.125, "g": 0.25, "b": 0.5, "a": 1.0}},
+      "mode_context": {"collection.theme": "mode.light"}
+    }
+  ],
+  "components": [],
+  "assets": [
+    {
+      "id": "node:28:valid:icon:svg",
+      "source_node_id": "28:valid:icon",
+      "media_type": "image/svg+xml",
+      "export_settings": {"color_policy": "authored", "format": "SVG"},
+      "payload_base64": "PHN2Zy8+"
+    }
+  ],
+  "extraction_diagnostics": []
+}

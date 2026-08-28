@@ -22,12 +22,14 @@
     <p>Structural Figma extraction and GPUI compiler diagnostics.</p>
     <div class="actions">
       <button id="extract-compiler" class="primary">Export compiler JSON</button>
+      <input id="export-token" type="password" autocomplete="off" placeholder="Bridge export token" />
+      <button id="extract-bridge">Export compiler JSON to bridge</button>
       <button id="extract-evidence">Export evidence JSON</button>
       <button id="lint">Lint selection</button>
     </div>
     <div class="cleanup">
       <button id="scan-transfer">Scan temporary transfer nodes</button>
-      <label><input id="export-verified" type="checkbox" disabled /> I verified the downloaded compiler JSON on disk.</label>
+      <label><input id="export-verified" type="checkbox" disabled /> I verified the exported compiler JSON on disk.</label>
       <button id="cleanup-transfer" disabled>Remove temporary transfer nodes</button>
     </div>
     <div id="status">Select a frame or component.</div>
@@ -36,6 +38,10 @@
       const exportVerified = document.getElementById("export-verified");
       const cleanupTransfer = document.getElementById("cleanup-transfer");
       document.getElementById("extract-compiler").onclick = () => parent.postMessage({ pluginMessage: { type: "extract", export_kind: "COMPILER" } }, "*");
+      document.getElementById("extract-bridge").onclick = () => parent.postMessage({ pluginMessage: {
+        type: "extract-to-bridge",
+        export_token: document.getElementById("export-token").value,
+      } }, "*");
       document.getElementById("extract-evidence").onclick = () => parent.postMessage({ pluginMessage: { type: "extract", export_kind: "EVIDENCE" } }, "*");
       document.getElementById("lint").onclick = () => parent.postMessage({ pluginMessage: { type: "lint" } }, "*");
       document.getElementById("scan-transfer").onclick = () => parent.postMessage({ pluginMessage: { type: "scan-temporary-transfer-nodes" } }, "*");
@@ -85,6 +91,19 @@
             formatSummary(message.summary),
             ...preview,
             ...(remaining > 0 ? [`… ${remaining} additional diagnostics; export or lint for the full list`] : []),
+          ].join("\n");
+        } else if (message.type === "bridge-export-result") {
+          const result = message.result;
+          exportVerified.disabled = false;
+          exportVerified.checked = false;
+          cleanupTransfer.disabled = true;
+          status.textContent = [
+            `Exported exact compiler JSON to ${result.path}`,
+            `Transfer complete: ${result.complete}`,
+            `Traversal complete: ${result.traversal_complete ?? "not reported by legacy bundle"}`,
+            `Bytes: ${result.byte_length}`,
+            `SHA-256: ${result.sha256}`,
+            formatSummary(message.summary),
           ].join("\n");
         } else if (message.type === "lint-result") {
           status.textContent = JSON.stringify(message.result, null, 2);

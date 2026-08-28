@@ -1,9 +1,13 @@
 use std::{collections::BTreeMap, fmt::Write as _};
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 use crate::Diagnostic;
+
+pub(crate) fn is_default<T: Default + PartialEq>(value: &T) -> bool {
+    *value == T::default()
+}
 
 /// Versioned extraction payload shared by the plugin and future REST importer.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -21,13 +25,54 @@ pub struct ExtractionBundle {
     #[serde(default)]
     pub extraction_diagnostics: Vec<Diagnostic>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extraction_manifest: Option<ExtractionManifest>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rest_snapshot: Option<Value>,
     #[serde(default, flatten)]
     pub extensions: BTreeMap<String, Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExtractionManifest {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<String>,
+    pub traversal: ExtractionTraversalManifest,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExtractionTraversalManifest {
+    pub chunk_node_limit: usize,
+    pub node_count: usize,
+    pub complete: bool,
+    #[serde(default)]
+    pub chunks: Vec<ExtractionTraversalChunk>,
+    #[serde(default)]
+    pub roots: Vec<ExtractionTraversalRoot>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExtractionTraversalChunk {
+    pub index: usize,
+    pub start_node_index: usize,
+    pub end_node_index: usize,
+    pub node_count: usize,
+    pub first_node_id: String,
+    pub last_node_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExtractionTraversalRoot {
+    pub id: String,
+    pub node_count: usize,
+    pub complete: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RawSource {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extractor: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extractor_version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file_key: Option<String>,
     pub page_id: String,
@@ -57,12 +102,32 @@ pub struct RawNode {
     pub text: Option<RawText>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub component: Option<RawComponentMetadata>,
+    #[serde(
+        default,
+        skip_serializing_if = "RawComponentPropertyReferences::is_empty"
+    )]
+    pub component_property_references: RawComponentPropertyReferences,
     #[serde(default)]
     pub reactions: Vec<RawReaction>,
     #[serde(default)]
     pub children: Vec<RawNode>,
     #[serde(default, flatten)]
     pub extensions: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RawComponentPropertyReferences {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visible: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub characters: Option<String>,
+}
+
+impl RawComponentPropertyReferences {
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.visible.is_none() && self.characters.is_none()
+    }
 }
 
 const fn default_true() -> bool {
@@ -99,6 +164,8 @@ pub struct RawLayout {
     #[serde(default)]
     pub counter_alignment: RawAlignment,
     #[serde(default)]
+    pub child_counter_alignment: RawChildAlignment,
+    #[serde(default)]
     pub gap: RawBoundValue<f64>,
     #[serde(default)]
     pub padding: RawEdges,
@@ -117,6 +184,7 @@ impl Default for RawLayout {
             wrap: false,
             primary_alignment: RawAlignment::Start,
             counter_alignment: RawAlignment::Start,
+            child_counter_alignment: RawChildAlignment::Inherit,
             gap: RawBoundValue::default(),
             padding: RawEdges::default(),
             grid: RawGrid::default(),
@@ -148,6 +216,24 @@ pub enum RawAlignment {
     Stretch,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RawChildAlignment {
+    #[default]
+    Inherit,
+    Min,
+    Center,
+    Max,
+    Stretch,
+}
+
+impl RawChildAlignment {
+    #[must_use]
+    pub fn is_inherit(&self) -> bool {
+        *self == Self::Inherit
+    }
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct RawEdges {
     #[serde(default)]
@@ -162,24 +248,73 @@ pub struct RawEdges {
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct RawSize {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub width: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub height: Option<f64>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_bound_number",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub width: Option<RawBoundValue<f64>>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_bound_number",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub height: Option<RawBoundValue<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub horizontal: Option<RawAxisSizing>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub vertical: Option<RawAxisSizing>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub min_width: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_width: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub min_height: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_height: Option<f64>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_bound_number",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub min_width: Option<RawBoundValue<f64>>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_bound_number",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub max_width: Option<RawBoundValue<f64>>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_bound_number",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub min_height: Option<RawBoundValue<f64>>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_bound_number",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub max_height: Option<RawBoundValue<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub aspect_ratio: Option<f64>,
+}
+
+fn deserialize_optional_bound_number<'de, D>(
+    deserializer: D,
+) -> Result<Option<RawBoundValue<f64>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum BoundNumberCompatibility {
+        Bound(RawBoundValue<f64>),
+        Legacy(f64),
+    }
+
+    Option::<BoundNumberCompatibility>::deserialize(deserializer).map(|value| {
+        value.map(|value| match value {
+            BoundNumberCompatibility::Bound(value) => value,
+            BoundNumberCompatibility::Legacy(literal) => RawBoundValue {
+                literal,
+                token_id: None,
+                mode_context: BTreeMap::new(),
+            },
+        })
+    })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -329,6 +464,14 @@ pub enum RawPaint {
     Image {
         asset_id: String,
         scale_mode: RawImageScaleMode,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        image_transform: Option<RawTransform>,
+        #[serde(default = "default_opacity")]
+        opacity: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        rotation: Option<f64>,
+        #[serde(default)]
+        has_filters: bool,
     },
     Video,
     Pattern,
@@ -368,7 +511,7 @@ pub struct RawColor {
     pub a: f64,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RawBoundValue<T> {
     pub literal: T,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -442,11 +585,58 @@ pub struct RawRadii {
     pub smoothing: f64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct RawText {
     pub characters: String,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub auto_resize: RawTextAutoResize,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub horizontal_alignment: RawTextHorizontalAlignment,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub vertical_alignment: RawTextVerticalAlignment,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub truncation: RawTextTruncation,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_lines: Option<u32>,
     #[serde(default)]
     pub runs: Vec<RawTextRun>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RawTextAutoResize {
+    #[default]
+    None,
+    WidthAndHeight,
+    Height,
+    Truncate,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RawTextHorizontalAlignment {
+    #[default]
+    Left,
+    Center,
+    Right,
+    Justified,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RawTextVerticalAlignment {
+    #[default]
+    Top,
+    Center,
+    Bottom,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RawTextTruncation {
+    #[default]
+    Disabled,
+    Ending,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -501,7 +691,9 @@ pub enum RawComponentRole {
 pub enum RawComponentValue {
     Variant(String),
     Text(String),
+    BoundText(RawBoundValue<String>),
     Boolean(bool),
+    BoundBoolean(RawBoundValue<bool>),
     InstanceSwap(String),
 }
 

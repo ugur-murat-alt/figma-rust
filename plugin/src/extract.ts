@@ -1,8 +1,12 @@
 import {
+  EXTRACTOR_NAME,
+  EXTRACTOR_VERSION,
   PLUGIN_TYPINGS_VERSION,
   SCHEMA_VERSION,
   type ExtractionBundle,
   type ExtractionDiagnostic,
+  type ExtractionTraversalChunk,
+  type ExtractionTraversalRoot,
   type JsonValue,
   type RawAction,
   type RawAlignment,
@@ -82,12 +86,15 @@ interface VariableReference {
 interface ExtractionContext {
   diagnostics: ExtractionDiagnostic[];
   variableReferences: Map<string, VariableReference[]>;
+  variableCollections: Map<string, Promise<VariableCollection | null>>;
   boundValues: Map<string, Array<{ mode_context?: RawModeContext }>>;
   components: Map<string, RawComponent>;
   assets: Map<string, RawAsset>;
   assetChecks: Map<string, Promise<void>>;
   nodes: Map<string, SceneNode>;
   nodeCount: number;
+  traversalChunks: ExtractionTraversalChunk[];
+  traversalOmissions: number;
   includeAssetPayloads: boolean;
   deadline?: ExtractionDeadline;
 }
@@ -140,12 +147,15 @@ export async function extractNodes(
   const context: ExtractionContext = {
     diagnostics: [],
     variableReferences: new Map(),
+    variableCollections: new Map(),
     boundValues: new Map(),
     components: new Map(),
     assets: new Map(),
     assetChecks: new Map(),
     nodes: new Map(),
     nodeCount: 0,
+    traversalChunks: [],
+    traversalOmissions: 0,
     includeAssetPayloads,
     deadline,
   };
@@ -160,20 +170,17 @@ export async function extractNodes(
   }
 
   const roots: RawNode[] = [];
+  const traversalRoots: ExtractionTraversalRoot[] = [];
   for (const node of selection) {
     assertWithinDeadline(context.deadline);
-    if (context.nodeCount >= MAX_TRAVERSAL_NODES) {
-      addDiagnostic(
-        context,
-        "ERROR",
-        "FR-EXTRACT-LIMIT-001",
-        `Traversal stopped after ${MAX_TRAVERSAL_NODES} nodes.`,
-        node.id,
-        "roots",
-      );
-      continue;
-    }
+    const startNodeCount = context.nodeCount;
+    const startOmissionCount = context.traversalOmissions;
     roots.push(await extractNode(node, 0, context));
+    traversalRoots.push({
+      id: node.id,
+      node_count: context.nodeCount - startNodeCount,
+      complete: context.traversalOmissions === startOmissionCount,
+    });
   }
 
   let restSnapshot: JsonValue | undefined;
@@ -212,6 +219,8 @@ export async function extractNodes(
   return {
     schema_version: SCHEMA_VERSION,
     source: {
+      extractor: EXTRACTOR_NAME,
+      extractor_version: EXTRACTOR_VERSION,
       ...(figma.fileKey ? { file_key: figma.fileKey } : {}),
       page_id: figma.currentPage.id,
       selected_node_ids: selection.map((node) => node.id),
@@ -222,6 +231,27 @@ export async function extractNodes(
     components: [...context.components.values()].sort(compareComponents),
     assets: [...context.assets.values()].sort(compareAssets),
     extraction_diagnostics: context.diagnostics,
+    extraction_manifest: {
+      capabilities: [
+        ...(includeAssetPayloads ? ["asset-payload-export"] : []),
+        "bounded-traversal",
+        "bound-component-properties",
+        "child-counter-alignment",
+        "modeled-bound-dimensions",
+        ...(restSnapshot === undefined ? [] : ["rest-snapshot"]),
+        "schema-v2",
+        "typed-text-layout",
+      ].sort(),
+      traversal: {
+        chunk_node_limit: MAX_TRAVERSAL_NODES,
+        node_count: context.nodeCount,
+        complete: selection.length > 0
+          && traversalRoots.length === selection.length
+          && traversalRoots.every((root) => root.complete),
+        chunks: context.traversalChunks,
+        roots: traversalRoots,
+      },
+    },
     ...(restSnapshot === undefined ? {} : { rest_snapshot: restSnapshot }),
   };
 }
@@ -234,6 +264,10 @@ async function extractNode(
   capturedByAncestor = false,
 ): Promise<RawNode> {
   assertWithinDeadline(context.deadline);
+  if (context.nodeCount > 0 && context.nodeCount % MAX_TRAVERSAL_NODES === 0) {
+    await yieldTraversalChunk(context.deadline);
+  }
+  recordTraversalNode(node.id, context);
   context.nodeCount += 1;
   context.nodes.set(node.id, node);
 
@@ -286,6 +320,11 @@ async function extractNode(
   );
 
   const component = await extractComponentMetadata(node, context);
+  const componentPropertyReferences = extractComponentPropertyReferences(
+    field(record, "componentPropertyReferences"),
+    node.id,
+    context,
+  );
   const reactions = extractReactions(record, node.id, context, extensions);
   diagnoseNodeVariableBindings(record, node, context);
 
@@ -303,6 +342,9 @@ async function extractNode(
     style,
     ...(text === undefined ? {} : { text }),
     ...(component === undefined ? {} : { component }),
+    ...(componentPropertyReferences === undefined
+      ? {}
+      : { component_property_references: componentPropertyReferences }),
     reactions,
     children,
     ...extensions,
@@ -364,7 +406,10 @@ function registerNodeFallbackAsset(
       id,
       source_node_id: node.id,
       media_type: format === "SVG" ? "image/svg+xml" : "image/png",
-      export_settings: { format },
+      export_settings: {
+        format,
+        ...(format === "SVG" ? { color_policy: "authored" } : {}),
+      },
     });
     return;
   }
@@ -402,7 +447,10 @@ function registerNodeFallbackAsset(
         id,
         source_node_id: node.id,
         media_type: format === "SVG" ? "image/svg+xml" : "image/png",
-        export_settings: { format },
+        export_settings: {
+          format,
+          ...(format === "SVG" ? { color_policy: "authored" } : {}),
+        },
         payload_base64: payload,
       });
     },
@@ -443,6 +491,7 @@ async function extractChildren(
     return [];
   }
   if (depth >= MAX_TRAVERSAL_DEPTH && value.length > 0) {
+    context.traversalOmissions += 1;
     addDiagnostic(
       context,
       "ERROR",
@@ -459,19 +508,9 @@ async function extractChildren(
   const childCoordinateParent = isNonContainerGroup(nodeType) ? sourceTransform : undefined;
   for (let index = 0; index < value.length; index += 1) {
     assertWithinDeadline(context.deadline);
-    if (context.nodeCount >= MAX_TRAVERSAL_NODES) {
-      addDiagnostic(
-        context,
-        "ERROR",
-        "FR-EXTRACT-LIMIT-001",
-        `Traversal stopped after ${MAX_TRAVERSAL_NODES} nodes.`,
-        nodeId,
-        `children[${index}]`,
-      );
-      break;
-    }
     const child = value[index];
     if (!isRecord(child) || typeof field(child, "id") !== "string") {
+      context.traversalOmissions += 1;
       addDiagnostic(
         context,
         "ERROR",
@@ -493,6 +532,32 @@ async function extractChildren(
     );
   }
   return children;
+}
+
+function recordTraversalNode(nodeId: string, context: ExtractionContext): void {
+  const index = Math.floor(context.nodeCount / MAX_TRAVERSAL_NODES);
+  const existing = context.traversalChunks[index];
+  if (existing === undefined) {
+    context.traversalChunks.push({
+      index,
+      start_node_index: context.nodeCount,
+      end_node_index: context.nodeCount + 1,
+      node_count: 1,
+      first_node_id: nodeId,
+      last_node_id: nodeId,
+    });
+    return;
+  }
+
+  existing.end_node_index = context.nodeCount + 1;
+  existing.node_count += 1;
+  existing.last_node_id = nodeId;
+}
+
+async function yieldTraversalChunk(deadline?: ExtractionDeadline): Promise<void> {
+  const resume = new Promise<void>((resolve) => setTimeout(resolve, 0));
+  await awaitWithOptionalDeadline(resume, deadline);
+  assertWithinDeadline(deadline);
 }
 
 function extractLayout(
@@ -520,6 +585,14 @@ function extractLayout(
     field(record, "counterAxisAlignItems"),
     nodeId,
     "layout.counter_alignment",
+    context,
+  );
+  const childCounterAlignment = enumValue(
+    field(record, "layoutAlign"),
+    ["INHERIT", "MIN", "CENTER", "MAX", "STRETCH"],
+    "INHERIT",
+    nodeId,
+    "layout.child_counter_alignment",
     context,
   );
 
@@ -566,19 +639,6 @@ function extractLayout(
       extensions,
       "figma_layout_grow",
       layoutGrow,
-    );
-  }
-
-  const layoutAlign = field(record, "layoutAlign");
-  if (layoutAlign !== undefined && layoutAlign !== "INHERIT") {
-    addLossDiagnostic(
-      context,
-      nodeId,
-      "layout.layout_align",
-      "Child counter-axis alignment is not represented independently by the raw model.",
-      extensions,
-      "figma_layout_align",
-      toJson(layoutAlign),
     );
   }
 
@@ -667,6 +727,7 @@ function extractLayout(
     wrap: layoutWrap === "WRAP",
     primary_alignment: primaryAlignment,
     counter_alignment: counterAlignment,
+    child_counter_alignment: childCounterAlignment,
     gap: boundNumberFromRecord(record, "itemSpacing", itemSpacing, nodeId, "layout.gap", context),
     padding: {
       top: boundNumberFromRecord(record, "paddingTop", numberValue(field(record, "paddingTop"), 0, nodeId, "layout.padding.top", context), nodeId, "layout.padding.top", context),
@@ -713,14 +774,26 @@ function extractSize(record: UnknownRecord, nodeId: string, context: ExtractionC
   }
 
   return {
-    ...(width === undefined ? {} : { width }),
-    ...(height === undefined ? {} : { height }),
+    ...(width === undefined
+      ? {}
+      : { width: boundNumberFromRecord(record, "width", width, nodeId, "size.width", context) }),
+    ...(height === undefined
+      ? {}
+      : { height: boundNumberFromRecord(record, "height", height, nodeId, "size.height", context) }),
     ...(horizontal === undefined ? {} : { horizontal }),
     ...(vertical === undefined ? {} : { vertical }),
-    ...(minWidth === undefined ? {} : { min_width: minWidth }),
-    ...(maxWidth === undefined ? {} : { max_width: maxWidth }),
-    ...(minHeight === undefined ? {} : { min_height: minHeight }),
-    ...(maxHeight === undefined ? {} : { max_height: maxHeight }),
+    ...(minWidth === undefined
+      ? {}
+      : { min_width: boundNumberFromRecord(record, "minWidth", minWidth, nodeId, "size.min_width", context) }),
+    ...(maxWidth === undefined
+      ? {}
+      : { max_width: boundNumberFromRecord(record, "maxWidth", maxWidth, nodeId, "size.max_width", context) }),
+    ...(minHeight === undefined
+      ? {}
+      : { min_height: boundNumberFromRecord(record, "minHeight", minHeight, nodeId, "size.min_height", context) }),
+    ...(maxHeight === undefined
+      ? {}
+      : { max_height: boundNumberFromRecord(record, "maxHeight", maxHeight, nodeId, "size.max_height", context) }),
     ...(aspectRatio === undefined ? {} : { aspect_ratio: aspectRatio }),
   };
 }
@@ -1117,10 +1190,22 @@ function extractPaint(
         registerImageAsset(imageHash, nodeId, propertyPath, context);
       }
       const scaleMode = enumValue<RawImageScaleMode>(field(value, "scaleMode"), ["FIT", "FILL", "CROP", "TILE"], "FIT", nodeId, `${propertyPath}.scaleMode`, context);
-      if (field(value, "imageTransform") !== undefined || field(value, "scalingFactor") !== undefined || field(value, "rotation") !== undefined || field(value, "filters") !== undefined || opacity !== 1) {
-        addLossDiagnostic(context, nodeId, propertyPath, "Image paint transform, filters, rotation, or opacity are not fully represented by the raw paint model.", extensions, "figma_image_paint_details", toJson(value));
+      const imageTransform = extractImageTransform(field(value, "imageTransform"), nodeId, `${propertyPath}.imageTransform`, context);
+      const rotation = optionalNumber(field(value, "rotation"), nodeId, `${propertyPath}.rotation`, context);
+      const filters = field(value, "filters");
+      const hasFilters = isRecord(filters) && Object.values(filters).some((filter) => typeof filter === "number" && Math.abs(filter) > TRANSFORM_EPSILON);
+      if (field(value, "scalingFactor") !== undefined || rotation !== undefined && Math.abs(rotation) > TRANSFORM_EPSILON || hasFilters) {
+        addLossDiagnostic(context, nodeId, propertyPath, "Image tile scaling, rotation, or nonzero filters require an explicit unsupported route.", extensions, "figma_image_paint_details", toJson(value));
       }
-      return { kind: "IMAGE", asset_id: imageHash, scale_mode: scaleMode };
+      return {
+        kind: "IMAGE",
+        asset_id: imageHash,
+        scale_mode: scaleMode,
+        ...(imageTransform === undefined ? {} : { image_transform: imageTransform }),
+        opacity,
+        ...(rotation === undefined ? {} : { rotation }),
+        has_filters: hasFilters,
+      };
     }
     case "VIDEO":
       addLossDiagnostic(context, nodeId, propertyPath, "Video paint hash and scale semantics are not represented by the raw paint model.", extensions, "figma_video_paints", toJson(value));
@@ -1136,6 +1221,35 @@ function extractPaint(
       appendExtension(extensions, "figma_unsupported_paints", toJson(value));
       return undefined;
   }
+}
+
+function extractImageTransform(
+  value: unknown,
+  nodeId: string,
+  propertyPath: string,
+  context: ExtractionContext,
+): RawTransform | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value) || value.length !== 2 || !Array.isArray(value[0]) || !Array.isArray(value[1])) {
+    addDiagnostic(context, "ERROR", "FR-PAINT-IMAGE-001", "imageTransform is not a 2x3 Figma transform.", nodeId, propertyPath);
+    return undefined;
+  }
+  const first = value[0];
+  const second = value[1];
+  if (first.length !== 3 || second.length !== 3 || [...first, ...second].some((item) => typeof item !== "number" || !Number.isFinite(item))) {
+    addDiagnostic(context, "ERROR", "FR-PAINT-IMAGE-001", "imageTransform contains invalid numeric values.", nodeId, propertyPath);
+    return undefined;
+  }
+  return {
+    matrix: [
+      canonicalTransformValue(first[0] as number),
+      canonicalTransformValue(second[0] as number),
+      canonicalTransformValue(first[1] as number),
+      canonicalTransformValue(second[1] as number),
+      canonicalTransformValue(first[2] as number),
+      canonicalTransformValue(second[2] as number),
+    ],
+  };
 }
 
 function extractEffects(
@@ -1224,15 +1338,72 @@ function extractEffects(
 
 function extractText(node: TextNode, context: ExtractionContext, extensions: RawExtensions): RawText {
   const characters = node.characters;
-  const textMetadata = {
-    has_missing_font: node.hasMissingFont,
-    text_auto_resize: node.textAutoResize,
-    text_align_horizontal: node.textAlignHorizontal,
-    text_align_vertical: node.textAlignVertical,
-    text_truncation: node.textTruncation,
-    max_lines: node.maxLines,
-  };
-  addLossDiagnostic(context, node.id, "text", "Text layout metadata outside characters and styled runs is retained only as a source extension.", extensions, "figma_text_metadata", toJson(textMetadata));
+  const autoResize = enumValue(
+    node.textAutoResize,
+    ["NONE", "WIDTH_AND_HEIGHT", "HEIGHT", "TRUNCATE"],
+    "NONE",
+    node.id,
+    "text.auto_resize",
+    context,
+  );
+  const horizontalAlignment = enumValue(
+    node.textAlignHorizontal,
+    ["LEFT", "CENTER", "RIGHT", "JUSTIFIED"],
+    "LEFT",
+    node.id,
+    "text.horizontal_alignment",
+    context,
+  );
+  const verticalAlignment = enumValue(
+    node.textAlignVertical,
+    ["TOP", "CENTER", "BOTTOM"],
+    "TOP",
+    node.id,
+    "text.vertical_alignment",
+    context,
+  );
+  const truncation = enumValue(
+    node.textTruncation,
+    ["DISABLED", "ENDING"],
+    "DISABLED",
+    node.id,
+    "text.truncation",
+    context,
+  );
+  const maxLines = optionalUnsignedInteger(
+    node.maxLines,
+    4_294_967_295,
+    node.id,
+    "text.max_lines",
+    context,
+  );
+  if (maxLines === 0) {
+    addDiagnostic(
+      context,
+      "ERROR",
+      "FR-TEXT-EXTRACT-004",
+      "Text max lines must be a positive integer when present.",
+      node.id,
+      "text.max_lines",
+    );
+  }
+  for (const [propertyPath, sourceValue] of [
+    ["text.leading_trim", node.leadingTrim],
+    ["text.list_spacing", node.listSpacing],
+    ["text.paragraph_indent", node.paragraphIndent],
+    ["text.paragraph_spacing", node.paragraphSpacing],
+    ["text.wrap_style", node.textWrapStyle],
+  ] as const) {
+    addLossDiagnostic(
+      context,
+      node.id,
+      propertyPath,
+      `${propertyPath} is retained only as source metadata until its runtime layout is proven.`,
+      extensions,
+      "figma_unsupported_text_metadata",
+      { property_path: propertyPath, value: toJson(sourceValue) },
+    );
+  }
   if (node.hasMissingFont) {
     addDiagnostic(context, "ERROR", "FR-TEXT-FONT-001", "The text node uses a font unavailable to Figma.", node.id, "text.fontName");
   }
@@ -1260,7 +1431,15 @@ function extractText(node: TextNode, context: ExtractionContext, extensions: Raw
     });
   }
 
-  return { characters, runs };
+  return {
+    characters,
+    auto_resize: autoResize,
+    horizontal_alignment: horizontalAlignment,
+    vertical_alignment: verticalAlignment,
+    truncation,
+    ...(maxLines === undefined || maxLines === 0 ? {} : { max_lines: maxLines }),
+    runs,
+  };
 }
 
 function extractTextStyle(
@@ -1480,14 +1659,68 @@ function extractComponentProperties(
     }
     const type = stringValue(field(property, "type"));
     const rawValue = field(property, definitions ? "defaultValue" : "value");
-    const converted = componentValue(type, rawValue, nodeId, `${propertyPath}.${name}`, context);
-    if (converted !== undefined) properties[name] = converted;
     const boundVariables = field(property, "boundVariables");
-    if (hasAnyAlias(boundVariables)) {
-      addDiagnostic(context, "ERROR", "FR-TOKEN-LOSS-002", "Component property variable bindings are not represented by the raw component model.", nodeId, `${propertyPath}.${name}.boundVariables`);
+    const boundField = definitions ? "defaultValue" : "value";
+    const tokenId = aliasIdFromRecord(boundVariables, boundField);
+    if (tokenId !== undefined) {
+      const node = context.nodes.get(nodeId);
+      if (node !== undefined) {
+        registerVariableReference(tokenId, node, `${propertyPath}.${name}.${boundField}`, context);
+      }
+    }
+    const converted = componentValue(type, rawValue, nodeId, `${propertyPath}.${name}`, context);
+    if (converted === undefined) continue;
+    if (tokenId !== undefined && converted.kind === "TEXT") {
+      properties[name] = {
+        kind: "BOUND_TEXT",
+        value: boundValue(converted.value, tokenId, nodeId, context),
+      };
+    } else if (tokenId !== undefined && converted.kind === "BOOLEAN") {
+      properties[name] = {
+        kind: "BOUND_BOOLEAN",
+        value: boundValue(converted.value, tokenId, nodeId, context),
+      };
+    } else {
+      properties[name] = converted;
+      if (tokenId !== undefined) {
+        addDiagnostic(context, "ERROR", "FR-TOKEN-LOSS-002", `Component property variable binding is unsupported for ${converted.kind}.`, nodeId, `${propertyPath}.${name}.boundVariables.${boundField}`);
+      }
     }
   }
   return properties;
+}
+
+function extractComponentPropertyReferences(
+  value: unknown,
+  nodeId: string,
+  context: ExtractionContext,
+): { visible?: string; characters?: string } | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!isRecord(value)) {
+    addDiagnostic(context, "ERROR", "FR-COMPONENT-EXTRACT-005", "componentPropertyReferences is not an object.", nodeId, "component_property_references");
+    return undefined;
+  }
+  const visibleValue = field(value, "visible");
+  const charactersValue = field(value, "characters");
+  const mainComponentValue = field(value, "mainComponent");
+  const visible = stringValue(visibleValue);
+  const characters = stringValue(charactersValue);
+  for (const [property, raw, parsed] of [
+    ["visible", visibleValue, visible],
+    ["characters", charactersValue, characters],
+  ] as const) {
+    if (raw !== undefined && parsed === undefined) {
+      addDiagnostic(context, "ERROR", "FR-COMPONENT-EXTRACT-005", `${property} component property reference is not a string.`, nodeId, `component_property_references.${property}`);
+    }
+  }
+  if (mainComponentValue !== undefined) {
+    addDiagnostic(context, "ERROR", "FR-COMPONENT-EXTRACT-004", "mainComponent property references are not in the bounded TEXT/BOOLEAN consumer set.", nodeId, "component_property_references.mainComponent");
+  }
+  if (visible === undefined && characters === undefined) return undefined;
+  return {
+    ...(visible === undefined ? {} : { visible }),
+    ...(characters === undefined ? {} : { characters }),
+  };
 }
 
 function componentValue(
@@ -1653,6 +1886,12 @@ function diagnoseNodeVariableBindings(record: UnknownRecord, node: SceneNode, co
     "strokeRightWeight",
     "strokeBottomWeight",
     "strokeLeftWeight",
+    "width",
+    "height",
+    "minWidth",
+    "maxWidth",
+    "minHeight",
+    "maxHeight",
   ]);
   for (const [fieldName, value] of Object.entries(bindings)) {
     const aliases = collectAliasPaths(value, `bound_variables.${fieldName}`);
@@ -1687,7 +1926,7 @@ async function resolveVariables(context: ExtractionContext): Promise<RawVariable
 
     let collection: VariableCollection | null = null;
     try {
-      collection = await awaitWithOptionalDeadline(figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId), context.deadline);
+      collection = await loadVariableCollection(variable.variableCollectionId, context);
     } catch (error) {
       if (isDeadlineError(error)) throw error;
       addDiagnostic(context, "ERROR", "FR-TOKEN-MODE-002", `Variable collection ${variable.variableCollectionId} could not be resolved: ${errorMessage(error)}`, references[0].node.id, references[0].propertyPath);
@@ -1793,9 +2032,9 @@ async function collectVariableModeContext(
   let resolvedCollection = collection;
   if (resolvedCollection === undefined) {
     try {
-      resolvedCollection = await awaitWithOptionalDeadline(
-        figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId),
-        context.deadline,
+      resolvedCollection = await loadVariableCollection(
+        variable.variableCollectionId,
+        context,
       ) ?? undefined;
     } catch (error) {
       if (isDeadlineError(error)) throw error;
@@ -1805,6 +2044,16 @@ async function collectVariableModeContext(
   }
   if (resolvedCollection === undefined) {
     addDiagnostic(context, "ERROR", "FR-TOKEN-MODE-002", `Variable collection ${variable.variableCollectionId} could not be resolved.`, nodeId, propertyPath);
+    return false;
+  }
+  if (!await hasOnlyStandardVariableCollections(
+    variable.variableCollectionId,
+    resolvedCollection,
+    modeContext,
+    nodeId,
+    propertyPath,
+    context,
+  )) {
     return false;
   }
   const modeId = modeContext[variable.variableCollectionId] ?? resolvedCollection.defaultModeId;
@@ -1840,6 +2089,68 @@ async function collectVariableModeContext(
     seen,
     modeContext,
   );
+}
+
+async function hasOnlyStandardVariableCollections(
+  variableCollectionId: string,
+  variableCollection: VariableCollection,
+  modeContext: RawModeContext,
+  nodeId: string,
+  propertyPath: string,
+  context: ExtractionContext,
+): Promise<boolean> {
+  const collectionIds = new Set([variableCollection.id, ...Object.keys(modeContext)]);
+  for (const collectionId of [...collectionIds].sort(compareStrings)) {
+    let collection: VariableCollection | null = variableCollection.id === collectionId
+      ? variableCollection
+      : null;
+    if (collection === null) {
+      try {
+        collection = await loadVariableCollection(collectionId, context);
+      } catch (error) {
+        if (isDeadlineError(error)) throw error;
+        addDiagnostic(context, "ERROR", "FR-TOKEN-MODE-002", `Variable collection ${collectionId} could not be resolved: ${errorMessage(error)}`, nodeId, propertyPath);
+        return false;
+      }
+    }
+    if (collection === null) {
+      addDiagnostic(context, "ERROR", "FR-TOKEN-MODE-002", `Variable collection ${collectionId} could not be resolved.`, nodeId, propertyPath);
+      return false;
+    }
+    if (collection.isExtension !== true) continue;
+    const extended = collection as unknown as ExtendedVariableCollection;
+    if (
+      collectionId !== variableCollectionId
+      && extended.parentVariableCollectionId !== variableCollectionId
+      && extended.rootVariableCollectionId !== variableCollectionId
+    ) {
+      continue;
+    }
+    addDiagnostic(
+      context,
+      "ERROR",
+      "FR-TOKEN-MODE-005",
+      `Enterprise extended variable collection ${collectionId} extends ${extended.parentVariableCollectionId}; override lineage is not supported by schema v2.`,
+      nodeId,
+      propertyPath,
+    );
+    return false;
+  }
+  return true;
+}
+
+function loadVariableCollection(
+  collectionId: string,
+  context: ExtractionContext,
+): Promise<VariableCollection | null> {
+  const existing = context.variableCollections.get(collectionId);
+  if (existing !== undefined) return existing;
+  const pending = awaitWithOptionalDeadline(
+    figma.variables.getVariableCollectionByIdAsync(collectionId),
+    context.deadline,
+  );
+  context.variableCollections.set(collectionId, pending);
+  return pending;
 }
 
 function rawLiteral(

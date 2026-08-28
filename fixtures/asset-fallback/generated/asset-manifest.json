@@ -6,9 +6,11 @@
       "source_node_id": "13:1",
       "media_type": "image/svg+xml",
       "export_settings": {
+        "color_policy": "authored",
         "format": "SVG"
       },
       "file_name": "asset-6e6f64653a31333a313a737667.svg",
+      "cache_key": "7b62bfeaa8692684600bb19daf221317c49dd8081418ffadaf7d11a1c51026f0",
       "payload_available": true
     }
   ]

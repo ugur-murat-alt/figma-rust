@@ -1,5 +1,7 @@
 export const SCHEMA_VERSION = 2;
 export const PLUGIN_TYPINGS_VERSION = "1.135.0";
+export const EXTRACTOR_NAME = "figma-rust-plugin";
+export const EXTRACTOR_VERSION = "0.3.0";
 
 export type JsonValue =
   | null
@@ -23,6 +25,8 @@ export interface ExtractionDiagnostic {
 export type RawExtensions = Record<string, JsonValue>;
 
 export interface RawSource {
+  extractor?: string;
+  extractor_version?: string;
   file_key?: string;
   page_id: string;
   selected_node_ids: string[];
@@ -43,6 +47,7 @@ export type RawNodeKind =
 
 export type RawLayoutMode = "NONE" | "HORIZONTAL" | "VERTICAL" | "GRID";
 export type RawAlignment = "START" | "CENTER" | "END" | "SPACE_BETWEEN" | "BASELINE" | "STRETCH";
+export type RawChildAlignment = "INHERIT" | "MIN" | "CENTER" | "MAX" | "STRETCH";
 export type RawAxisSizing = "HUG" | "FILL" | "FIXED";
 export type RawPositioning = "AUTO" | "ABSOLUTE";
 export type RawConstraint = "MIN" | "CENTER" | "MAX" | "STRETCH" | "SCALE";
@@ -78,6 +83,7 @@ export interface RawLayout {
   wrap: boolean;
   primary_alignment: RawAlignment;
   counter_alignment: RawAlignment;
+  child_counter_alignment: RawChildAlignment;
   gap: RawBoundValue<number>;
   padding: RawBoundEdges;
   grid: RawGrid;
@@ -86,14 +92,14 @@ export interface RawLayout {
 }
 
 export interface RawSize {
-  width?: number;
-  height?: number;
+  width?: RawBoundValue<number>;
+  height?: RawBoundValue<number>;
   horizontal?: RawAxisSizing;
   vertical?: RawAxisSizing;
-  min_width?: number;
-  max_width?: number;
-  min_height?: number;
-  max_height?: number;
+  min_width?: RawBoundValue<number>;
+  max_width?: RawBoundValue<number>;
+  min_height?: RawBoundValue<number>;
+  max_height?: RawBoundValue<number>;
   aspect_ratio?: number;
 }
 
@@ -144,7 +150,15 @@ export interface RawGradientStop {
 export type RawPaint =
   | { kind: "SOLID"; color: RawBoundValue<RawColor> }
   | { kind: "GRADIENT"; gradient_kind: RawGradientKind; stops: RawGradientStop[] }
-  | { kind: "IMAGE"; asset_id: string; scale_mode: RawImageScaleMode }
+  | {
+      kind: "IMAGE";
+      asset_id: string;
+      scale_mode: RawImageScaleMode;
+      image_transform?: RawTransform;
+      opacity: number;
+      rotation?: number;
+      has_filters: boolean;
+    }
   | { kind: "VIDEO" }
   | { kind: "PATTERN" }
   | { kind: "SHADER" };
@@ -195,8 +209,18 @@ export interface RawStyle {
 
 export interface RawText {
   characters: string;
+  auto_resize?: RawTextAutoResize;
+  horizontal_alignment?: RawTextHorizontalAlignment;
+  vertical_alignment?: RawTextVerticalAlignment;
+  truncation?: RawTextTruncation;
+  max_lines?: number;
   runs: RawTextRun[];
 }
+
+export type RawTextAutoResize = "NONE" | "WIDTH_AND_HEIGHT" | "HEIGHT" | "TRUNCATE";
+export type RawTextHorizontalAlignment = "LEFT" | "CENTER" | "RIGHT" | "JUSTIFIED";
+export type RawTextVerticalAlignment = "TOP" | "CENTER" | "BOTTOM";
+export type RawTextTruncation = "DISABLED" | "ENDING";
 
 export interface RawTextRun {
   start_utf16: number;
@@ -218,8 +242,15 @@ export type RawComponentRole = "COMPONENT" | "INSTANCE";
 export type RawComponentValue =
   | { kind: "VARIANT"; value: string }
   | { kind: "TEXT"; value: string }
+  | { kind: "BOUND_TEXT"; value: RawBoundValue<string> }
   | { kind: "BOOLEAN"; value: boolean }
+  | { kind: "BOUND_BOOLEAN"; value: RawBoundValue<boolean> }
   | { kind: "INSTANCE_SWAP"; value: string };
+
+export interface RawComponentPropertyReferences {
+  visible?: string;
+  characters?: string;
+}
 
 export interface RawOverride {
   node_id: string;
@@ -298,8 +329,35 @@ export interface RawNode {
   style: RawStyle;
   text?: RawText;
   component?: RawComponentMetadata;
+  component_property_references?: RawComponentPropertyReferences;
   reactions: RawReaction[];
   children: RawNode[];
+}
+
+export interface ExtractionTraversalChunk {
+  index: number;
+  start_node_index: number;
+  end_node_index: number;
+  node_count: number;
+  first_node_id: string;
+  last_node_id: string;
+}
+
+export interface ExtractionTraversalRoot {
+  id: string;
+  node_count: number;
+  complete: boolean;
+}
+
+export interface ExtractionManifest {
+  capabilities: string[];
+  traversal: {
+    chunk_node_limit: number;
+    node_count: number;
+    complete: boolean;
+    chunks: ExtractionTraversalChunk[];
+    roots: ExtractionTraversalRoot[];
+  };
 }
 
 export interface ExtractionBundle {
@@ -310,11 +368,36 @@ export interface ExtractionBundle {
   components: RawComponent[];
   assets: RawAsset[];
   extraction_diagnostics: ExtractionDiagnostic[];
+  extraction_manifest?: ExtractionManifest;
   rest_snapshot?: JsonValue;
 }
 
 export interface CompilerResponse {
   code?: string;
+  diagnostic_groups?: DiagnosticGroup[];
   diagnostics?: ExtractionDiagnostic[];
   error?: string;
+}
+
+export interface DiagnosticGroup {
+  severity: ExtractionDiagnostic["severity"];
+  code: string;
+  property_path?: string;
+  selected_root_id?: string;
+  count: number;
+  samples: DiagnosticSample[];
+}
+
+export interface DiagnosticSample {
+  node_id?: string;
+  message: string;
+  help?: string;
+}
+
+export interface BridgeExportResponse {
+  path: string;
+  byte_length: number;
+  sha256: string;
+  complete: boolean;
+  traversal_complete: boolean | null;
 }

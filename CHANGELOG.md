@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented in this file.
 
+## Unreleased
+
+### Changed
+
+- Enterprise extended variable collection contexts now fail closed with
+  node/property-scoped `FR-TOKEN-MODE-005` before alias or value resolution;
+  schema v2 continues to support standard collection mode contexts only.
+
 ## [0.3.1] - 2026-08-27
 
 ### Added

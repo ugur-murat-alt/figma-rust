@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "assets": [
+    {
+      "id": "checker",
+      "source_node_id": "16:fit",
+      "media_type": "image/png",
+      "content_hash": "synthetic-checker-4x4",
+      "export_settings": {},
+      "file_name": "asset-636865636b6572.png",
+      "cache_key": "4626e9afd3b0fbf1743467663ee40e5f6514e60eb46e3ffcdc4d3949f7b4c920",
+      "payload_available": true
+    }
+  ]
+}

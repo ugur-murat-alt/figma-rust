@@ -21,14 +21,11 @@ where
 {
     let _ = tokens;
     let _ = assets;
-    gpui::svg()
-        .external_path(
+    gpui::img(
             figma_gpui_runtime::AssetResolver::asset_path(
-                    assets,
-                    "asset-6e6f64653a31333a313a737667.svg",
-                )
-                .to_string_lossy()
-                .into_owned(),
+                assets,
+                "asset-6e6f64653a31333a313a737667.svg",
+            ),
         )
         .debug_selector(|| figma_gpui_runtime::source_selector(0usize))
         .relative()

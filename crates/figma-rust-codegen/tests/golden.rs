@@ -50,6 +50,33 @@ fn asset_fallback_document() -> DesignDocument {
     }
 }
 
+fn child_alignment_document() -> DesignDocument {
+    let normalized = parse_and_normalize(include_str!(
+        "../../../fixtures/child-alignment/extraction.json"
+    ));
+    match normalized {
+        Ok(output) if !output.has_errors() => output.document,
+        Ok(output) => panic!(
+            "child alignment fixture must normalize without errors: {:?}",
+            output.diagnostics
+        ),
+        Err(error) => panic!("child alignment fixture must parse: {error}"),
+    }
+}
+
+fn image_crop_document() -> DesignDocument {
+    let normalized =
+        parse_and_normalize(include_str!("../../../fixtures/image-crop/extraction.json"));
+    match normalized {
+        Ok(output) if !output.has_errors() => output.document,
+        Ok(output) => panic!(
+            "image crop fixture must normalize without errors: {:?}",
+            output.diagnostics
+        ),
+        Err(error) => panic!("image crop fixture must parse: {error}"),
+    }
+}
+
 #[test]
 fn generated_rust_matches_golden_and_is_byte_deterministic() {
     let first = match generate(&basic_document()) {
@@ -113,5 +140,46 @@ fn asset_fallback_rust_and_source_map_match_fresh_generation() {
     match expected_map {
         Ok(expected_map) => assert_eq!(output.source_map, expected_map),
         Err(error) => panic!("asset fallback source map must deserialize: {error}"),
+    }
+}
+
+#[test]
+fn child_alignment_rust_and_source_map_match_fresh_generation() {
+    let output = match generate(&child_alignment_document()) {
+        Ok(output) => output,
+        Err(error) => panic!("child alignment fixture must generate: {error}"),
+    };
+    let expected_map = serde_json::from_str::<SourceMap>(include_str!(
+        "../../../fixtures/child-alignment/generated/source-map.json"
+    ));
+
+    assert_eq!(
+        output.rust,
+        include_str!("../../../fixtures/child-alignment/generated/generated.rs")
+    );
+    match expected_map {
+        Ok(expected_map) => assert_eq!(output.source_map, expected_map),
+        Err(error) => panic!("child alignment source map must deserialize: {error}"),
+    }
+}
+
+#[test]
+fn image_crop_rust_and_source_map_match_fresh_generation() {
+    let output = generate(&image_crop_document()).expect("image crop fixture must generate");
+    let expected_map = serde_json::from_str::<SourceMap>(include_str!(
+        "../../../fixtures/image-crop/generated/source-map.json"
+    ));
+
+    assert_eq!(
+        output.rust,
+        include_str!("../../../fixtures/image-crop/generated/generated.rs")
+    );
+    assert!(output.rust.contains("object_fit(gpui::ObjectFit::Contain)"));
+    assert!(output.rust.contains("object_fit(gpui::ObjectFit::Cover)"));
+    assert!(output.rust.contains(".left(gpui::px(-50f32))"));
+    assert!(output.rust.contains(".top(gpui::px(-10f32))"));
+    match expected_map {
+        Ok(expected_map) => assert_eq!(output.source_map, expected_map),
+        Err(error) => panic!("image crop source map must deserialize: {error}"),
     }
 }

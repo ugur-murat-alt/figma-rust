@@ -42,12 +42,17 @@ do not hide current Linux screenshot or advanced-effect limitations.
 
 - [x] Create the Cargo workspace and `figma-rust-core` crate.
 - [x] Define versioned raw extraction types with extension/unknown-field retention.
+- [x] Traverse selections beyond 2,000 nodes in deterministic bounded chunks and
+  retain root/subtree completeness in the extraction manifest.
 - [x] Define target-neutral Design IR and stable JSON serialization.
 - [x] Implement schema/hierarchy validation and finite-number checks.
 - [x] Implement schema-v2 variable/token binding with full consumer mode context,
   multi-mode values, and literal fallback resolution.
 - [x] Implement UTF-16-safe mixed text normalization.
-- [x] Implement parent-aware HUG/FILL/FIXED and min/max normalization.
+- [x] Type text auto-resize, alignment, truncation, and max-line metadata; retain
+  unsupported paragraph/list/leading-trim/wrap properties with property-scoped diagnostics.
+- [x] Implement parent-aware HUG/FILL/FIXED, min/max, and per-child counter-axis
+  alignment normalization.
 - [x] Implement stack, grid, absolute, constraints, clipping, and scroll passes.
 - [x] Implement style/effect normalization and asset-decision diagnostics.
 - [x] Preserve component set, variant, property, instance, and override metadata.
@@ -64,12 +69,15 @@ node-scoped diagnostics.
 
 - [x] Create `figma-rust-codegen` with `proc_macro2`, `quote`, `syn`, and
   `prettyplease`.
-- [x] Lower fixed/HUG/FILL stacks, absolute nodes, text, solid fills, per-edge
-  borders, independent radii, opacity, and shadows to verified GPUI APIs.
+- [x] Lower fixed/HUG/FILL stacks, child counter-axis overrides, absolute nodes,
+  text, solid fills, per-edge borders, independent radii, opacity, and shadows to
+  verified GPUI APIs.
 - [ ] Lower simple grids to verified GPUI APIs.
 - [x] Generate stable per-node functions and required imports.
-- [x] Generate context-aware color and number token access with literal fallback;
-  modeled number paths are gap, padding, radii, stroke widths, and text size.
+- [x] Generate context-aware color, number, string, and boolean token access with
+  literal fallback; modeled number paths are dimensions/min-max, gap, padding,
+  radii, stroke widths, and text size, while string/boolean consumers are bounded
+  to component TEXT `characters` and BOOLEAN `visible` references.
 - [ ] Generate component call/fallback forms.
 - [ ] Generate action contracts without application behavior.
 - [x] Generate Figma ID -> Rust symbol/line sidecar map.
@@ -87,9 +95,13 @@ compiles against the pinned upstream; no string-concatenated Rust syntax remains
   metadata helpers.
 - [ ] Add mixed-track grid primitive only if native/nested lowering cannot match
   fixtures.
-- [ ] Add exact image crop/fit helper.
-- [ ] Add stroke alignment, richer gradient, transform, and mixed-text helpers one
-  at a time, each gated by a minimal fixture.
+- [x] Lower FIT/FILL and fixed-size axis-aligned CROP image paints with explicit
+  clipping, focal offset, opacity, and unsupported-detail diagnostics.
+- [x] Fold bounded positive uniform subtree scale/translation into generated
+  geometry, with center/top-left fixtures and explicit rejection outside the
+  proven contract.
+- [ ] Add stroke alignment, richer gradient, and mixed-text helpers one at a time,
+  each gated by a minimal fixture.
 - [ ] Keep arbitrary masks/effects on SVG/raster paths until a tested primitive
   exists.
 
@@ -100,11 +112,19 @@ render fixture; runtime contains no controls or application state.
 
 - [x] Implement `figma-rust inspect` for tree/capability summaries.
 - [x] Implement `figma-rust lint` with text/JSON diagnostics and strict mode.
+- [x] Add deterministic blocker-first diagnostic groups by severity, code,
+  property, and selected root, with bounded samples and explicit
+  `--diagnostics full|grouped` human output.
 - [x] Implement `figma-rust compile` for IR, Rust, source maps, and diagnostics.
+- [x] Publish hash-addressed immutable artifact generations behind one validated
+  atomic current-generation pointer, with pending-journal crash recovery and a
+  backward-compatible flat projection.
 - [x] Add compile-time asset manifest output with locked, staged SVG/PNG payload
   publication and handled-failure rollback.
 - [x] Implement `figma-rust verify` for geometry and image reports.
 - [x] Implement loopback-only `figma-rust serve` with bounded JSON requests.
+- [x] Add an opt-in fixed-path loopback export with exact byte/hash/completion
+  reporting and atomic replacement after schema-v2 validation.
 - [x] Create Figma plugin manifest and a TypeScript extractor that preserves
   multi-mode variables plus modeled numeric bindings.
 - [x] Add selection diagnostics UI and JSON export.
@@ -122,11 +142,19 @@ service; Codegen callback performs no Cargo/render work and respects the deadlin
   reference image, fonts, and thresholds.
 - [x] Add deterministic GPUI test-support geometry capture.
 - [x] Add hierarchy/bounds/clipping comparison.
-- [ ] Add derived spacing and alignment comparison.
+- [x] Add derived spacing and alignment comparison with source-node pairs and
+  fail-closed ambiguous-axis diagnostics.
 - [x] Add PNG color/edge/perceptual comparison.
-- [ ] Add node-scoped pixel difference reporting.
-- [x] Add compositor-backed Linux capture harness and record its limitation.
-- [ ] Add macOS headless capture job when a macOS runner is available.
+- [x] Add bounded node-scoped pixel difference reporting at a proven 1:1
+  geometry/image scale while retaining global metrics.
+- [x] Add compositor-backed Linux capture harness, including a repository-owned
+  GNOME Wayland adapter and a fail-closed Computer Use portal fallback.
+- [x] Add macOS headless capture job with two-run image, verifier, renderer,
+  scale, OS, architecture, and toolchain evidence. The pinned GPUI test window
+  fixes device scale at 2 and uses an opaque black target, so the no-text
+  canonical 100x60 fixture is verified as a raw 200x120 Metal image against an
+  integer nearest-scaled black-composited reference; scale 1 and transparent
+  Metal readback remain explicitly unclaimed.
 - [ ] Build fixtures for horizontal, vertical, nested, HUG/FILL/FIXED, simple and
   mixed grid, absolute, min/max, text/multiline/mixed text, border/radius,
   opacity/shadow/gradient, clipping/transform, SVG/image, components/variants,
@@ -143,22 +171,43 @@ portal at scale 1, and reconstructs straight-alpha RGBA before atomic publicatio
 `verify.image.json` passes at zero tolerance with MAE 0, changed-pixel ratio 0,
 edge error 0, and SSIM 1. Pinned GPUI still returns
 `render_to_image not implemented for this platform`; the checked-in probe retains
-that failure path while `/capture-linux` supplies a repeatable Computer Use
-fallback. The Rust capture binary exposes explicit display, validated data-URL
-ingest, reconstruction, and provenance-finalization modes; malformed or mismatched
-capture evidence fails before artifact publication.
+that failure path. On GNOME Wayland, `scripts/capture-linux-first-party.sh`
+targets the ready fixture process and uses `gnome-screenshot` without Computer
+Use. `/capture-linux` remains the portal fallback for other desktops. Both paths
+use the Rust binary's validated data-URL ingest, reconstruction, and
+provenance-finalization modes; malformed or mismatched capture evidence fails
+before artifact publication.
 
 Exit criterion: every implemented capability has a fixture and a regression can
 name the differing Figma node. Compile-only success is insufficient.
 
 ## M6: Hardening and release readiness
 
-- [ ] Add schema compatibility policy and extraction fingerprinting.
-- [ ] Add asset cache invalidation and deterministic content addressing.
+- [x] Add deterministic candidate-GPUI qualification for generated API compile,
+  runtime helpers, geometry, pixels, capture capability, and migration bindings.
+- [x] Add schema compatibility policy and privacy-safe canonical extraction fingerprinting.
+- [x] Add asset cache invalidation and deterministic content addressing. Decoded
+  bytes, media type, and sorted export settings form the cache key; exact assets
+  share verified blobs across immutable generations, stale unreachable blobs are
+  collected with bounded compiler-owned cleanup, and flat projections cannot
+  mutate linked cache content. The sanitized `fixtures/asset-cache` pair proves
+  duplicate IDs, one changed payload, repeat-run determinism, and fail-closed
+  cache tamper handling.
+- [x] Add explicit root-scoped compilation without weakening strict default
+  behavior. The sanitized `fixtures/root-scoped` bundle proves one isolated
+  success, one node-scoped normalization failure, one unsupported Runtime route,
+  shared token/asset dependencies, deterministic status/generation IDs, and safe
+  strict/root-scoped mode transitions.
+- [x] Add a versioned usage-led capability profile and deterministic inventory.
+  `orbitline-minimal-v1` keeps the existing default compile compatible, gates only
+  explicit profiled compiles, and quarantines unused REST/Code Connect/grid/media/
+  effect/action routes with `FR-PROFILE-*` diagnostics.
 - [ ] Add REST importer with lower-fidelity diagnostics.
 - [ ] Add optional Code Connect template adapter without making it mandatory.
 - [ ] Add license inventory and release packaging.
-- [ ] Add Windows render evidence and font/DPI matrix.
+- [x] Add fail-closed Windows render, input, Segoe UI font, GPU, and
+  100%/125%/150% DPI evidence workflow with exact geometry and a bounded,
+  hash-bound two-run grayscale-text pixel comparison.
 - [ ] Define strict fidelity thresholds per fixture class and platform.
 
 ## Continuous feature loop
@@ -182,11 +231,13 @@ Every feature follows this gate before its checkbox becomes complete:
 
 - Extraction schema v2 is an explicit compatibility boundary; v1 bundles must be
   re-extracted or migrated. They remain readable only to emit `FR-SCHEMA-001`.
-- Enterprise extended-variable-collection overrides are not yet covered by a
-  public fixture; current verified mode handling covers standard collections and
-  cross-collection alias chains.
+- Enterprise extended-variable-collection overrides are detected from the
+  consumer mode context and rejected before alias/value resolution with
+  node/property-scoped `FR-TOKEN-MODE-005`. Schema v2 does not claim override
+  lineage until a real Enterprise fixture proves inherited and overridden values.
 - Linux headless pixel rendering is not supplied by pinned GPUI; a compositor is
-  required for pixel artifacts.
+  required for pixel artifacts. GNOME Wayland has a repository-owned adapter;
+  other desktops still require the external portal fallback.
 - Exact font pixels are platform-dependent; geometry and text envelopes are
   first-class metrics.
 - Figma Codegen has a 15-second deadline; full verification cannot run there.

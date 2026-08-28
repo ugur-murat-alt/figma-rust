@@ -55,6 +55,14 @@ pub trait TokenResolver {
     fn boolean(&self, _token: &str, fallback: bool) -> bool {
         fallback
     }
+
+    fn string_with_context(&self, context: TokenContext<'_>, fallback: &str) -> String {
+        self.string(context.id, fallback)
+    }
+
+    fn boolean_with_context(&self, context: TokenContext<'_>, fallback: bool) -> bool {
+        self.boolean(context.id, fallback)
+    }
 }
 
 /// A resolver that always uses the literal value extracted from Figma.
@@ -130,6 +138,8 @@ mod tests {
         };
         assert_eq!(tokens.color_with_context(context, color), color);
         assert!((tokens.number_with_context(context, 8.0) - 8.0).abs() < f32::EPSILON);
+        assert_eq!(tokens.string_with_context(context, "Label"), "Label");
+        assert!(tokens.boolean_with_context(context, true));
     }
 
     #[test]

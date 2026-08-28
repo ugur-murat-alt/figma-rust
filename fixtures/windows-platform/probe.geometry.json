@@ -1,0 +1,17 @@
+{
+  "capture": {
+    "engine": "windows-gpui-platform-probe",
+    "gpui_revision": "5631830c564afa89b3aba679f45d9c3345f9460f",
+    "selectors": { "windows-probe": "figma-rust-windows-probe" }
+  },
+  "viewport": [160.0, 80.0],
+  "nodes": {
+    "windows-probe": {
+      "parent": null,
+      "sibling_index": 0,
+      "bounds": { "x": 0.0, "y": 0.0, "width": 160.0, "height": 80.0 },
+      "clipped": false,
+      "text_bounds": null
+    }
+  }
+}

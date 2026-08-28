@@ -33,10 +33,13 @@ jobs:
             mkdir -p "$dir"
             cp fixtures/real-figma/reference.geometry.json "$dir/"
             cp fixtures/real-figma/actual.geometry.json "$dir/"
-            cp fixtures/real-figma/reference.png "$dir/"
             cp fixtures/real-figma/verify.image.json "$dir/"
             target/debug/capture-real-group --headless "$dir/actual.png" \
               >"$dir/capture.json"
+            scale="$(jq -er '.scale | select(. == 1 or . == 2)' "$dir/capture.json")"
+            target/debug/capture-real-group --scale-reference \
+              fixtures/real-figma/reference.png "$dir/reference.png" "$scale" \
+              >"$dir/reference-scale.json"
             target/debug/figma-rust verify "$dir/verify.image.json" --json \
               >"$dir/verify.json"
             jq -e '.passed == true' "$dir/verify.json"
@@ -45,12 +48,18 @@ jobs:
               --arg architecture "$(uname -m)" \
               --arg os_version "$(sw_vers -productVersion)" \
               --arg rustc "$(rustc --version)" \
+              --argjson scale "$scale" \
+              --argjson device_width "$(jq -er '.width' "$dir/capture.json")" \
+              --argjson device_height "$(jq -er '.height' "$dir/capture.json")" \
+              --arg reference_sha "$(shasum -a 256 "$dir/reference.png" | cut -d' ' -f1)" \
               --arg image_sha "$(shasum -a 256 "$dir/actual.png" | cut -d' ' -f1)" \
               --arg verify_sha "$(shasum -a 256 "$dir/verify.json" | cut -d' ' -f1)" \
               '{schema_version:1,platform:$platform,architecture:$architecture,
                 os_version:$os_version,rustc:$rustc,gpui_revision:"5631830c564afa89b3aba679f45d9c3345f9460f",
                 renderer:"gpui-platform-headless",font_profile:"no-text",
-                logical_size:{width:100,height:60},scale:1,
+                logical_size:{width:100,height:60},
+                device_size:{width:$device_width,height:$device_height},scale:$scale,
+                reference_scaling:"nearest",background:"black",reference_sha256:$reference_sha,
                 image_sha256:$image_sha,verifier_report_sha256:$verify_sha,passed:true}' \
               >"$dir/platform-evidence.json"
           done

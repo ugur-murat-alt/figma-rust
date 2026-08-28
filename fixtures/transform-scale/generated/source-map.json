@@ -1,0 +1,14 @@
+{
+  "nodes": {
+    "15:center": {
+      "symbol": "node_0000",
+      "start_line": 10,
+      "end_line": 25
+    },
+    "15:top-left": {
+      "symbol": "node_0001",
+      "start_line": 27,
+      "end_line": 40
+    }
+  }
+}
