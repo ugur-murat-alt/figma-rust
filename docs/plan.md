@@ -194,6 +194,10 @@ name the differing Figma node. Compile-only success is insufficient.
   success, one node-scoped normalization failure, one unsupported Runtime route,
   shared token/asset dependencies, deterministic status/generation IDs, and safe
   strict/root-scoped mode transitions.
+- [x] Add a versioned usage-led capability profile and deterministic inventory.
+  `orbitline-minimal-v1` keeps the existing default compile compatible, gates only
+  explicit profiled compiles, and quarantines unused REST/Code Connect/grid/media/
+  effect/action routes with `FR-PROFILE-*` diagnostics.
 - [ ] Add REST importer with lower-fidelity diagnostics.
 - [ ] Add optional Code Connect template adapter without making it mandatory.
 - [ ] Add license inventory and release packaging.

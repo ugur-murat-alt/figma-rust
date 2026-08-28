@@ -10,8 +10,9 @@ use std::{
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use figma_rust_codegen::{CodegenError, GeneratedOutput};
 use figma_rust_core::{
-    Diagnostic, ExtractionFingerprint, NormalizationOutput, SchemaCompatibility, Severity,
-    extraction_fingerprint, normalize_bundle, parse_bundle, schema_compatibility,
+    CapabilityProfileReport, Diagnostic, ExtractionFingerprint, NormalizationOutput,
+    SchemaCompatibility, Severity, evaluate_capability_profile, extraction_fingerprint,
+    normalize_bundle, parse_bundle, schema_compatibility,
 };
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
@@ -358,6 +359,21 @@ pub fn lint_file(path: &Path) -> Result<LintReport, CliError> {
     Ok(lint_bundle(&bundle))
 }
 
+pub fn profile_file(path: &Path, profile_id: &str) -> Result<CapabilityProfileReport, CliError> {
+    let bundle = read_bundle(path)?;
+    profile_bundle(&bundle, profile_id)
+}
+
+fn profile_bundle(
+    bundle: &figma_rust_core::raw::ExtractionBundle,
+    profile_id: &str,
+) -> Result<CapabilityProfileReport, CliError> {
+    evaluate_capability_profile(bundle, profile_id).map_err(|source| CliError::Serialize {
+        label: "capability profile report",
+        source,
+    })
+}
+
 fn lint_bundle(bundle: &figma_rust_core::raw::ExtractionBundle) -> LintReport {
     let normalization = normalize_bundle(bundle);
     let diagnostics = normalization.diagnostics;
@@ -370,6 +386,23 @@ fn lint_bundle(bundle: &figma_rust_core::raw::ExtractionBundle) -> LintReport {
 
 pub fn compile_file(path: &Path, output_directory: &Path) -> Result<CompileResult, CliError> {
     let bundle = read_bundle(path)?;
+    compile_bundle(&bundle, output_directory)
+}
+
+pub fn compile_file_with_profile(
+    path: &Path,
+    output_directory: &Path,
+    profile_id: &str,
+) -> Result<CompileResult, CliError> {
+    let bundle = read_bundle(path)?;
+    let profile = profile_bundle(&bundle, profile_id)?;
+    if !profile.passed {
+        invalidate_outputs(output_directory)?;
+        return Ok(CompileResult {
+            diagnostics: profile.diagnostics,
+            error: Some("capability profile failed".to_owned()),
+        });
+    }
     compile_bundle(&bundle, output_directory)
 }
 
@@ -1759,15 +1792,19 @@ mod tests {
 
     use super::{
         ARTIFACT_NAMES, ASSET_MANIFEST_JSON, ArtifactLock, GENERATED_RUST, ROOT_STATUS_JSON,
-        RootCompileStatus, compile_file, compile_file_root_scoped, compile_source, inspect_bundle,
-        lint_source, output_artifacts, parse_bundle, prepare_publish, publish_outputs_with,
-        stage_outputs, work_path,
+        RootCompileStatus, compile_file, compile_file_root_scoped, compile_file_with_profile,
+        compile_source, inspect_bundle, lint_source, output_artifacts, parse_bundle,
+        prepare_publish, profile_bundle, publish_outputs_with, stage_outputs, work_path,
     };
 
     const BASIC: &str = include_str!("../../figma-rust-core/tests/fixtures/basic.raw.json");
     const BASIC_V1: &str = include_str!("../../figma-rust-core/tests/fixtures/basic.v1.raw.json");
     const DIAGNOSTIC_GROUPS: &str =
         include_str!("../../../fixtures/diagnostic-groups/extraction.json");
+    const CAPABILITY_PROFILE: &str =
+        include_str!("../../../fixtures/capability-profile/extraction.json");
+    const CAPABILITY_PROFILE_REPORT: &str =
+        include_str!("../../../fixtures/capability-profile/orbitline-minimal-v1.report.json");
 
     #[test]
     fn inspect_is_deterministic_and_counts_preorder_tree() -> Result<(), Box<dyn std::error::Error>>
@@ -1781,6 +1818,45 @@ mod tests {
         assert!(first.contains("\"value\":"));
         assert!(first.contains("\"node_count\": 1"));
         assert!(first.contains("\"id\": \"1:1\""));
+        Ok(())
+    }
+
+    #[test]
+    fn capability_profile_report_and_compile_gate_are_deterministic_and_fail_closed()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let bundle = parse_bundle(CAPABILITY_PROFILE)?;
+        let first = profile_bundle(&bundle, figma_rust_core::ORBITLINE_MINIMAL_PROFILE_V1)?;
+        let second = profile_bundle(&bundle, figma_rust_core::ORBITLINE_MINIMAL_PROFILE_V1)?;
+        assert_eq!(
+            serde_json::to_vec_pretty(&first)?,
+            serde_json::to_vec_pretty(&second)?
+        );
+        assert!(first.passed);
+        assert_eq!(super::pretty_json(&first)?, CAPABILITY_PROFILE_REPORT);
+
+        let base = unique_test_path("capability-profile");
+        fs::create_dir_all(&base)?;
+        let raw = base.join("raw.json");
+        let out = base.join("out");
+        fs::write(&raw, CAPABILITY_PROFILE)?;
+        let success =
+            compile_file_with_profile(&raw, &out, figma_rust_core::ORBITLINE_MINIMAL_PROFILE_V1)?;
+        assert!(success.error.is_none(), "{:?}", success.diagnostics);
+        assert!(out.join(GENERATED_RUST).is_file());
+
+        let mut quarantined = serde_json::from_str::<serde_json::Value>(CAPABILITY_PROFILE)?;
+        quarantined["rest_snapshot"] = serde_json::json!({"document": "redacted"});
+        fs::write(&raw, serde_json::to_vec_pretty(&quarantined)?)?;
+        let failure =
+            compile_file_with_profile(&raw, &out, figma_rust_core::ORBITLINE_MINIMAL_PROFILE_V1)?;
+        assert_eq!(failure.error.as_deref(), Some("capability profile failed"));
+        assert!(failure.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "FR-PROFILE-002"
+                && diagnostic.property_path.as_deref() == Some("rest_snapshot")
+        }));
+        assert!(!out.join(GENERATED_RUST).exists());
+
+        fs::remove_dir_all(base)?;
         Ok(())
     }
 

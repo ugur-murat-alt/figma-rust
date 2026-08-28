@@ -31,7 +31,7 @@ The initial workspace uses four Rust crates and one TypeScript plugin:
 | `figma-rust-core` | Raw model, Design IR, parent-aware normalization, diagnostics, token/component metadata, asset decisions. No Figma or GPUI dependency. |
 | `figma-rust-codegen` | GPUI target lowering, component mappings, Rust token/AST generation, deterministic formatting, source-map production. Depends on core, not GPUI. |
 | `figma-gpui-runtime` | Only proven missing GPUI primitives, token/component contracts, source metadata, and test helpers. Depends on pinned GPUI core only. |
-| `figma-rust-cli` | `inspect`, `lint`, `compile`, `verify`, and localhost `serve`; file/asset orchestration and exit codes. |
+| `figma-rust-cli` | `inspect`, `lint`, `profile`, `compile`, `verify`, and localhost `serve`; file/asset orchestration and exit codes. |
 | `plugin/` | Figma selection extraction, diagnostics UI/export, and Dev Mode Codegen bridge. |
 
 Shared manifests, GPUI pins, schemas, and fixture contracts are owned centrally.
@@ -95,6 +95,23 @@ private source values that were hashed.
 A direct REST-to-Raw-Model importer is planned but not implemented. The plugin
 can retain an optional `rest_snapshot` for provenance; current CLI commands
 consume the extraction bundle emitted by the plugin.
+
+### Usage-led capability profiles
+
+Capability profile report schema v1 inventories sorted extraction-manifest
+capabilities against one explicit versioned local policy. The initial
+`orbitline-minimal-v1` profile requires bounded schema-v2 extraction, component
+metadata, modeled bound dimensions, child alignment, and typed text metadata;
+asset payload export is optional. REST snapshot/import, Code Connect, mixed grid,
+media/pattern/shader paints, action contracts, and custom effects are quarantined.
+
+`figma-rust profile ... --profile orbitline-minimal-v1` emits the deterministic
+used/unused matrix and privacy-safe extraction fingerprint. `figma-rust compile
+... --profile orbitline-minimal-v1` runs the same gate before normalization.
+Missing required capabilities use `FR-PROFILE-001`, present quarantined routes use
+`FR-PROFILE-002`, and undeclared manifest capabilities or bundle-level extension
+fields use `FR-PROFILE-003`. The default compile path remains unchanged; adding or
+removing policy requires a new profile ID instead of silently widening v1.
 
 ### Design IR
 

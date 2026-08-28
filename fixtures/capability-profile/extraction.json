@@ -1,0 +1,60 @@
+{
+  "schema_version": 2,
+  "source": {
+    "extractor": "figma-rust-plugin",
+    "extractor_version": "0.3.0",
+    "plugin_api_version": "1.135.0",
+    "page_id": "25:1",
+    "selected_node_ids": ["25:2"]
+  },
+  "roots": [
+    {
+      "id": "25:2",
+      "name": "Sanitized Core Controls",
+      "kind": "FRAME",
+      "size": {
+        "width": 320.0,
+        "height": 180.0,
+        "horizontal": "FIXED",
+        "vertical": "FIXED"
+      }
+    }
+  ],
+  "variables": [],
+  "components": [],
+  "assets": [],
+  "extraction_diagnostics": [],
+  "extraction_manifest": {
+    "capabilities": [
+      "asset-payload-export",
+      "bound-component-properties",
+      "bounded-traversal",
+      "child-counter-alignment",
+      "modeled-bound-dimensions",
+      "schema-v2",
+      "typed-text-layout"
+    ],
+    "traversal": {
+      "chunk_node_limit": 2000,
+      "node_count": 1,
+      "complete": true,
+      "chunks": [
+        {
+          "index": 0,
+          "start_node_index": 0,
+          "end_node_index": 0,
+          "node_count": 1,
+          "first_node_id": "25:2",
+          "last_node_id": "25:2"
+        }
+      ],
+      "roots": [
+        {
+          "id": "25:2",
+          "node_count": 1,
+          "complete": true
+        }
+      ]
+    }
+  }
+}

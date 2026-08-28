@@ -25,6 +25,20 @@ impl DiagnosticDetail {
     }
 }
 
+#[derive(Clone, Copy, Debug, ValueEnum)]
+enum CapabilityProfileArg {
+    /// Minimal usage-led profile for the bounded OrbitLine/Core Controls path.
+    OrbitlineMinimalV1,
+}
+
+impl CapabilityProfileArg {
+    const fn id(self) -> &'static str {
+        match self {
+            Self::OrbitlineMinimalV1 => figma_rust_core::ORBITLINE_MINIMAL_PROFILE_V1,
+        }
+    }
+}
+
 #[derive(Debug, Parser)]
 #[command(
     name = "figma-rust",
@@ -65,6 +79,17 @@ enum Command {
         #[arg(long, value_enum, default_value_t)]
         diagnostics: DiagnosticDetail,
     },
+    /// Inventory advertised capabilities against a versioned local profile.
+    Profile {
+        /// Raw extraction bundle JSON.
+        raw: PathBuf,
+        /// Explicit versioned capability profile.
+        #[arg(long, value_enum)]
+        profile: CapabilityProfileArg,
+        /// Emit the machine-readable report.
+        #[arg(long)]
+        json: bool,
+    },
     /// Normalize and generate deterministic GPUI Rust artifacts.
     Compile {
         /// Raw extraction bundle JSON.
@@ -75,6 +100,9 @@ enum Command {
         /// Compile each selected root independently and publish root-status.json.
         #[arg(long)]
         root_scoped: bool,
+        /// Fail before normalization when the bundle violates this capability profile.
+        #[arg(long, value_enum, conflicts_with = "root_scoped")]
+        profile: Option<CapabilityProfileArg>,
     },
     /// Run the loopback-only compiler bridge used by the Figma plugin.
     Serve {
@@ -149,11 +177,35 @@ fn run(cli: Cli) -> Result<ExitCode, compiler::CliError> {
                 ExitCode::SUCCESS
             })
         }
+        Command::Profile { raw, profile, json } => {
+            let report = compiler::profile_file(&raw, profile.id())?;
+            if json {
+                print!("{}", compiler::pretty_json(&report)?);
+            } else {
+                println!(
+                    "profile {}: {}; {} used, {} unused, {} violation(s)",
+                    report.profile_id,
+                    if report.passed { "passed" } else { "failed" },
+                    report.summary.used,
+                    report.summary.unused,
+                    report.summary.violations
+                );
+                for diagnostic in &report.diagnostics {
+                    eprintln!("{}", compiler::format_diagnostic(diagnostic));
+                }
+            }
+            Ok(if report.passed {
+                ExitCode::SUCCESS
+            } else {
+                ExitCode::from(1)
+            })
+        }
         Command::Compile {
             raw,
             out,
             root_scoped,
-        } => run_compile(&raw, &out, root_scoped),
+            profile,
+        } => run_compile(&raw, &out, root_scoped, profile),
         Command::Serve {
             port,
             export,
@@ -186,7 +238,12 @@ fn run(cli: Cli) -> Result<ExitCode, compiler::CliError> {
     }
 }
 
-fn run_compile(raw: &Path, out: &Path, root_scoped: bool) -> Result<ExitCode, compiler::CliError> {
+fn run_compile(
+    raw: &Path,
+    out: &Path,
+    root_scoped: bool,
+    profile: Option<CapabilityProfileArg>,
+) -> Result<ExitCode, compiler::CliError> {
     if root_scoped {
         let report = compiler::compile_file_root_scoped(raw, out)?;
         for outcome in &report.roots {
@@ -209,7 +266,11 @@ fn run_compile(raw: &Path, out: &Path, root_scoped: bool) -> Result<ExitCode, co
             ExitCode::SUCCESS
         })
     } else {
-        let result = compiler::compile_file(raw, out)?;
+        let result = if let Some(profile) = profile {
+            compiler::compile_file_with_profile(raw, out, profile.id())?
+        } else {
+            compiler::compile_file(raw, out)?
+        };
         for diagnostic in &result.diagnostics {
             eprintln!("{}", compiler::format_diagnostic(diagnostic));
         }

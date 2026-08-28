@@ -73,4 +73,8 @@ pub mod codes {
     pub const SVG_FALLBACK: &str = "FR-ASSET-002";
     pub const RASTER_FALLBACK: &str = "FR-ASSET-003";
     pub const MISSING_ASSET: &str = "FR-ASSET-004";
+    pub const PROFILE_REQUIRED_MISSING: &str = "FR-PROFILE-001";
+    pub const PROFILE_QUARANTINED: &str = "FR-PROFILE-002";
+    pub const PROFILE_UNDECLARED: &str = "FR-PROFILE-003";
+    pub const PROFILE_UNKNOWN: &str = "FR-PROFILE-004";
 }
