@@ -110,14 +110,21 @@ $run1 = Capture-Probe 1
 $run2 = Capture-Probe 2
 $hash1 = (Get-FileHash $run1.png -Algorithm SHA256).Hash.ToLowerInvariant()
 $hash2 = (Get-FileHash $run2.png -Algorithm SHA256).Hash.ToLowerInvariant()
-if ($hash1 -ne $hash2) { throw 'Two Windows captures are not byte-identical' }
 $font = "$env:WINDIR\Fonts\segoeui.ttf"
 if (-not (Test-Path $font)) { throw "Segoe UI font file is missing: $font" }
 $video = @(Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name)
-$displayWidth = [NativeWindow]::GetSystemMetrics(0)
-$displayHeight = [NativeWindow]::GetSystemMetrics(1)
+$displayDpiContext = [NativeWindow]::SetThreadDpiAwarenessContext([IntPtr](-4))
+if ($displayDpiContext -eq [IntPtr]::Zero) { throw 'Could not enable physical display metrics' }
+try {
+    $displayWidth = [NativeWindow]::GetSystemMetrics(0)
+    $displayHeight = [NativeWindow]::GetSystemMetrics(1)
+} finally {
+    if ([NativeWindow]::SetThreadDpiAwarenessContext($displayDpiContext) -eq [IntPtr]::Zero) {
+        throw 'Could not restore the display metrics DPI awareness context'
+    }
+}
 $evidence = [ordered]@{
-    schema_version = 1
+    schema_version = 2
     platform = 'windows'
     dpi_percent = $DpiPercent
     window_dpi = $run1.dpi
@@ -128,7 +135,7 @@ $evidence = [ordered]@{
     font = [ordered]@{ family = 'Segoe UI'; path = $font; sha256 = (Get-FileHash $font -Algorithm SHA256).Hash.ToLowerInvariant() }
     gpu = $video
     input_smoke = [ordered]@{ run_1 = $run1.input; run_2 = $run2.input }
-    image_sha256 = $hash1
-    passed = $true
+    images = [ordered]@{ run_1_sha256 = $hash1; run_2_sha256 = $hash2; byte_identical = ($hash1 -eq $hash2) }
+    capture_passed = $true
 }
 $evidence | ConvertTo-Json -Depth 6 | Set-Content -Encoding utf8 (Join-Path $OutputDirectory 'windows-platform-evidence.json')

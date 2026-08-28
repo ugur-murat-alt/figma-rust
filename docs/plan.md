@@ -206,7 +206,8 @@ name the differing Figma node. Compile-only success is insufficient.
 - [ ] Add optional Code Connect template adapter without making it mandatory.
 - [ ] Add license inventory and release packaging.
 - [x] Add fail-closed Windows render, input, Segoe UI font, GPU, and
-  100%/125%/150% DPI evidence workflow with two-run pixel comparison.
+  100%/125%/150% DPI evidence workflow with exact geometry and a bounded,
+  hash-bound two-run grayscale-text pixel comparison.
 - [ ] Define strict fidelity thresholds per fixture class and platform.
 
 ## Continuous feature loop
