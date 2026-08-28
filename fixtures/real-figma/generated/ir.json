@@ -19,13 +19,17 @@
         "horizontal": {
           "sizing": {
             "kind": "FIXED",
-            "value": 100.0
+            "value": {
+              "fallback": 100.0
+            }
           }
         },
         "vertical": {
           "sizing": {
             "kind": "FIXED",
-            "value": 60.0
+            "value": {
+              "fallback": 60.0
+            }
           }
         }
       },
@@ -103,13 +107,17 @@
             "horizontal": {
               "sizing": {
                 "kind": "FIXED",
-                "value": 40.0
+                "value": {
+                  "fallback": 40.0
+                }
               }
             },
             "vertical": {
               "sizing": {
                 "kind": "FIXED",
-                "value": 30.0
+                "value": {
+                  "fallback": 30.0
+                }
               }
             }
           },
@@ -204,13 +212,17 @@
             "horizontal": {
               "sizing": {
                 "kind": "FIXED",
-                "value": 30.0
+                "value": {
+                  "fallback": 30.0
+                }
               }
             },
             "vertical": {
               "sizing": {
                 "kind": "FIXED",
-                "value": 20.0
+                "value": {
+                  "fallback": 20.0
+                }
               }
             }
           },

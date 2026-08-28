@@ -2100,6 +2100,31 @@ mod tests {
     }
 
     #[test]
+    fn checked_in_public_artifacts_match_fresh_compiles() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let fixtures_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../fixtures");
+        let base = unique_test_path("checked-in-artifacts");
+        fs::create_dir_all(&base)?;
+
+        for fixture_name in ["real-figma", "component-set-slot"] {
+            let fixture_dir = fixtures_root.join(fixture_name);
+            let out = base.join(fixture_name);
+            let result = compile_file(&fixture_dir.join("extraction.json"), &out)?;
+            assert!(result.error.is_none(), "{:?}", result.diagnostics);
+            for name in ARTIFACT_NAMES {
+                assert_eq!(
+                    fs::read(out.join(name))?,
+                    fs::read(fixture_dir.join("generated").join(name))?,
+                    "checked-in {fixture_name}/{name} drifted from fresh compilation"
+                );
+            }
+        }
+
+        fs::remove_dir_all(base)?;
+        Ok(())
+    }
+
+    #[test]
     fn root_scoped_compile_isolates_success_and_retains_each_failure()
     -> Result<(), Box<dyn std::error::Error>> {
         let base = unique_test_path("root-scoped");

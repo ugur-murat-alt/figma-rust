@@ -15,6 +15,11 @@ coordinates `(0, 0)` and `(70, 40)` before normalization.
 captured from this file. `extraction.json` is the corresponding versioned Raw
 Model fixture consumed by the CLI.
 
+`generated/` checks in the five public compiler artifacts: `generated.rs`,
+`source-map.json`, `ir.json`, `diagnostics.json`, and `asset-manifest.json`.
+The compiler's lock, generation store, cache, and current-generation pointer are
+transactional implementation details and are intentionally not fixture files.
+
 The bounds in `actual.geometry.json` are produced from GPUI's `test-support`
 layout pass, not from the Figma reference. Source IDs, hierarchy, and sibling
 indices are fixture metadata tied to the generated source map. The
