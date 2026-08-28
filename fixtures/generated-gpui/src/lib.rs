@@ -51,6 +51,14 @@ pub mod generated_transform_scale {
     ));
 }
 
+/// Output compiled from FIT/FILL/CROP image paint fixtures.
+pub mod generated_image_crop {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../image-crop/generated/generated.rs"
+    ));
+}
+
 /// Asset-backed generated output must not borrow its local resolvers.
 pub fn generated_asset_fallback_view() -> impl IntoElement {
     let assets = figma_gpui_runtime::DirectoryAssets::new(concat!(
@@ -242,6 +250,16 @@ mod tests {
     fn transform_scale_fixture_constructs_against_pinned_gpui() {
         let _ =
             super::generated_transform_scale::generated_view(&FallbackTokens).into_any_element();
+    }
+
+    #[test]
+    fn image_crop_fixture_constructs_against_pinned_gpui() {
+        let assets = DirectoryAssets::new(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../image-crop/generated"
+        ));
+        let _ = super::generated_image_crop::generated_view(&FallbackTokens, &assets)
+            .into_any_element();
     }
 
     #[gpui::test]

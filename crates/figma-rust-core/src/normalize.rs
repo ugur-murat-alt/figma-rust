@@ -726,6 +726,10 @@ impl Context<'_> {
             RawPaint::Image {
                 asset_id,
                 scale_mode,
+                image_transform,
+                opacity,
+                rotation,
+                has_filters,
             } => {
                 if !self.assets.contains(asset_id.as_str()) {
                     self.diagnostics.push(Diagnostic::node(
@@ -739,6 +743,15 @@ impl Context<'_> {
                 Paint::Image {
                     asset_id: asset_id.clone(),
                     scale_mode: *scale_mode,
+                    image_transform: image_transform.map(|transform| Transform {
+                        matrix: transform.matrix.map(|value| {
+                            self.finite_or_zero(raw, value, &format!("{path}.image_transform"))
+                        }),
+                    }),
+                    opacity: self.finite_in_range(raw, *opacity, 0.0, 1.0, path),
+                    rotation: rotation
+                        .map(|value| self.finite_or_zero(raw, value, &format!("{path}.rotation"))),
+                    has_filters: *has_filters,
                 }
             }
             RawPaint::Video => Paint::Unsupported {
@@ -1058,11 +1071,8 @@ impl Context<'_> {
                 continue;
             }
             match paint {
-                RawPaint::Solid { .. }
-                | RawPaint::Image {
-                    scale_mode: crate::raw::RawImageScaleMode::Fit,
-                    ..
-                } => {}
+                RawPaint::Solid { .. } => {}
+                RawPaint::Image { .. } if image_paint_is_native(paint) => {}
                 RawPaint::Gradient {
                     gradient_kind: crate::raw::RawGradientKind::Linear,
                     stops,
@@ -1460,6 +1470,39 @@ fn tracks_are_uniform(tracks: &[RawGridTrack]) -> bool {
         (RawGridTrack::Hug, RawGridTrack::Hug) => true,
         _ => false,
     })
+}
+
+fn axis_aligned_crop(matrix: [f64; 6]) -> bool {
+    let [scale_x, skew_y, skew_x, scale_y, translate_x, translate_y] = matrix;
+    matrix.iter().all(|value| value.is_finite())
+        && scale_x > 0.0
+        && scale_y > 0.0
+        && skew_x.abs() <= f64::EPSILON
+        && skew_y.abs() <= f64::EPSILON
+        && translate_x >= 0.0
+        && translate_y >= 0.0
+}
+
+fn image_paint_is_native(paint: &RawPaint) -> bool {
+    match paint {
+        RawPaint::Image {
+            scale_mode: crate::raw::RawImageScaleMode::Fit | crate::raw::RawImageScaleMode::Fill,
+            rotation,
+            has_filters: false,
+            ..
+        } => rotation.is_none_or(|rotation| rotation.abs() <= f64::EPSILON),
+        RawPaint::Image {
+            scale_mode: crate::raw::RawImageScaleMode::Crop,
+            image_transform: Some(transform),
+            rotation,
+            has_filters: false,
+            ..
+        } => {
+            rotation.is_none_or(|rotation| rotation.abs() <= f64::EPSILON)
+                && axis_aligned_crop(transform.matrix)
+        }
+        _ => false,
+    }
 }
 
 fn canonical_number_bits(value: f64) -> u64 {

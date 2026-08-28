@@ -444,6 +444,14 @@ pub enum RawPaint {
     Image {
         asset_id: String,
         scale_mode: RawImageScaleMode,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        image_transform: Option<RawTransform>,
+        #[serde(default = "default_opacity")]
+        opacity: f64,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        rotation: Option<f64>,
+        #[serde(default)]
+        has_filters: bool,
     },
     Video,
     Pattern,

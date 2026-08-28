@@ -6,7 +6,7 @@ use figma_rust_core::ir::{
 };
 use figma_rust_core::raw::{
     RawAsset, RawBoundValue, RawChildAlignment, RawColor, RawComponent, RawConstraint, RawLiteral,
-    RawVariable,
+    RawPaint, RawVariable,
 };
 use figma_rust_core::{
     ComponentMapping, ComponentRegistry, normalize_bundle, normalize_bundle_with_registry,
@@ -326,6 +326,48 @@ fn runtime_route_fixture_is_rejected_before_codegen() {
         AssetRoute::Runtime
     );
     assert_runtime_route_error(&output.diagnostics, "11:runtime");
+}
+
+#[test]
+fn image_crop_fixture_is_native_and_invalid_crop_stays_fail_closed() {
+    let source = include_str!("../../../fixtures/image-crop/extraction.json");
+    let output = parse_and_normalize(source).expect("image crop fixture must parse");
+    assert!(!output.has_errors());
+    assert!(
+        output
+            .document
+            .roots
+            .iter()
+            .all(|root| root.asset_decision.route == AssetRoute::Native)
+    );
+    let Paint::Image {
+        image_transform: Some(transform),
+        opacity,
+        ..
+    } = &output.document.roots[2].style.fills[0]
+    else {
+        panic!("third image fixture root must retain its CROP transform");
+    };
+    assert!(
+        transform
+            .matrix
+            .iter()
+            .zip([0.5, 0.0, 0.0, 0.8, 0.25, 0.1])
+            .all(|(actual, expected)| (*actual - expected).abs() < f64::EPSILON)
+    );
+    assert!((*opacity - 0.75).abs() < f64::EPSILON);
+
+    let mut raw = parse_bundle(source).expect("image crop fixture must parse as raw bundle");
+    let RawPaint::Image {
+        image_transform: Some(transform),
+        ..
+    } = &mut raw.roots[2].style.fills[0]
+    else {
+        panic!("third raw fixture root must retain its CROP transform");
+    };
+    transform.matrix[2] = 0.25;
+    let invalid = normalize_bundle(&raw);
+    assert_runtime_route_error(&invalid.diagnostics, "16:crop");
 }
 
 #[test]

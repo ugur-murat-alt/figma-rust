@@ -188,6 +188,12 @@ pub enum Paint {
     Image {
         asset_id: String,
         scale_mode: RawImageScaleMode,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        image_transform: Option<Transform>,
+        opacity: f64,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        rotation: Option<f64>,
+        has_filters: bool,
     },
     Unsupported {
         source_kind: String,

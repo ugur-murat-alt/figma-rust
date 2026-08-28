@@ -1181,10 +1181,22 @@ function extractPaint(
         registerImageAsset(imageHash, nodeId, propertyPath, context);
       }
       const scaleMode = enumValue<RawImageScaleMode>(field(value, "scaleMode"), ["FIT", "FILL", "CROP", "TILE"], "FIT", nodeId, `${propertyPath}.scaleMode`, context);
-      if (field(value, "imageTransform") !== undefined || field(value, "scalingFactor") !== undefined || field(value, "rotation") !== undefined || field(value, "filters") !== undefined || opacity !== 1) {
-        addLossDiagnostic(context, nodeId, propertyPath, "Image paint transform, filters, rotation, or opacity are not fully represented by the raw paint model.", extensions, "figma_image_paint_details", toJson(value));
+      const imageTransform = extractImageTransform(field(value, "imageTransform"), nodeId, `${propertyPath}.imageTransform`, context);
+      const rotation = optionalNumber(field(value, "rotation"), nodeId, `${propertyPath}.rotation`, context);
+      const filters = field(value, "filters");
+      const hasFilters = isRecord(filters) && Object.values(filters).some((filter) => typeof filter === "number" && Math.abs(filter) > TRANSFORM_EPSILON);
+      if (field(value, "scalingFactor") !== undefined || rotation !== undefined && Math.abs(rotation) > TRANSFORM_EPSILON || hasFilters) {
+        addLossDiagnostic(context, nodeId, propertyPath, "Image tile scaling, rotation, or nonzero filters require an explicit unsupported route.", extensions, "figma_image_paint_details", toJson(value));
       }
-      return { kind: "IMAGE", asset_id: imageHash, scale_mode: scaleMode };
+      return {
+        kind: "IMAGE",
+        asset_id: imageHash,
+        scale_mode: scaleMode,
+        ...(imageTransform === undefined ? {} : { image_transform: imageTransform }),
+        opacity,
+        ...(rotation === undefined ? {} : { rotation }),
+        has_filters: hasFilters,
+      };
     }
     case "VIDEO":
       addLossDiagnostic(context, nodeId, propertyPath, "Video paint hash and scale semantics are not represented by the raw paint model.", extensions, "figma_video_paints", toJson(value));
@@ -1200,6 +1212,35 @@ function extractPaint(
       appendExtension(extensions, "figma_unsupported_paints", toJson(value));
       return undefined;
   }
+}
+
+function extractImageTransform(
+  value: unknown,
+  nodeId: string,
+  propertyPath: string,
+  context: ExtractionContext,
+): RawTransform | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!Array.isArray(value) || value.length !== 2 || !Array.isArray(value[0]) || !Array.isArray(value[1])) {
+    addDiagnostic(context, "ERROR", "FR-PAINT-IMAGE-001", "imageTransform is not a 2x3 Figma transform.", nodeId, propertyPath);
+    return undefined;
+  }
+  const first = value[0];
+  const second = value[1];
+  if (first.length !== 3 || second.length !== 3 || [...first, ...second].some((item) => typeof item !== "number" || !Number.isFinite(item))) {
+    addDiagnostic(context, "ERROR", "FR-PAINT-IMAGE-001", "imageTransform contains invalid numeric values.", nodeId, propertyPath);
+    return undefined;
+  }
+  return {
+    matrix: [
+      canonicalTransformValue(first[0] as number),
+      canonicalTransformValue(second[0] as number),
+      canonicalTransformValue(first[1] as number),
+      canonicalTransformValue(second[1] as number),
+      canonicalTransformValue(first[2] as number),
+      canonicalTransformValue(second[2] as number),
+    ],
+  };
 }
 
 function extractEffects(

@@ -150,7 +150,15 @@ export interface RawGradientStop {
 export type RawPaint =
   | { kind: "SOLID"; color: RawBoundValue<RawColor> }
   | { kind: "GRADIENT"; gradient_kind: RawGradientKind; stops: RawGradientStop[] }
-  | { kind: "IMAGE"; asset_id: string; scale_mode: RawImageScaleMode }
+  | {
+      kind: "IMAGE";
+      asset_id: string;
+      scale_mode: RawImageScaleMode;
+      image_transform?: RawTransform;
+      opacity: number;
+      rotation?: number;
+      has_filters: boolean;
+    }
   | { kind: "VIDEO" }
   | { kind: "PATTERN" }
   | { kind: "SHADER" };

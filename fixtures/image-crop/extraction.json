@@ -1,0 +1,67 @@
+{
+  "schema_version": 2,
+  "source": {
+    "extractor": "synthetic-regression-fixture",
+    "extractor_version": "1",
+    "page_id": "fixture:image-crop",
+    "selected_node_ids": ["16:fit", "16:fill", "16:crop"],
+    "plugin_api_version": "1.135.0"
+  },
+  "roots": [
+    {
+      "id": "16:fit",
+      "name": "FIT checker",
+      "kind": "RECTANGLE",
+      "size": { "width": 100.0, "height": 80.0, "horizontal": "FIXED", "vertical": "FIXED" },
+      "layout": { "clips_content": true },
+      "style": {
+        "fills": [{ "kind": "IMAGE", "asset_id": "checker", "scale_mode": "FIT", "opacity": 1.0, "has_filters": false }]
+      }
+    },
+    {
+      "id": "16:fill",
+      "name": "FILL checker",
+      "kind": "RECTANGLE",
+      "size": { "width": 100.0, "height": 80.0, "horizontal": "FIXED", "vertical": "FIXED" },
+      "layout": { "clips_content": true },
+      "style": {
+        "radii": {
+          "top_left": { "literal": 8.0 },
+          "top_right": { "literal": 8.0 },
+          "bottom_right": { "literal": 8.0 },
+          "bottom_left": { "literal": 8.0 }
+        },
+        "fills": [{ "kind": "IMAGE", "asset_id": "checker", "scale_mode": "FILL", "opacity": 1.0, "has_filters": false }]
+      }
+    },
+    {
+      "id": "16:crop",
+      "name": "CROP checker",
+      "kind": "RECTANGLE",
+      "size": { "width": 100.0, "height": 80.0, "horizontal": "FIXED", "vertical": "FIXED" },
+      "layout": { "clips_content": true },
+      "style": {
+        "fills": [{
+          "kind": "IMAGE",
+          "asset_id": "checker",
+          "scale_mode": "CROP",
+          "image_transform": { "matrix": [0.5, 0.0, 0.0, 0.8, 0.25, 0.1] },
+          "opacity": 0.75,
+          "rotation": 0.0,
+          "has_filters": false
+        }]
+      }
+    }
+  ],
+  "variables": [],
+  "components": [],
+  "assets": [{
+    "id": "checker",
+    "source_node_id": "16:fit",
+    "media_type": "image/png",
+    "content_hash": "synthetic-checker-4x4",
+    "export_settings": {},
+    "payload_base64": "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAYAAACp8Z5+AAAAGElEQVR42mP4DwQMDAz/YTQDMgdME1QBAD9LJ9l51VRuAAAAAElFTkSuQmCC"
+  }],
+  "extraction_diagnostics": []
+}

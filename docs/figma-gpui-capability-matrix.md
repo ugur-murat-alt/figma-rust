@@ -58,8 +58,8 @@ fallback or add the missing runtime proof.
 | Two-stop linear gradient | GPUI native | Native angle and two color stops. |
 | Multi-stop linear gradient | figma-rust runtime, asset/SVG | Runtime custom paint if validated; SVG otherwise. |
 | Radial/angular/diamond gradient | figma-rust runtime, asset/SVG | Custom paint only after visual fixtures; SVG is safe fallback. |
-| Image fill FIT | GPUI native | Native image/object fit. |
-| Image fill FILL/CROP | figma-rust runtime | Explicit crop transform and clipping helper. |
+| Image fill FIT | GPUI native | Compiler-owned image assets lower through GPUI `ObjectFit::Contain`. |
+| Image fill FILL/CROP | GPUI native, figma-rust runtime | FILL lowers through `ObjectFit::Cover`; fixed-size, axis-aligned CROP matrices lower to an explicitly sized/offset image inside rounded clipping. Rotation, filters, TILE, dynamic crop bounds, and non-axis-aligned/out-of-range transforms remain fail-closed runtime routes. |
 | Tiled image fill | figma-rust runtime | Repeated image primitive. |
 | Video paint | unsupported/ambiguous | UI placeholder plus typed media contract; no behavior invented. |
 | Pattern paint | asset/SVG, raster fallback | SVG if source pattern is exportable. |

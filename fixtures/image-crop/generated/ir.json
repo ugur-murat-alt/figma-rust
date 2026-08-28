@@ -1,0 +1,329 @@
+{
+  "ir_version": 2,
+  "source": {
+    "extractor": "synthetic-regression-fixture",
+    "extractor_version": "1",
+    "page_id": "fixture:image-crop",
+    "selected_node_ids": [
+      "16:fit",
+      "16:fill",
+      "16:crop"
+    ],
+    "plugin_api_version": "1.135.0"
+  },
+  "roots": [
+    {
+      "source_id": "16:fit",
+      "name": "FIT checker",
+      "kind": "RECTANGLE",
+      "visible": true,
+      "opacity": 1.0,
+      "size": {
+        "horizontal": {
+          "sizing": {
+            "kind": "FIXED",
+            "value": {
+              "fallback": 100.0
+            }
+          }
+        },
+        "vertical": {
+          "sizing": {
+            "kind": "FIXED",
+            "value": {
+              "fallback": 80.0
+            }
+          }
+        }
+      },
+      "layout": {
+        "kind": "PLAIN",
+        "clips_content": true,
+        "scroll": {
+          "horizontal": false,
+          "vertical": false
+        }
+      },
+      "positioning": {
+        "kind": "AUTO",
+        "transform": {
+          "matrix": [
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "style": {
+        "fills": [
+          {
+            "kind": "IMAGE",
+            "asset_id": "checker",
+            "scale_mode": "FIT",
+            "opacity": 1.0,
+            "has_filters": false
+          }
+        ],
+        "strokes": [],
+        "stroke_widths": {
+          "top": {
+            "fallback": 0.0
+          },
+          "right": {
+            "fallback": 0.0
+          },
+          "bottom": {
+            "fallback": 0.0
+          },
+          "left": {
+            "fallback": 0.0
+          }
+        },
+        "stroke_align": "INSIDE",
+        "radii": {
+          "top_left": {
+            "fallback": 0.0
+          },
+          "top_right": {
+            "fallback": 0.0
+          },
+          "bottom_right": {
+            "fallback": 0.0
+          },
+          "bottom_left": {
+            "fallback": 0.0
+          },
+          "smoothing": 0.0
+        },
+        "effects": [],
+        "blend_mode": "NORMAL",
+        "is_mask": false
+      },
+      "reactions": [],
+      "asset_decision": {
+        "route": "NATIVE",
+        "reasons": []
+      },
+      "children": []
+    },
+    {
+      "source_id": "16:fill",
+      "name": "FILL checker",
+      "kind": "RECTANGLE",
+      "visible": true,
+      "opacity": 1.0,
+      "size": {
+        "horizontal": {
+          "sizing": {
+            "kind": "FIXED",
+            "value": {
+              "fallback": 100.0
+            }
+          }
+        },
+        "vertical": {
+          "sizing": {
+            "kind": "FIXED",
+            "value": {
+              "fallback": 80.0
+            }
+          }
+        }
+      },
+      "layout": {
+        "kind": "PLAIN",
+        "clips_content": true,
+        "scroll": {
+          "horizontal": false,
+          "vertical": false
+        }
+      },
+      "positioning": {
+        "kind": "AUTO",
+        "transform": {
+          "matrix": [
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "style": {
+        "fills": [
+          {
+            "kind": "IMAGE",
+            "asset_id": "checker",
+            "scale_mode": "FILL",
+            "opacity": 1.0,
+            "has_filters": false
+          }
+        ],
+        "strokes": [],
+        "stroke_widths": {
+          "top": {
+            "fallback": 0.0
+          },
+          "right": {
+            "fallback": 0.0
+          },
+          "bottom": {
+            "fallback": 0.0
+          },
+          "left": {
+            "fallback": 0.0
+          }
+        },
+        "stroke_align": "INSIDE",
+        "radii": {
+          "top_left": {
+            "fallback": 8.0
+          },
+          "top_right": {
+            "fallback": 8.0
+          },
+          "bottom_right": {
+            "fallback": 8.0
+          },
+          "bottom_left": {
+            "fallback": 8.0
+          },
+          "smoothing": 0.0
+        },
+        "effects": [],
+        "blend_mode": "NORMAL",
+        "is_mask": false
+      },
+      "reactions": [],
+      "asset_decision": {
+        "route": "NATIVE",
+        "reasons": []
+      },
+      "children": []
+    },
+    {
+      "source_id": "16:crop",
+      "name": "CROP checker",
+      "kind": "RECTANGLE",
+      "visible": true,
+      "opacity": 1.0,
+      "size": {
+        "horizontal": {
+          "sizing": {
+            "kind": "FIXED",
+            "value": {
+              "fallback": 100.0
+            }
+          }
+        },
+        "vertical": {
+          "sizing": {
+            "kind": "FIXED",
+            "value": {
+              "fallback": 80.0
+            }
+          }
+        }
+      },
+      "layout": {
+        "kind": "PLAIN",
+        "clips_content": true,
+        "scroll": {
+          "horizontal": false,
+          "vertical": false
+        }
+      },
+      "positioning": {
+        "kind": "AUTO",
+        "transform": {
+          "matrix": [
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "style": {
+        "fills": [
+          {
+            "kind": "IMAGE",
+            "asset_id": "checker",
+            "scale_mode": "CROP",
+            "image_transform": {
+              "matrix": [
+                0.5,
+                0.0,
+                0.0,
+                0.8,
+                0.25,
+                0.1
+              ]
+            },
+            "opacity": 0.75,
+            "rotation": 0.0,
+            "has_filters": false
+          }
+        ],
+        "strokes": [],
+        "stroke_widths": {
+          "top": {
+            "fallback": 0.0
+          },
+          "right": {
+            "fallback": 0.0
+          },
+          "bottom": {
+            "fallback": 0.0
+          },
+          "left": {
+            "fallback": 0.0
+          }
+        },
+        "stroke_align": "INSIDE",
+        "radii": {
+          "top_left": {
+            "fallback": 0.0
+          },
+          "top_right": {
+            "fallback": 0.0
+          },
+          "bottom_right": {
+            "fallback": 0.0
+          },
+          "bottom_left": {
+            "fallback": 0.0
+          },
+          "smoothing": 0.0
+        },
+        "effects": [],
+        "blend_mode": "NORMAL",
+        "is_mask": false
+      },
+      "reactions": [],
+      "asset_decision": {
+        "route": "NATIVE",
+        "reasons": []
+      },
+      "children": []
+    }
+  ],
+  "variables": [],
+  "components": [],
+  "assets": [
+    {
+      "id": "checker",
+      "source_node_id": "16:fit",
+      "media_type": "image/png",
+      "content_hash": "synthetic-checker-4x4",
+      "export_settings": {}
+    }
+  ]
+}

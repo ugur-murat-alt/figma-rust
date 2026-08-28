@@ -5,11 +5,11 @@ use std::fmt;
 
 use figma_rust_core::ir::{
     AssetRoute, Axis, AxisSize, AxisSizing, BoundValue, Color, ComponentResolution, DesignDocument,
-    Edges, Effect, GridTrack, Layout, Node, Paint, Positioning, TextStyle, TokenRef,
+    Edges, Effect, GridTrack, Layout, Node, Paint, Positioning, TextStyle, TokenRef, Transform,
 };
 use figma_rust_core::raw::{
-    RawAlignment, RawAsset, RawBlendMode, RawChildAlignment, RawConstraint, RawNodeKind,
-    RawStrokeAlign,
+    RawAlignment, RawAsset, RawBlendMode, RawChildAlignment, RawConstraint, RawImageScaleMode,
+    RawNodeKind, RawStrokeAlign,
 };
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
@@ -118,7 +118,10 @@ fn generate_prepared(document: &DesignDocument) -> Result<GeneratedOutput, Codeg
 
     let uses_assets = emitted
         .iter()
-        .any(|indexed_node| is_asset_fallback(indexed_node.node));
+        .any(|indexed_node| node_uses_assets(indexed_node.node));
+    let uses_images = emitted
+        .iter()
+        .any(|indexed_node| image_fill(indexed_node.node).is_some());
     let functions = emitted
         .iter()
         .map(|indexed_node| lower_function(*indexed_node, &ordinals, &document.assets, uses_assets))
@@ -147,19 +150,10 @@ fn generate_prepared(document: &DesignDocument) -> Result<GeneratedOutput, Codeg
             !is_asset_fallback(indexed.node)
                 && (indexed.node.text.is_some()
                     || indexed.node.children.iter().any(|child| child.visible)
+                    || image_fill(indexed.node).is_some()
                     || has_visible_stroke(indexed.node))
         });
-    let imports = if emitted.is_empty() {
-        quote! {}
-    } else if uses_parent_element {
-        quote! {
-            use gpui::{InteractiveElement as _, ParentElement as _, Styled as _};
-        }
-    } else {
-        quote! {
-            use gpui::{InteractiveElement as _, Styled as _};
-        }
-    };
+    let imports = generated_imports(emitted.is_empty(), uses_parent_element, uses_images);
     let root = match root_elements.as_slice() {
         [] => quote! { gpui::div() },
         [element] => quote! { #element },
@@ -206,6 +200,21 @@ fn generate_prepared(document: &DesignDocument) -> Result<GeneratedOutput, Codeg
     let source_map = build_source_map(&rust, &emitted)?;
 
     Ok(GeneratedOutput { rust, source_map })
+}
+
+fn generated_imports(empty: bool, uses_parent: bool, uses_images: bool) -> TokenStream {
+    match (empty, uses_parent, uses_images) {
+        (true, _, _) => quote! {},
+        (false, true, true) => quote! {
+            use gpui::{InteractiveElement as _, ParentElement as _, Styled as _, StyledImage as _};
+        },
+        (false, true, false) => quote! {
+            use gpui::{InteractiveElement as _, ParentElement as _, Styled as _};
+        },
+        (false, false, _) => quote! {
+            use gpui::{InteractiveElement as _, Styled as _};
+        },
+    }
 }
 
 fn prepare_transforms(document: &DesignDocument) -> Result<DesignDocument, CodegenError> {
@@ -515,7 +524,7 @@ fn lower_node(
     element = lower_child_alignment(element, node);
     element = lower_layout(element, node)?;
     element = lower_size(element, node, indexed.parent_stack_axis)?;
-    element = lower_fill(element, node)?;
+    element = lower_fill(element, node, assets)?;
     element = lower_radii(element, node)?;
     element = lower_opacity(element, node)?;
     element = lower_shadows(element, node)?;
@@ -547,6 +556,17 @@ fn is_asset_fallback(node: &Node) -> bool {
         node.asset_decision.route,
         AssetRoute::Svg | AssetRoute::Raster
     )
+}
+
+fn image_fill(node: &Node) -> Option<&Paint> {
+    node.style
+        .fills
+        .first()
+        .filter(|paint| matches!(paint, Paint::Image { .. }))
+}
+
+fn node_uses_assets(node: &Node) -> bool {
+    is_asset_fallback(node) || image_fill(node).is_some()
 }
 
 fn fallback_asset<'a>(
@@ -735,8 +755,40 @@ fn validate_paints(node: &Node, property: &str, paints: &[Paint]) -> Result<(), 
             Paint::Solid { color } => {
                 let _ = packed_rgba(node, property, color.fallback)?;
             }
-            Paint::Image { asset_id, .. } => {
-                return unsupported(node, property, format!("image asset paint `{asset_id}`"));
+            Paint::Image {
+                asset_id,
+                scale_mode,
+                image_transform,
+                opacity,
+                rotation,
+                has_filters,
+            } => {
+                checked_f32(node, &format!("{property}.opacity"), *opacity, true)?;
+                if *has_filters || rotation.is_some_and(|rotation| !same_f64(rotation, 0.0)) {
+                    return unsupported(
+                        node,
+                        property,
+                        format!("filtered or rotated image paint `{asset_id}`"),
+                    );
+                }
+                match scale_mode {
+                    RawImageScaleMode::Fit | RawImageScaleMode::Fill => {}
+                    RawImageScaleMode::Crop => match image_transform {
+                        Some(transform) => {
+                            crop_geometry(node, property, transform)?;
+                        }
+                        None => {
+                            return unsupported(
+                                node,
+                                property,
+                                "CROP image without imageTransform",
+                            );
+                        }
+                    },
+                    RawImageScaleMode::Tile => {
+                        return unsupported(node, property, "tiled image paint");
+                    }
+                }
             }
             Paint::Gradient { .. } => {
                 return unsupported(node, property, "gradient paint");
@@ -747,6 +799,82 @@ fn validate_paints(node: &Node, property: &str, paints: &[Paint]) -> Result<(), 
         }
     }
     Ok(())
+}
+
+#[derive(Clone, Copy)]
+struct CropGeometry {
+    left: f32,
+    top: f32,
+    width: f32,
+    height: f32,
+}
+
+fn crop_geometry(
+    node: &Node,
+    property: &str,
+    transform: &Transform,
+) -> Result<CropGeometry, CodegenError> {
+    let [scale_x, skew_y, skew_x, scale_y, translate_x, translate_y] = transform.matrix;
+    let valid = transform.matrix.iter().all(|value| value.is_finite())
+        && scale_x > 0.0
+        && scale_y > 0.0
+        && same_f64(skew_x, 0.0)
+        && same_f64(skew_y, 0.0)
+        && translate_x >= 0.0
+        && translate_y >= 0.0
+        && translate_x + scale_x <= 1.0 + f64::EPSILON
+        && translate_y + scale_y <= 1.0 + f64::EPSILON;
+    if !valid {
+        return unsupported(
+            node,
+            property,
+            "non-axis-aligned or out-of-range imageTransform",
+        );
+    }
+    let node_width = fixed_axis_fallback(node, property, &node.size.horizontal)?;
+    let node_height = fixed_axis_fallback(node, property, &node.size.vertical)?;
+    Ok(CropGeometry {
+        left: checked_f32(node, property, -node_width * translate_x / scale_x, false)?,
+        top: checked_f32(node, property, -node_height * translate_y / scale_y, false)?,
+        width: checked_f32(node, property, node_width / scale_x, true)?,
+        height: checked_f32(node, property, node_height / scale_y, true)?,
+    })
+}
+
+fn fixed_axis_fallback(node: &Node, property: &str, axis: &AxisSize) -> Result<f64, CodegenError> {
+    match &axis.sizing {
+        AxisSizing::Fixed(value) if value.token.is_none() => Ok(value.fallback),
+        _ => Err(unsupported_error(
+            node,
+            property,
+            "CROP image requires a concrete fixed node size",
+        )),
+    }
+}
+
+fn image_asset<'a>(
+    node: &Node,
+    asset_id: &str,
+    assets: &'a [RawAsset],
+) -> Result<&'a RawAsset, CodegenError> {
+    let asset = assets
+        .iter()
+        .find(|asset| asset.id == asset_id)
+        .ok_or_else(|| {
+            unsupported_error(
+                node,
+                "style.fills",
+                format!("image asset `{asset_id}` is missing"),
+            )
+        })?;
+    if asset.payload_base64.as_deref().is_none_or(str::is_empty) {
+        return Err(unsupported_error(
+            node,
+            "style.fills",
+            format!("image asset `{asset_id}` has no payload"),
+        ));
+    }
+    Ok(asset)
 }
 
 fn validate_text(node: &Node) -> Result<(), CodegenError> {
@@ -1116,16 +1244,75 @@ fn lower_axis_size(
     Ok(element)
 }
 
-fn lower_fill(mut element: TokenStream, node: &Node) -> Result<TokenStream, CodegenError> {
-    let Some(Paint::Solid { color }) = node.style.fills.first() else {
+fn lower_fill(
+    mut element: TokenStream,
+    node: &Node,
+    assets: &[RawAsset],
+) -> Result<TokenStream, CodegenError> {
+    let Some(fill) = node.style.fills.first() else {
         return Ok(element);
     };
-    let color = color_tokens(node, "style.fills", color)?;
-    element = if node.kind == RawNodeKind::Text {
-        quote! { #element.text_color(#color) }
-    } else {
-        quote! { #element.bg(#color) }
-    };
+    match fill {
+        Paint::Solid { color } => {
+            let color = color_tokens(node, "style.fills", color)?;
+            element = if node.kind == RawNodeKind::Text {
+                quote! { #element.text_color(#color) }
+            } else {
+                quote! { #element.bg(#color) }
+            };
+        }
+        Paint::Image {
+            asset_id,
+            scale_mode,
+            image_transform,
+            opacity,
+            ..
+        } => {
+            let asset = image_asset(node, asset_id, assets)?;
+            let file_name = asset.file_name().ok_or_else(|| {
+                unsupported_error(
+                    node,
+                    "style.fills",
+                    format!("unsupported image media type `{}`", asset.media_type),
+                )
+            })?;
+            let opacity = checked_f32(node, "style.fills.opacity", *opacity, true)?;
+            let image = quote! {
+                gpui::img(figma_gpui_runtime::AssetResolver::asset_path(assets, #file_name))
+                    .absolute()
+                    .opacity(#opacity)
+            };
+            let image = match scale_mode {
+                RawImageScaleMode::Fit => quote! {
+                    #image.inset_0().size_full().object_fit(gpui::ObjectFit::Contain)
+                },
+                RawImageScaleMode::Fill => quote! {
+                    #image.inset_0().size_full().object_fit(gpui::ObjectFit::Cover)
+                },
+                RawImageScaleMode::Crop => {
+                    let transform = image_transform.as_ref().ok_or_else(|| {
+                        unsupported_error(node, "style.fills", "missing imageTransform")
+                    })?;
+                    let crop = crop_geometry(node, "style.fills", transform)?;
+                    let width = crop.width;
+                    let height = crop.height;
+                    let left = crop.left;
+                    let top = crop.top;
+                    quote! {
+                        #image
+                            .object_fit(gpui::ObjectFit::Fill)
+                            .left(gpui::px(#left))
+                            .top(gpui::px(#top))
+                            .w(gpui::px(#width))
+                            .h(gpui::px(#height))
+                    }
+                }
+                RawImageScaleMode::Tile => unreachable!("validated image scale mode"),
+            };
+            element = quote! { #element.overflow_hidden().child(#image) };
+        }
+        Paint::Gradient { .. } | Paint::Unsupported { .. } => {}
+    }
     Ok(element)
 }
 

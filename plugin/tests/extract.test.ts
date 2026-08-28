@@ -1246,6 +1246,45 @@ async function marksDepthLimitedSubtreesIncomplete(): Promise<void> {
   ));
 }
 
+async function preservesImageFillAndCropGeometry(): Promise<void> {
+  Object.assign(figma, {
+    getImageByHash: (hash: string) => ({
+      hash,
+      getBytesAsync: async () => new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+    }),
+  });
+  const node = rectangle("16:crop", [[1, 0, 0], [0, 1, 0]]);
+  node.width = 100;
+  node.height = 80;
+  node.fills = [{
+    type: "IMAGE",
+    imageHash: "checker",
+    scaleMode: "CROP",
+    imageTransform: [[0.5, 0, 0.25], [0, 0.8, 0.1]],
+    opacity: 0.75,
+    rotation: 0,
+    filters: { exposure: 0 },
+  }];
+
+  const bundle = await extractNodes([node as unknown as SceneNode], false, undefined, true);
+  assert.deepEqual(bundle.roots[0].style.fills[0], {
+    kind: "IMAGE",
+    asset_id: "checker",
+    scale_mode: "CROP",
+    image_transform: { matrix: [0.5, 0, 0, 0.8, 0.25, 0.1] },
+    opacity: 0.75,
+    rotation: 0,
+    has_filters: false,
+  });
+  assert.equal(bundle.assets[0].payload_base64, "iVBORw==");
+  assert.equal(
+    bundle.extraction_diagnostics.some((diagnostic) =>
+      diagnostic.property_path === "style.fills[0].imageTransform"
+    ),
+    false,
+  );
+}
+
 await extractsGroupLocalCoordinates();
 await extractsNestedGroupLocalCoordinates();
 await extractsRotatedGroupLocalCoordinates();
@@ -1267,4 +1306,5 @@ checkedInDataTableExtractionCarriesRequiredFallbackPayloads();
 await exportsFoundationScaleFallbackAssets();
 await extractsMoreThanTwoThousandNodesDeterministically();
 await marksDepthLimitedSubtreesIncomplete();
+await preservesImageFillAndCropGeometry();
 console.log("extraction tests passed");

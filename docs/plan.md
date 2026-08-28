@@ -94,7 +94,8 @@ compiles against the pinned upstream; no string-concatenated Rust syntax remains
   metadata helpers.
 - [ ] Add mixed-track grid primitive only if native/nested lowering cannot match
   fixtures.
-- [ ] Add exact image crop/fit helper.
+- [x] Lower FIT/FILL and fixed-size axis-aligned CROP image paints with explicit
+  clipping, focal offset, opacity, and unsupported-detail diagnostics.
 - [x] Fold bounded positive uniform subtree scale/translation into generated
   geometry, with center/top-left fixtures and explicit rejection outside the
   proven contract.
