@@ -21,6 +21,7 @@ fallback or add the missing runtime proof.
 | Figma feature | Classification | Current lowering and limits |
 | --- | --- | --- |
 | Node hierarchy and source ID | GPUI native | Stable generated functions, element IDs, debug selectors, and sidecar source map. |
+| Slice export region | figma-rust runtime | `SLICE` remains typed, invisible Raw Model metadata and is omitted from visual IR with source-scoped `FR-NODE-001`. A slice-only selection fails clearly as non-visual instead of fabricating UI. |
 | Large selection traversal | figma-rust runtime | Deterministic preorder chunks contain at most 2,000 nodes; the schema-v2 extraction manifest records chunk/root counts and fails completeness closed on omitted subtrees. |
 | Compiler bundle transfer | figma-rust runtime | Browser download remains available; an opt-in fixed-path loopback export atomically persists validated schema-v2 bytes and reports exact size, SHA-256, transfer completion, and traversal completion. |
 | Compiler artifact generation publication | figma-rust CLI | Sorted artifact names, lengths, and bytes define a deterministic generation ID. Immutable generation directories are validated by size/SHA-256 and selected by one atomic `current-generation.json` pointer; a synced pending journal repairs interrupted flat projections on restart with bounded compiler-owned cleanup. |
@@ -98,15 +99,17 @@ fallback or add the missing runtime proof.
 | Variable-bound color and modeled numbers | figma-rust runtime | Colors, width/height/min/max dimensions, text size, Auto Layout gap/padding, corner radii, and per-edge stroke widths retain `TokenRef`, full mode context, and literal fallback. Other numeric paths remain diagnostic until modeled. |
 | Variable-bound string/boolean | figma-rust runtime | Component TEXT `characters` and BOOLEAN `visible` references lower through context-aware resolvers with literal fallback. Other string/boolean consumers remain unsupported and node/property-scoped. |
 | Variable modes/collections | figma-rust runtime | Extraction schema v2 preserves each `(variable, mode context)` value for standard collections and cross-collection aliases; generated resolvers receive the applicable collection/mode map. Enterprise extension lineage is recognized from `isExtension`, `parentVariableCollectionId`, and `rootVariableCollectionId`, then rejected before alias/value resolution with node/property-scoped `FR-TOKEN-MODE-005`; override lowering remains unclaimed without a real Enterprise fixture. |
-| Component set and variants | figma-rust runtime | Semantic registry resolves Figma key and variant properties. |
+| Component set and variants | figma-rust runtime | `COMPONENT_SET` remains a typed structural container; set key, property definitions, variant keys/properties, source IDs, and child order survive extraction and normalization. |
 | TEXT/BOOLEAN component property | figma-rust runtime | Typed property mapping. |
 | INSTANCE_SWAP property | figma-rust runtime | Registry lookup with structural fallback and warning. |
+| SLOT component property and SlotNode | figma-rust runtime | Schema v2 preserves slot settings, preferred component keys, the `mainComponent` property association, source IDs, and authored child order. GPUI lowering is structural composition only; application behavior is not invented, and Figma limit violations remain property-scoped warnings. |
 | Instance direct overrides | figma-rust runtime | Preserve fields and apply after component defaults. |
 | Unmapped component instance | GPUI native | Structural subtree fallback plus `WARNING`; never disappear. |
 | Click/hover/press/key reaction | GPUI native | Emit typed action metadata/contract only. |
 | Navigation/open-overlay reaction | figma-rust runtime | Typed action payload; application owns navigation. |
 | Smart animate | unsupported/ambiguous | Metadata retained; no invented transition implementation. |
 | Rectangle/ellipse/simple primitive | GPUI native | Native box/path where geometry is exact. |
+| Line | asset/SVG | `LINE` follows the authored-color SVG route with source attribution; unsupported stroke details remain node/property-scoped. |
 | Vector/boolean operation | asset/SVG | Figma SVG export is preferred. |
 | Complex vector plus unsupported effect | raster fallback | Controlled fallback with node ID and reason. |
 | Source geometry capture | GPUI native | Test-support `debug_selector` and final bounds. |

@@ -55,7 +55,8 @@ do not hide current Linux screenshot or advanced-effect limitations.
   alignment normalization.
 - [x] Implement stack, grid, absolute, constraints, clipping, and scroll passes.
 - [x] Implement style/effect normalization and asset-decision diagnostics.
-- [x] Preserve component set, variant, property, instance, and override metadata.
+- [x] Preserve component set, variant, SLOT composition/settings, property,
+  instance, and override metadata; keep SliceNode export regions out of visual IR.
 - [x] Add component mapping registry and structural fallback.
 - [x] Add raw parser, normalization, sizing, token, component, asset, and
   diagnostic unit tests.

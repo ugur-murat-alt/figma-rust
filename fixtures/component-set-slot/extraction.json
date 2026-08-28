@@ -1,0 +1,100 @@
+{
+  "schema_version": 2,
+  "source": {
+    "extractor": "figma-rust-plugin",
+    "extractor_version": "0.4.0",
+    "page_id": "0:1",
+    "selected_node_ids": [
+      "31:1"
+    ],
+    "plugin_api_version": "1.135.0"
+  },
+  "roots": [
+    {
+      "id": "31:1",
+      "name": "Synthetic component set",
+      "kind": "COMPONENT_SET",
+      "size": {
+        "width": 100.0,
+        "height": 40.0,
+        "horizontal": "FIXED",
+        "vertical": "FIXED"
+      },
+      "component": {
+        "role": "COMPONENT_SET",
+        "component_key": "component-set:31",
+        "variants": {},
+        "properties": {
+          "Body#31:0": {
+            "kind": "SLOT",
+            "value": {
+              "description": "Body content",
+              "preferred_values": [
+                {
+                  "type": "COMPONENT",
+                  "key": "preferred:31"
+                }
+              ],
+              "stretch_child_on_insert": true,
+              "display_empty_by_default": false,
+              "min_children": 1,
+              "max_children": 2,
+              "allow_preferred_values_only": true
+            }
+          }
+        },
+        "overrides": []
+      },
+      "children": [
+        {
+          "id": "31:2",
+          "name": "Body slot",
+          "kind": "SLOT",
+          "size": {
+            "width": 100.0,
+            "height": 40.0,
+            "horizontal": "FIXED",
+            "vertical": "FIXED"
+          },
+          "component_property_references": {
+            "main_component": "Body#31:0"
+          },
+          "children": [
+            {
+              "id": "31:3",
+              "name": "Authored content",
+              "kind": "RECTANGLE",
+              "size": {
+                "width": 20.0,
+                "height": 10.0,
+                "horizontal": "FIXED",
+                "vertical": "FIXED"
+              }
+            },
+            {
+              "id": "31:4",
+              "name": "Export region",
+              "kind": "SLICE",
+              "visible": false,
+              "size": {
+                "width": 20.0,
+                "height": 10.0,
+                "horizontal": "FIXED",
+                "vertical": "FIXED"
+              },
+              "figma_export_settings": [
+                {
+                  "format": "PNG"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variables": [],
+  "components": [],
+  "assets": [],
+  "extraction_diagnostics": []
+}

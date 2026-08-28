@@ -1788,7 +1788,7 @@ fn transaction_error(operation: impl Into<String>, cleanup_errors: &[String]) ->
 mod tests {
     use std::{collections::BTreeMap, ffi::OsString, fs, path::PathBuf};
 
-    use figma_rust_core::normalize_bundle;
+    use figma_rust_core::{diagnostic::Severity, normalize_bundle};
 
     use super::{
         ARTIFACT_NAMES, ASSET_MANIFEST_JSON, ArtifactLock, GENERATED_RUST, ROOT_STATUS_JSON,
@@ -1919,6 +1919,107 @@ mod tests {
                 .is_some_and(|code| code.contains("generated_view"))
         );
         assert!(compile.source_map.is_some());
+        Ok(())
+    }
+
+    #[test]
+    fn component_set_slot_and_nested_slice_compile_deterministically()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let source = serde_json::json!({
+            "schema_version": 2,
+            "source": {
+                "page_id": "0:1",
+                "selected_node_ids": ["31:1"],
+                "plugin_api_version": "1.135.0"
+            },
+            "roots": [{
+                "id": "31:1",
+                "name": "Set",
+                "kind": "COMPONENT_SET",
+                "size": {"width": 100.0, "height": 40.0, "horizontal": "FIXED", "vertical": "FIXED"},
+                "component": {
+                    "role": "COMPONENT_SET",
+                    "component_key": "component-set:31",
+                    "properties": {
+                        "Body#31:0": {
+                            "kind": "SLOT",
+                            "value": {
+                                "preferred_values": [{"type": "COMPONENT", "key": "preferred:31"}],
+                                "min_children": 1,
+                                "max_children": 2
+                            }
+                        }
+                    }
+                },
+                "children": [{
+                    "id": "31:2",
+                    "name": "Slot",
+                    "kind": "SLOT",
+                    "size": {"width": 100.0, "height": 40.0, "horizontal": "FIXED", "vertical": "FIXED"},
+                    "component_property_references": {"main_component": "Body#31:0"},
+                    "children": [
+                        {"id": "31:3", "name": "Content", "kind": "RECTANGLE", "size": {"width": 20.0, "height": 10.0, "horizontal": "FIXED", "vertical": "FIXED"}},
+                        {"id": "31:4", "name": "Export region", "kind": "SLICE", "size": {"width": 20.0, "height": 10.0, "horizontal": "FIXED", "vertical": "FIXED"}, "figma_export_settings": [{"format": "PNG"}]}
+                    ]
+                }]
+            }]
+        })
+        .to_string();
+
+        let first = compile_source(&source)?;
+        let second = compile_source(&source)?;
+        assert_eq!(
+            serde_json::to_vec_pretty(&first)?,
+            serde_json::to_vec_pretty(&second)?
+        );
+        assert!(first.error.is_none(), "{:?}", first.diagnostics);
+        let source_map = serde_json::to_string(&first.source_map)?;
+        assert!(source_map.contains("31:3"));
+        assert!(!source_map.contains("31:4"));
+        assert!(first.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == figma_rust_core::diagnostic::codes::NON_RENDERING_SLICE
+                && diagnostic.severity == Severity::Info
+                && diagnostic.node_id.as_deref() == Some("31:4")
+        }));
+
+        let mut slice_root = serde_json::from_str::<serde_json::Value>(&source)?;
+        slice_root["roots"][0]["kind"] = serde_json::json!("SLICE");
+        let failed = compile_source(&serde_json::to_string(&slice_root)?)?;
+        assert_eq!(failed.error.as_deref(), Some("normalization failed"));
+        assert!(failed.code.is_none());
+        Ok(())
+    }
+
+    #[test]
+    fn line_vector_route_compiles_with_authored_svg_deterministically()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let mut bundle = serde_json::from_str::<serde_json::Value>(BASIC)?;
+        bundle["source"]["selected_node_ids"] = serde_json::json!(["32:1"]);
+        bundle["roots"][0]["id"] = serde_json::json!("32:1");
+        bundle["roots"][0]["name"] = serde_json::json!("Line");
+        bundle["roots"][0]["kind"] = serde_json::json!("VECTOR");
+        bundle["roots"][0]["figma_node_type"] = serde_json::json!("LINE");
+        bundle["assets"] = serde_json::json!([{
+            "id": "node:32:1:svg",
+            "source_node_id": "32:1",
+            "media_type": "image/svg+xml",
+            "export_settings": {"format": "SVG", "color_policy": "authored"},
+            "payload_base64": "PHN2Zz48cGF0aCBkPSJNMCAwaDEwMCIvPjwvc3ZnPg=="
+        }]);
+        let source = serde_json::to_string(&bundle)?;
+        let first = compile_source(&source)?;
+        let second = compile_source(&source)?;
+        assert_eq!(
+            serde_json::to_vec_pretty(&first)?,
+            serde_json::to_vec_pretty(&second)?
+        );
+        assert!(first.error.is_none(), "{:?}", first.diagnostics);
+        assert!(
+            first
+                .code
+                .as_deref()
+                .is_some_and(|code| code.contains("AssetResolver"))
+        );
         Ok(())
     }
 

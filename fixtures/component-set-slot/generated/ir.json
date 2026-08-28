@@ -1,0 +1,323 @@
+{
+  "ir_version": 2,
+  "source": {
+    "extractor": "figma-rust-plugin",
+    "extractor_version": "0.4.0",
+    "page_id": "0:1",
+    "selected_node_ids": [
+      "31:1"
+    ],
+    "plugin_api_version": "1.135.0"
+  },
+  "roots": [
+    {
+      "source_id": "31:1",
+      "name": "Synthetic component set",
+      "kind": "COMPONENT_SET",
+      "visible": true,
+      "opacity": 1.0,
+      "size": {
+        "horizontal": {
+          "sizing": {
+            "kind": "FIXED",
+            "value": {
+              "fallback": 100.0
+            }
+          }
+        },
+        "vertical": {
+          "sizing": {
+            "kind": "FIXED",
+            "value": {
+              "fallback": 40.0
+            }
+          }
+        }
+      },
+      "layout": {
+        "kind": "ABSOLUTE",
+        "clips_content": false,
+        "scroll": {
+          "horizontal": false,
+          "vertical": false
+        }
+      },
+      "positioning": {
+        "kind": "AUTO",
+        "transform": {
+          "matrix": [
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "style": {
+        "fills": [],
+        "strokes": [],
+        "stroke_widths": {
+          "top": {
+            "fallback": 0.0
+          },
+          "right": {
+            "fallback": 0.0
+          },
+          "bottom": {
+            "fallback": 0.0
+          },
+          "left": {
+            "fallback": 0.0
+          }
+        },
+        "stroke_align": "INSIDE",
+        "radii": {
+          "top_left": {
+            "fallback": 0.0
+          },
+          "top_right": {
+            "fallback": 0.0
+          },
+          "bottom_right": {
+            "fallback": 0.0
+          },
+          "bottom_left": {
+            "fallback": 0.0
+          },
+          "smoothing": 0.0
+        },
+        "effects": [],
+        "blend_mode": "NORMAL",
+        "is_mask": false
+      },
+      "component": {
+        "role": "COMPONENT_SET",
+        "component_key": "component-set:31",
+        "variants": {},
+        "properties": {
+          "Body#31:0": {
+            "kind": "SLOT",
+            "value": {
+              "description": "Body content",
+              "preferred_values": [
+                {
+                  "type": "COMPONENT",
+                  "key": "preferred:31"
+                }
+              ],
+              "stretch_child_on_insert": true,
+              "display_empty_by_default": false,
+              "min_children": 1,
+              "max_children": 2,
+              "allow_preferred_values_only": true
+            }
+          }
+        },
+        "overrides": [],
+        "resolution": {
+          "kind": "DEFINITION"
+        }
+      },
+      "reactions": [],
+      "asset_decision": {
+        "route": "NATIVE",
+        "reasons": []
+      },
+      "children": [
+        {
+          "source_id": "31:2",
+          "name": "Body slot",
+          "kind": "SLOT",
+          "visible": true,
+          "opacity": 1.0,
+          "size": {
+            "horizontal": {
+              "sizing": {
+                "kind": "FIXED",
+                "value": {
+                  "fallback": 100.0
+                }
+              }
+            },
+            "vertical": {
+              "sizing": {
+                "kind": "FIXED",
+                "value": {
+                  "fallback": 40.0
+                }
+              }
+            }
+          },
+          "layout": {
+            "kind": "ABSOLUTE",
+            "clips_content": false,
+            "scroll": {
+              "horizontal": false,
+              "vertical": false
+            }
+          },
+          "positioning": {
+            "kind": "ABSOLUTE",
+            "x": 0.0,
+            "y": 0.0,
+            "horizontal_constraint": "MIN",
+            "vertical_constraint": "MIN",
+            "transform": {
+              "matrix": [
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "style": {
+            "fills": [],
+            "strokes": [],
+            "stroke_widths": {
+              "top": {
+                "fallback": 0.0
+              },
+              "right": {
+                "fallback": 0.0
+              },
+              "bottom": {
+                "fallback": 0.0
+              },
+              "left": {
+                "fallback": 0.0
+              }
+            },
+            "stroke_align": "INSIDE",
+            "radii": {
+              "top_left": {
+                "fallback": 0.0
+              },
+              "top_right": {
+                "fallback": 0.0
+              },
+              "bottom_right": {
+                "fallback": 0.0
+              },
+              "bottom_left": {
+                "fallback": 0.0
+              },
+              "smoothing": 0.0
+            },
+            "effects": [],
+            "blend_mode": "NORMAL",
+            "is_mask": false
+          },
+          "slot_property": "Body#31:0",
+          "reactions": [],
+          "asset_decision": {
+            "route": "NATIVE",
+            "reasons": []
+          },
+          "children": [
+            {
+              "source_id": "31:3",
+              "name": "Authored content",
+              "kind": "RECTANGLE",
+              "visible": true,
+              "opacity": 1.0,
+              "size": {
+                "horizontal": {
+                  "sizing": {
+                    "kind": "FIXED",
+                    "value": {
+                      "fallback": 20.0
+                    }
+                  }
+                },
+                "vertical": {
+                  "sizing": {
+                    "kind": "FIXED",
+                    "value": {
+                      "fallback": 10.0
+                    }
+                  }
+                }
+              },
+              "layout": {
+                "kind": "PLAIN",
+                "clips_content": false,
+                "scroll": {
+                  "horizontal": false,
+                  "vertical": false
+                }
+              },
+              "positioning": {
+                "kind": "ABSOLUTE",
+                "x": 0.0,
+                "y": 0.0,
+                "horizontal_constraint": "MIN",
+                "vertical_constraint": "MIN",
+                "transform": {
+                  "matrix": [
+                    1.0,
+                    0.0,
+                    0.0,
+                    1.0,
+                    0.0,
+                    0.0
+                  ]
+                }
+              },
+              "style": {
+                "fills": [],
+                "strokes": [],
+                "stroke_widths": {
+                  "top": {
+                    "fallback": 0.0
+                  },
+                  "right": {
+                    "fallback": 0.0
+                  },
+                  "bottom": {
+                    "fallback": 0.0
+                  },
+                  "left": {
+                    "fallback": 0.0
+                  }
+                },
+                "stroke_align": "INSIDE",
+                "radii": {
+                  "top_left": {
+                    "fallback": 0.0
+                  },
+                  "top_right": {
+                    "fallback": 0.0
+                  },
+                  "bottom_right": {
+                    "fallback": 0.0
+                  },
+                  "bottom_left": {
+                    "fallback": 0.0
+                  },
+                  "smoothing": 0.0
+                },
+                "effects": [],
+                "blend_mode": "NORMAL",
+                "is_mask": false
+              },
+              "reactions": [],
+              "asset_decision": {
+                "route": "NATIVE",
+                "reasons": []
+              },
+              "children": []
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "variables": [],
+  "components": [],
+  "assets": []
+}

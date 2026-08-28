@@ -42,7 +42,10 @@ export type RawNodeKind =
   | "VECTOR"
   | "IMAGE"
   | "COMPONENT"
+  | "COMPONENT_SET"
   | "INSTANCE"
+  | "SLOT"
+  | "SLICE"
   | "SCROLL";
 
 export type RawLayoutMode = "NONE" | "HORIZONTAL" | "VERTICAL" | "GRID";
@@ -238,18 +241,33 @@ export interface RawTextStyle {
   color?: RawBoundValue<RawColor>;
 }
 
-export type RawComponentRole = "COMPONENT" | "INSTANCE";
+export type RawComponentRole = "COMPONENT" | "COMPONENT_SET" | "INSTANCE";
+export interface RawPreferredComponent {
+  type: "COMPONENT" | "COMPONENT_SET";
+  key: string;
+}
+export interface RawSlotProperty {
+  description?: string;
+  preferred_values: RawPreferredComponent[];
+  stretch_child_on_insert?: boolean;
+  display_empty_by_default?: boolean;
+  min_children?: number;
+  max_children?: number;
+  allow_preferred_values_only?: boolean;
+}
 export type RawComponentValue =
   | { kind: "VARIANT"; value: string }
   | { kind: "TEXT"; value: string }
   | { kind: "BOUND_TEXT"; value: RawBoundValue<string> }
   | { kind: "BOOLEAN"; value: boolean }
   | { kind: "BOUND_BOOLEAN"; value: RawBoundValue<boolean> }
-  | { kind: "INSTANCE_SWAP"; value: string };
+  | { kind: "INSTANCE_SWAP"; value: string }
+  | { kind: "SLOT"; value: RawSlotProperty };
 
 export interface RawComponentPropertyReferences {
   visible?: string;
   characters?: string;
+  main_component?: string;
 }
 
 export interface RawOverride {
