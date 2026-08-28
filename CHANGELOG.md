@@ -4,11 +4,43 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## [0.4.0] - 2026-08-28
+
+### Added
+
+- Deterministic extraction fingerprints, bounded traversal manifests, grouped
+  diagnostics, typed text/layout metadata, and capability profiles.
+- Root-scoped multi-selection compilation, content-addressed asset caching,
+  crash-recoverable artifact generations, and source-node visual attribution.
+- Exact image crop, child alignment, component property, transform scale, and
+  runtime-route fixtures with pinned-GPUI construction checks.
+- Repository-owned Linux Wayland capture plus macOS and Windows platform evidence
+  workflows, including Windows `%100`, `%125`, and `%150` DPI profiles.
+- Candidate GPUI qualification with deterministic positive reports and explicit
+  incompatible-API classification.
+- Public `@vaur94/figma-rust` OpenCode V2 package for the four repository-owned
+  operator and task skills.
+
 ### Changed
 
 - Enterprise extended variable collection contexts now fail closed with
   node/property-scoped `FR-TOKEN-MODE-005` before alias or value resolution;
   schema v2 continues to support standard collection mode contexts only.
+- Compiler assets and complete generations now publish atomically under bounded
+  recovery rules; multi-root work can retain successful roots while reporting a
+  failing command status.
+- Platform evidence records physical dimensions, renderer/font identity, hashes,
+  declared thresholds, and deterministic two-run comparisons.
+
+### Fixed
+
+- Authored SVG fallback colors, token-bound dimensions, counter-axis overrides,
+  text layout metadata, image crop geometry, subtree scale transforms, and hidden
+  component children no longer disappear or lower through an unsafe route.
+- Loopback compiler export now uses a fixed token-protected target with atomic
+  replacement and explicit transfer/traversal completion.
+- The Ubuntu GPUI qualification job installs its Fontconfig and XKBCommon native
+  build dependencies before compiling the pinned renderer fixture.
 
 ## [0.3.1] - 2026-08-27
 
@@ -105,6 +137,7 @@ All notable changes to this project are documented in this file.
 - Enterprise extended-variable-collection overrides are not yet covered by a public fixture.
 - Runtime asset routes remain an explicit GPUI code-generation boundary.
 
+[0.4.0]: https://github.com/ugur-murat-alt/figma-rust/releases/tag/v0.4.0
 [0.3.1]: https://github.com/ugur-murat-alt/figma-rust/releases/tag/v0.3.1
 [0.3.0]: https://github.com/ugur-murat-alt/figma-rust/releases/tag/v0.3.0
 [0.2.0]: https://github.com/ugur-murat-alt/figma-rust/releases/tag/v0.2.0

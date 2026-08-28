@@ -77,6 +77,19 @@ from this repository or a child directory.
 opencode2
 ```
 
+To make the same skill suite available outside this checkout, add the published
+OpenCode V2 plugin at an exact version:
+
+```jsonc
+{
+  "plugins": ["@vaur94/figma-rust@0.4.0"]
+}
+```
+
+The npm package registers only missing skill IDs; repository-local copies remain
+authoritative when they are present. It does not contain the compiler CLI or the
+Figma development plugin.
+
 Ask OpenCode2 to load `figma-rust` explicitly for extraction, compilation,
 semantic GPUI integration, verification, capture, debugging, or compiler
 development work. It is the umbrella router for three task skills:

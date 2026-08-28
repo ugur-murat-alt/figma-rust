@@ -1,0 +1,45 @@
+{
+  "name": "@vaur94/figma-rust",
+  "version": "0.4.0",
+  "description": "OpenCode V2 skills for the deterministic figma-rust GPUI compiler workflow.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "main": "./dist/plugin.js",
+  "exports": {
+    ".": "./dist/plugin.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ugur-murat-alt/figma-rust.git",
+    "directory": "opencode2"
+  },
+  "homepage": "https://github.com/ugur-murat-alt/figma-rust#opencode2-skill",
+  "bugs": {
+    "url": "https://github.com/ugur-murat-alt/figma-rust/issues"
+  },
+  "author": "Uğur Murat Altıntaş",
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "node --check dist/plugin.js",
+    "test": "node test.mjs",
+    "prepublishOnly": "npm run build && npm run check && npm test"
+  },
+  "keywords": [
+    "opencode",
+    "opencode-plugin",
+    "figma",
+    "rust",
+    "gpui",
+    "design-to-code"
+  ],
+  "dependencies": {
+    "@opencode-ai/plugin": "0.0.0-beta-18414"
+  }
+}

@@ -1743,7 +1743,7 @@ dependencies = [
 
 [[package]]
 name = "figma-generated-gpui-fixture"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "base64 0.23.1",
  "figma-gpui-runtime",
@@ -1756,14 +1756,14 @@ dependencies = [
 
 [[package]]
 name = "figma-gpui-runtime"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "gpui",
 ]
 
 [[package]]
 name = "figma-rust-cli"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "base64 0.23.1",
  "clap",
@@ -1779,7 +1779,7 @@ dependencies = [
 
 [[package]]
 name = "figma-rust-codegen"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "figma-rust-core",
  "prettyplease 0.3.0",
@@ -1793,7 +1793,7 @@ dependencies = [
 
 [[package]]
 name = "figma-rust-core"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "serde",
  "serde_json",

@@ -1,6 +1,8 @@
 /target/
 /plugin/dist/
 /plugin/node_modules/
+/opencode2/dist/
+/opencode2/node_modules/
 /.opencode/.skill-power/
 *.log
 .DS_Store
