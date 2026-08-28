@@ -21,6 +21,7 @@ import {
 import type { ExtractionBundle } from "../src/schema";
 import realGroupFixture from "./fixtures/real-group.plugin-api.json";
 import multiModeFixture from "./fixtures/multi-mode-variables.json";
+import extendedCollectionFixture from "./fixtures/extended-variable-collection.json";
 import realExtractionFixture from "../../fixtures/real-figma/extraction.json";
 import dataTableExtractionFixture from "../../fixtures/orbitline-figma-mcp/extraction.table.json";
 
@@ -503,6 +504,123 @@ async function keepsAliasCyclesScopedToOneResolution(): Promise<void> {
   assert.ok(bundle.extraction_diagnostics.some(
     (diagnostic) => diagnostic.code === "FR-TOKEN-CHAIN-001",
   ));
+  testVariables.clear();
+  testCollections.clear();
+}
+
+async function rejectsEnterpriseExtendedModeOverridesBeforeAliasResolution(): Promise<void> {
+  const baseCollectionId = extendedCollectionFixture.base_collection_id;
+  const extendedCollectionId = extendedCollectionFixture.extended_collection_id;
+  const baseLightMode = extendedCollectionFixture.modes.base_light;
+  const baseDarkMode = extendedCollectionFixture.modes.base_dark;
+  const extendedLightMode = extendedCollectionFixture.modes.extended_light;
+  const extendedDarkMode = extendedCollectionFixture.modes.extended_dark;
+  const firstId = extendedCollectionFixture.variables.alias;
+  const secondId = extendedCollectionFixture.variables.cycle;
+  testCollections.set(baseCollectionId, {
+    id: baseCollectionId,
+    isExtension: false,
+    defaultModeId: baseLightMode,
+    modes: [
+      { modeId: baseLightMode, name: "Light" },
+      { modeId: baseDarkMode, name: "Dark" },
+    ],
+  });
+  testCollections.set(extendedCollectionId, {
+    id: extendedCollectionId,
+    isExtension: true,
+    parentVariableCollectionId: baseCollectionId,
+    rootVariableCollectionId: extendedCollectionFixture.root_collection_id,
+    defaultModeId: extendedLightMode,
+    modes: [
+      { modeId: extendedLightMode, name: "Light", parentModeId: baseLightMode },
+      { modeId: extendedDarkMode, name: "Dark", parentModeId: baseDarkMode },
+    ],
+    variableIds: [firstId, secondId],
+    variableOverrides: extendedCollectionFixture.overrides,
+  });
+  testVariables.set(firstId, {
+    id: firstId,
+    name: "enterprise/alias",
+    variableCollectionId: baseCollectionId,
+    valuesByMode: {
+      [baseLightMode]: { type: "VARIABLE_ALIAS", id: secondId },
+      [baseDarkMode]: { type: "VARIABLE_ALIAS", id: secondId },
+    },
+    resolveForConsumer: () => {
+      throw new Error("extended collections must be rejected before consumer resolution");
+    },
+  });
+  testVariables.set(secondId, {
+    id: secondId,
+    name: "enterprise/cycle",
+    variableCollectionId: baseCollectionId,
+    valuesByMode: {
+      [baseLightMode]: { type: "VARIABLE_ALIAS", id: firstId },
+      [baseDarkMode]: { type: "VARIABLE_ALIAS", id: firstId },
+    },
+    resolveForConsumer: () => {
+      throw new Error("extended collections must be rejected before alias traversal");
+    },
+  });
+  const makeNode = (id: string, modeId: string) => {
+    const node = rectangle(id, [[1, 0, 0], [0, 1, 0]]);
+    node.resolvedVariableModes = { [extendedCollectionId]: modeId };
+    node.fills = [{
+      type: "SOLID",
+      color: { r: 0, g: 0, b: 0 },
+      boundVariables: { color: { type: "VARIABLE_ALIAS", id: firstId } },
+    }];
+    return node;
+  };
+  const inherited = makeNode("26:1", extendedLightMode);
+  const overridden = makeNode("26:2", extendedDarkMode);
+
+  const first = await extractNodes([
+    inherited as unknown as SceneNode,
+    overridden as unknown as SceneNode,
+  ]);
+  const second = await extractNodes([
+    overridden as unknown as SceneNode,
+    inherited as unknown as SceneNode,
+  ]);
+  const relevantDiagnostics = (bundle: ExtractionBundle) => bundle.extraction_diagnostics
+    .filter((diagnostic) => diagnostic.code === "FR-TOKEN-MODE-005");
+  assert.deepEqual(first.variables, []);
+  assert.deepEqual(relevantDiagnostics(first), [
+    {
+      severity: "ERROR",
+      code: "FR-TOKEN-MODE-005",
+      message: `Enterprise extended variable collection ${extendedCollectionId} extends ${baseCollectionId}; override lineage is not supported by schema v2.`,
+      node_id: "26:1",
+      property_path: "style.fills[0].boundVariables.color",
+    },
+    {
+      severity: "ERROR",
+      code: "FR-TOKEN-MODE-005",
+      message: `Enterprise extended variable collection ${extendedCollectionId} extends ${baseCollectionId}; override lineage is not supported by schema v2.`,
+      node_id: "26:1",
+      property_path: "style.fills[0].color",
+    },
+    {
+      severity: "ERROR",
+      code: "FR-TOKEN-MODE-005",
+      message: `Enterprise extended variable collection ${extendedCollectionId} extends ${baseCollectionId}; override lineage is not supported by schema v2.`,
+      node_id: "26:2",
+      property_path: "style.fills[0].boundVariables.color",
+    },
+    {
+      severity: "ERROR",
+      code: "FR-TOKEN-MODE-005",
+      message: `Enterprise extended variable collection ${extendedCollectionId} extends ${baseCollectionId}; override lineage is not supported by schema v2.`,
+      node_id: "26:2",
+      property_path: "style.fills[0].color",
+    },
+  ]);
+  assert.deepEqual(relevantDiagnostics(second), relevantDiagnostics(first));
+  assert.equal(first.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.code.startsWith("FR-TOKEN-CHAIN-")
+  ), false);
   testVariables.clear();
   testCollections.clear();
 }
@@ -1135,6 +1253,7 @@ await rejectsIllConditionedGroupTransform();
 await ignoresNonGridPlacementSentinels();
 await preservesAndValidatesGridPlacements();
 await keepsAliasCyclesScopedToOneResolution();
+await rejectsEnterpriseExtendedModeOverridesBeforeAliasResolution();
 await preservesVariableValuesAcrossConsumerModes();
 await preservesModeledNumericBindings();
 await preservesBoundDimensionsAcrossConsumerModes();

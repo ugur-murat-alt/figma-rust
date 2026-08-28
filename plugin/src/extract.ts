@@ -86,6 +86,7 @@ interface VariableReference {
 interface ExtractionContext {
   diagnostics: ExtractionDiagnostic[];
   variableReferences: Map<string, VariableReference[]>;
+  variableCollections: Map<string, Promise<VariableCollection | null>>;
   boundValues: Map<string, Array<{ mode_context?: RawModeContext }>>;
   components: Map<string, RawComponent>;
   assets: Map<string, RawAsset>;
@@ -146,6 +147,7 @@ export async function extractNodes(
   const context: ExtractionContext = {
     diagnostics: [],
     variableReferences: new Map(),
+    variableCollections: new Map(),
     boundValues: new Map(),
     components: new Map(),
     assets: new Map(),
@@ -1820,7 +1822,7 @@ async function resolveVariables(context: ExtractionContext): Promise<RawVariable
 
     let collection: VariableCollection | null = null;
     try {
-      collection = await awaitWithOptionalDeadline(figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId), context.deadline);
+      collection = await loadVariableCollection(variable.variableCollectionId, context);
     } catch (error) {
       if (isDeadlineError(error)) throw error;
       addDiagnostic(context, "ERROR", "FR-TOKEN-MODE-002", `Variable collection ${variable.variableCollectionId} could not be resolved: ${errorMessage(error)}`, references[0].node.id, references[0].propertyPath);
@@ -1926,9 +1928,9 @@ async function collectVariableModeContext(
   let resolvedCollection = collection;
   if (resolvedCollection === undefined) {
     try {
-      resolvedCollection = await awaitWithOptionalDeadline(
-        figma.variables.getVariableCollectionByIdAsync(variable.variableCollectionId),
-        context.deadline,
+      resolvedCollection = await loadVariableCollection(
+        variable.variableCollectionId,
+        context,
       ) ?? undefined;
     } catch (error) {
       if (isDeadlineError(error)) throw error;
@@ -1938,6 +1940,16 @@ async function collectVariableModeContext(
   }
   if (resolvedCollection === undefined) {
     addDiagnostic(context, "ERROR", "FR-TOKEN-MODE-002", `Variable collection ${variable.variableCollectionId} could not be resolved.`, nodeId, propertyPath);
+    return false;
+  }
+  if (!await hasOnlyStandardVariableCollections(
+    variable.variableCollectionId,
+    resolvedCollection,
+    modeContext,
+    nodeId,
+    propertyPath,
+    context,
+  )) {
     return false;
   }
   const modeId = modeContext[variable.variableCollectionId] ?? resolvedCollection.defaultModeId;
@@ -1973,6 +1985,68 @@ async function collectVariableModeContext(
     seen,
     modeContext,
   );
+}
+
+async function hasOnlyStandardVariableCollections(
+  variableCollectionId: string,
+  variableCollection: VariableCollection,
+  modeContext: RawModeContext,
+  nodeId: string,
+  propertyPath: string,
+  context: ExtractionContext,
+): Promise<boolean> {
+  const collectionIds = new Set([variableCollection.id, ...Object.keys(modeContext)]);
+  for (const collectionId of [...collectionIds].sort(compareStrings)) {
+    let collection: VariableCollection | null = variableCollection.id === collectionId
+      ? variableCollection
+      : null;
+    if (collection === null) {
+      try {
+        collection = await loadVariableCollection(collectionId, context);
+      } catch (error) {
+        if (isDeadlineError(error)) throw error;
+        addDiagnostic(context, "ERROR", "FR-TOKEN-MODE-002", `Variable collection ${collectionId} could not be resolved: ${errorMessage(error)}`, nodeId, propertyPath);
+        return false;
+      }
+    }
+    if (collection === null) {
+      addDiagnostic(context, "ERROR", "FR-TOKEN-MODE-002", `Variable collection ${collectionId} could not be resolved.`, nodeId, propertyPath);
+      return false;
+    }
+    if (collection.isExtension !== true) continue;
+    const extended = collection as unknown as ExtendedVariableCollection;
+    if (
+      collectionId !== variableCollectionId
+      && extended.parentVariableCollectionId !== variableCollectionId
+      && extended.rootVariableCollectionId !== variableCollectionId
+    ) {
+      continue;
+    }
+    addDiagnostic(
+      context,
+      "ERROR",
+      "FR-TOKEN-MODE-005",
+      `Enterprise extended variable collection ${collectionId} extends ${extended.parentVariableCollectionId}; override lineage is not supported by schema v2.`,
+      nodeId,
+      propertyPath,
+    );
+    return false;
+  }
+  return true;
+}
+
+function loadVariableCollection(
+  collectionId: string,
+  context: ExtractionContext,
+): Promise<VariableCollection | null> {
+  const existing = context.variableCollections.get(collectionId);
+  if (existing !== undefined) return existing;
+  const pending = awaitWithOptionalDeadline(
+    figma.variables.getVariableCollectionByIdAsync(collectionId),
+    context.deadline,
+  );
+  context.variableCollections.set(collectionId, pending);
+  return pending;
 }
 
 function rawLiteral(

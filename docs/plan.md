@@ -191,9 +191,10 @@ Every feature follows this gate before its checkbox becomes complete:
 
 - Extraction schema v2 is an explicit compatibility boundary; v1 bundles must be
   re-extracted or migrated. They remain readable only to emit `FR-SCHEMA-001`.
-- Enterprise extended-variable-collection overrides are not yet covered by a
-  public fixture; current verified mode handling covers standard collections and
-  cross-collection alias chains.
+- Enterprise extended-variable-collection overrides are detected from the
+  consumer mode context and rejected before alias/value resolution with
+  node/property-scoped `FR-TOKEN-MODE-005`. Schema v2 does not claim override
+  lineage until a real Enterprise fixture proves inherited and overridden values.
 - Linux headless pixel rendering is not supplied by pinned GPUI; a compositor is
   required for pixel artifacts.
 - Exact font pixels are platform-dependent; geometry and text envelopes are

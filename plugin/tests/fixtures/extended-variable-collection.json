@@ -1,0 +1,25 @@
+{
+  "base_collection_id": "VariableCollectionId:test:enterprise-base",
+  "extended_collection_id": "VariableCollectionId:test:enterprise-theme",
+  "root_collection_id": "VariableCollectionId:test:enterprise-base",
+  "modes": {
+    "base_light": "base-light",
+    "base_dark": "base-dark",
+    "extended_light": "VariableCollectionId:test:enterprise-theme/base-light",
+    "extended_dark": "VariableCollectionId:test:enterprise-theme/base-dark"
+  },
+  "variables": {
+    "alias": "VariableID:test:enterprise-alias",
+    "cycle": "VariableID:test:enterprise-cycle"
+  },
+  "overrides": {
+    "VariableID:test:enterprise-alias": {
+      "VariableCollectionId:test:enterprise-theme/base-dark": {
+        "r": 1,
+        "g": 0,
+        "b": 0,
+        "a": 1
+      }
+    }
+  }
+}
