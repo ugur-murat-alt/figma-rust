@@ -26,20 +26,19 @@ public static class NativeWindow {
 }
 '@
 
-function Wait-ForLine([string]$Path, [int]$LineCount) {
+function Wait-ForJsonLine([string]$Path, [int]$LineIndex) {
     for ($attempt = 0; $attempt -lt 300; $attempt++) {
-        if ((Test-Path $Path) -and @((Get-Content $Path)).Count -ge $LineCount) {
+        if ((Test-Path $Path) -and @((Get-Content $Path)).Count -gt $LineIndex) {
             $lines = @((Get-Content $Path))
             try {
-                $null = $lines[$LineCount - 1] | ConvertFrom-Json
-                return $lines
+                return ($lines[$LineIndex] | ConvertFrom-Json)
             } catch {
                 # Redirected stdout can be observed before the complete JSON line is flushed.
             }
         }
         Start-Sleep -Milliseconds 100
     }
-    throw "Timed out waiting for line $LineCount in $Path"
+    throw "Timed out waiting for JSON line $($LineIndex + 1) in $Path"
 }
 
 function Capture-Probe([int]$Run) {
@@ -50,8 +49,7 @@ function Capture-Probe([int]$Run) {
         -ArgumentList @('--dpi-profile', "$DpiPercent") -PassThru `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr
     try {
-        $lines = Wait-ForLine $stdout 1
-        $ready = $lines[0] | ConvertFrom-Json
+        $ready = Wait-ForJsonLine $stdout 0
         if ($ready.event -ne 'ready' -or $ready.pid -ne $process.Id -or
             $ready.dpi_percent -ne $DpiPercent -or
             $ready.logical_width -ne 160 -or $ready.logical_height -ne 80 -or
@@ -89,8 +87,7 @@ function Capture-Probe([int]$Run) {
         $lParam = [IntPtr](($clickY -shl 16) -bor ($clickX -band 0xffff))
         [NativeWindow]::PostMessage($hwnd, 0x0201, [IntPtr]1, $lParam) | Out-Null
         [NativeWindow]::PostMessage($hwnd, 0x0202, [IntPtr]0, $lParam) | Out-Null
-        $lines = Wait-ForLine $stdout 2
-        $inputEvent = $lines[1] | ConvertFrom-Json
+        $inputEvent = Wait-ForJsonLine $stdout 1
         if ($inputEvent.event -ne 'input' -or $inputEvent.pid -ne $process.Id) {
             throw 'Primary click was not observed by GPUI'
         }
