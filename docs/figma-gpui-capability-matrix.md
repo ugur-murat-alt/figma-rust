@@ -106,6 +106,7 @@ fallback or add the missing runtime proof.
 | Vector/boolean operation | asset/SVG | Figma SVG export is preferred. |
 | Complex vector plus unsupported effect | raster fallback | Controlled fallback with node ID and reason. |
 | Source geometry capture | GPUI native | Test-support `debug_selector` and final bounds. |
+| Node-scoped verification attribution | figma-rust CLI | Global metrics remain stable; common source-node bounds attribute changed pixels to the deepest safe node at 1:1 scale, while sibling geometry derives deterministic spacing and cross-axis alignment deltas. Ambiguous axes, unknown scale, unmapped pixels, and the bounded work limit remain explicit `FR-VERIFY-*` diagnostics. |
 | Headless pixel capture on macOS | GPUI native | `HeadlessAppContext` with platform renderer. |
 | Headless pixel capture on Linux | unsupported/ambiguous | Pinned upstream returns no headless renderer; use compositor-backed capture. |
 

@@ -170,18 +170,7 @@ fn run(cli: Cli) -> Result<ExitCode, compiler::CliError> {
                 } else if report.passed {
                     println!("verification passed");
                 } else {
-                    for failure in &report.failures {
-                        eprintln!("verification failed: {failure}");
-                    }
-                    for difference in &report.geometry_differences {
-                        eprintln!(
-                            "{} {}: expected {}, actual {}",
-                            difference.node_id,
-                            difference.property,
-                            difference.expected,
-                            difference.actual
-                        );
-                    }
+                    print_verification_failures(&report);
                 }
 
                 Ok(if report.passed {
@@ -195,5 +184,42 @@ fn run(cli: Cli) -> Result<ExitCode, compiler::CliError> {
                 Ok(ExitCode::from(2))
             }
         },
+    }
+}
+
+fn print_verification_failures(report: &verify::VerificationReport) {
+    for failure in &report.failures {
+        eprintln!("verification failed: {failure}");
+    }
+    for difference in &report.geometry_differences {
+        eprintln!(
+            "{} {}: expected {}, actual {}",
+            difference.node_id, difference.property, difference.expected, difference.actual
+        );
+    }
+    for difference in &report.derived_geometry_differences {
+        eprintln!(
+            "{} {} relative to {}: expected {}, actual {}",
+            difference.node_id,
+            difference.property,
+            difference.related_node_id,
+            difference.expected,
+            difference.actual
+        );
+    }
+    for difference in &report.node_pixel_differences {
+        eprintln!(
+            "{} pixel difference: {} changed pixels, mean error {:.5}, max error {:.5}",
+            difference.node_id,
+            difference.changed_pixel_count,
+            difference.mean_absolute_error,
+            difference.maximum_pixel_error
+        );
+    }
+    for diagnostic in &report.analysis_diagnostics {
+        eprintln!(
+            "{} {} {}: {}",
+            diagnostic.code, diagnostic.node_id, diagnostic.property, diagnostic.message
+        );
     }
 }

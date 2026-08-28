@@ -1,9 +1,18 @@
-use std::{collections::BTreeMap, fs, io::Cursor, path::Path};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    fs,
+    io::Cursor,
+    path::{Path, PathBuf},
+};
 
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use image::{ImageReader, RgbaImage};
 use serde::{Deserialize, Serialize};
 use sha2::Digest as _;
 use thiserror::Error;
+
+const PIXEL_CHANGE_THRESHOLD: f64 = 0.02;
+const MAX_PIXEL_ATTRIBUTION_WORK: u64 = 64 * 1024 * 1024;
 
 #[derive(Debug, Error)]
 pub enum VerifyError {
@@ -87,6 +96,41 @@ pub struct GeometryDifference {
     pub actual: String,
 }
 
+#[derive(Clone, Debug, Serialize)]
+pub struct DerivedGeometryDifference {
+    pub node_id: String,
+    pub related_node_id: String,
+    pub property: String,
+    pub expected: String,
+    pub actual: String,
+}
+
+#[derive(Clone, Copy, Debug, Serialize)]
+pub struct PixelBounds {
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct NodePixelDifference {
+    pub node_id: String,
+    pub changed_pixel_count: u64,
+    pub changed_pixel_ratio: f64,
+    pub mean_absolute_error: f64,
+    pub maximum_pixel_error: f64,
+    pub changed_bounds: PixelBounds,
+}
+
+#[derive(Clone, Debug, Serialize)]
+pub struct AnalysisDiagnostic {
+    pub code: String,
+    pub node_id: String,
+    pub property: String,
+    pub message: String,
+}
+
 #[derive(Clone, Copy, Debug, Serialize)]
 pub struct ImageMetrics {
     pub mean_absolute_error: f64,
@@ -100,7 +144,10 @@ pub struct VerificationReport {
     pub passed: bool,
     pub inputs: VerificationInputs,
     pub geometry_differences: Vec<GeometryDifference>,
+    pub derived_geometry_differences: Vec<DerivedGeometryDifference>,
     pub image_metrics: Option<ImageMetrics>,
+    pub node_pixel_differences: Vec<NodePixelDifference>,
+    pub analysis_diagnostics: Vec<AnalysisDiagnostic>,
     pub failures: Vec<String>,
 }
 
@@ -111,6 +158,12 @@ pub struct VerificationInputs {
     pub actual_geometry: String,
     pub reference_image: Option<String>,
     pub actual_image: Option<String>,
+}
+
+struct ImageAnalysis {
+    metrics: Option<ImageMetrics>,
+    node_differences: Vec<NodePixelDifference>,
+    diagnostics: Vec<AnalysisDiagnostic>,
 }
 
 pub fn verify_manifest(path: &Path) -> Result<VerificationReport, VerifyError> {
@@ -151,6 +204,8 @@ pub fn verify_manifest(path: &Path) -> Result<VerificationReport, VerifyError> {
 
     let geometry_differences =
         compare_geometry(&reference_geometry, &actual_geometry, manifest.thresholds);
+    let (derived_geometry_differences, mut analysis_diagnostics) =
+        compare_derived_geometry(&reference_geometry, &actual_geometry, manifest.thresholds);
     let mut failures = Vec::new();
     if !geometry_differences.is_empty() {
         failures.push(format!(
@@ -158,60 +213,109 @@ pub fn verify_manifest(path: &Path) -> Result<VerificationReport, VerifyError> {
             geometry_differences.len()
         ));
     }
+    if !derived_geometry_differences.is_empty() {
+        failures.push(format!(
+            "{} derived spacing or alignment differences exceeded tolerance",
+            derived_geometry_differences.len()
+        ));
+    }
 
-    let image_metrics = match (&reference_image, &actual_image) {
-        (Some((reference_path, reference_bytes)), Some((actual_path, actual_bytes))) => {
-            let reference = read_image(reference_path, reference_bytes)?;
-            let actual = read_image(actual_path, actual_bytes)?;
-            let metrics = compare_images(&reference, &actual);
-            if reference.dimensions() == actual.dimensions() {
-                if metrics.mean_absolute_error > manifest.thresholds.mean_absolute_pixel_error {
-                    failures.push(format!(
-                        "mean pixel error {:.5} exceeds {:.5}",
-                        metrics.mean_absolute_error, manifest.thresholds.mean_absolute_pixel_error
-                    ));
-                }
-                if metrics.changed_pixel_ratio > manifest.thresholds.changed_pixel_ratio {
-                    failures.push(format!(
-                        "changed pixel ratio {:.5} exceeds {:.5}",
-                        metrics.changed_pixel_ratio, manifest.thresholds.changed_pixel_ratio
-                    ));
-                }
-                if metrics.edge_error > manifest.thresholds.edge_error {
-                    failures.push(format!(
-                        "edge error {:.5} exceeds {:.5}",
-                        metrics.edge_error, manifest.thresholds.edge_error
-                    ));
-                }
-                if metrics.ssim < manifest.thresholds.minimum_ssim {
-                    failures.push(format!(
-                        "global SSIM {:.5} is below {:.5}",
-                        metrics.ssim, manifest.thresholds.minimum_ssim
-                    ));
-                }
-            } else {
-                failures.push(format!(
-                    "image dimensions differ: reference {:?}, actual {:?}",
-                    reference.dimensions(),
-                    actual.dimensions()
-                ));
-            }
-            Some(metrics)
-        }
-        (None, None) => None,
-        _ => {
-            failures.push("both reference_image and actual_image are required together".to_owned());
-            None
-        }
-    };
+    let image_analysis = compare_manifest_images(
+        reference_image.as_ref(),
+        actual_image.as_ref(),
+        &reference_geometry,
+        &actual_geometry,
+        manifest.thresholds,
+        &mut failures,
+    )?;
+    analysis_diagnostics.extend(image_analysis.diagnostics);
 
     Ok(VerificationReport {
         passed: failures.is_empty(),
         inputs,
         geometry_differences,
-        image_metrics,
+        derived_geometry_differences,
+        image_metrics: image_analysis.metrics,
+        node_pixel_differences: image_analysis.node_differences,
+        analysis_diagnostics,
         failures,
     })
+}
+
+fn compare_manifest_images(
+    reference_input: Option<&(PathBuf, Vec<u8>)>,
+    actual_input: Option<&(PathBuf, Vec<u8>)>,
+    reference_geometry: &GeometrySnapshot,
+    actual_geometry: &GeometrySnapshot,
+    thresholds: Thresholds,
+    failures: &mut Vec<String>,
+) -> Result<ImageAnalysis, VerifyError> {
+    let (Some((reference_path, reference_bytes)), Some((actual_path, actual_bytes))) =
+        (reference_input, actual_input)
+    else {
+        if reference_input.is_some() || actual_input.is_some() {
+            failures.push("both reference_image and actual_image are required together".to_owned());
+        }
+        return Ok(ImageAnalysis {
+            metrics: None,
+            node_differences: Vec::new(),
+            diagnostics: Vec::new(),
+        });
+    };
+    let reference = read_image(reference_path, reference_bytes)?;
+    let actual = read_image(actual_path, actual_bytes)?;
+    let metrics = compare_images(&reference, &actual);
+    if reference.dimensions() != actual.dimensions() {
+        failures.push(format!(
+            "image dimensions differ: reference {:?}, actual {:?}",
+            reference.dimensions(),
+            actual.dimensions()
+        ));
+        return Ok(ImageAnalysis {
+            metrics: Some(metrics),
+            node_differences: Vec::new(),
+            diagnostics: Vec::new(),
+        });
+    }
+    push_image_metric_failures(metrics, thresholds, failures);
+    let (node_differences, diagnostics) =
+        attribute_pixel_differences(&reference, &actual, reference_geometry, actual_geometry);
+    Ok(ImageAnalysis {
+        metrics: Some(metrics),
+        node_differences,
+        diagnostics,
+    })
+}
+
+fn push_image_metric_failures(
+    metrics: ImageMetrics,
+    thresholds: Thresholds,
+    failures: &mut Vec<String>,
+) {
+    if metrics.mean_absolute_error > thresholds.mean_absolute_pixel_error {
+        failures.push(format!(
+            "mean pixel error {:.5} exceeds {:.5}",
+            metrics.mean_absolute_error, thresholds.mean_absolute_pixel_error
+        ));
+    }
+    if metrics.changed_pixel_ratio > thresholds.changed_pixel_ratio {
+        failures.push(format!(
+            "changed pixel ratio {:.5} exceeds {:.5}",
+            metrics.changed_pixel_ratio, thresholds.changed_pixel_ratio
+        ));
+    }
+    if metrics.edge_error > thresholds.edge_error {
+        failures.push(format!(
+            "edge error {:.5} exceeds {:.5}",
+            metrics.edge_error, thresholds.edge_error
+        ));
+    }
+    if metrics.ssim < thresholds.minimum_ssim {
+        failures.push(format!(
+            "global SSIM {:.5} is below {:.5}",
+            metrics.ssim, thresholds.minimum_ssim
+        ));
+    }
 }
 
 fn sha256_hex(bytes: &[u8]) -> String {
@@ -242,7 +346,27 @@ fn parse_json<T: for<'de> Deserialize<'de>>(path: &Path, bytes: &[u8]) -> Result
 }
 
 fn read_image(path: &Path, bytes: &[u8]) -> Result<RgbaImage, VerifyError> {
-    ImageReader::new(Cursor::new(bytes))
+    let decoded;
+    let image_bytes = if path
+        .extension()
+        .is_some_and(|extension| extension == "base64")
+    {
+        let encoded = std::str::from_utf8(bytes)
+            .map_err(|error| VerifyError::Image {
+                path: path.display().to_string(),
+                message: format!("base64 image wrapper is not UTF-8: {error}"),
+            })?
+            .split_whitespace()
+            .collect::<String>();
+        decoded = BASE64.decode(encoded).map_err(|error| VerifyError::Image {
+            path: path.display().to_string(),
+            message: format!("failed to decode base64 image wrapper: {error}"),
+        })?;
+        decoded.as_slice()
+    } else {
+        bytes
+    };
+    ImageReader::new(Cursor::new(image_bytes))
         .with_guessed_format()
         .map_err(|error| VerifyError::Image {
             path: path.display().to_string(),
@@ -355,6 +479,174 @@ fn compare_geometry(
     differences
 }
 
+#[derive(Clone, Copy)]
+enum LayoutAxis {
+    Horizontal,
+    Vertical,
+}
+
+fn compare_derived_geometry(
+    reference: &GeometrySnapshot,
+    actual: &GeometrySnapshot,
+    thresholds: Thresholds,
+) -> (Vec<DerivedGeometryDifference>, Vec<AnalysisDiagnostic>) {
+    let mut differences = Vec::new();
+    let mut diagnostics = Vec::new();
+    let mut children_by_parent = BTreeMap::<String, Vec<&str>>::new();
+
+    for (node_id, expected) in &reference.nodes {
+        let Some(actual_node) = actual.nodes.get(node_id) else {
+            continue;
+        };
+        let Some(parent_id) = expected.parent.as_deref() else {
+            continue;
+        };
+        if actual_node.parent.as_deref() == Some(parent_id)
+            && reference.nodes.contains_key(parent_id)
+            && actual.nodes.contains_key(parent_id)
+        {
+            children_by_parent
+                .entry(parent_id.to_owned())
+                .or_default()
+                .push(node_id);
+        }
+    }
+
+    for (parent_id, mut child_ids) in children_by_parent {
+        if child_ids.len() < 2 {
+            continue;
+        }
+        child_ids.sort_by_key(|node_id| {
+            let node = &reference.nodes[*node_id];
+            (node.sibling_index, *node_id)
+        });
+
+        let Some(axis) = infer_layout_axis(&child_ids, reference, thresholds.geometry_absolute_px)
+        else {
+            diagnostics.push(AnalysisDiagnostic {
+                code: "FR-VERIFY-DERIVED-001".to_owned(),
+                node_id: parent_id,
+                property: "children.layout_axis".to_owned(),
+                message: "spacing and cross-axis alignment were not derived because sibling geometry has no unambiguous primary axis".to_owned(),
+            });
+            continue;
+        };
+
+        for pair in child_ids.windows(2) {
+            let previous_id = pair[0];
+            let node_id = pair[1];
+            let expected = axis_gap(
+                axis,
+                reference.nodes[previous_id].bounds,
+                reference.nodes[node_id].bounds,
+            );
+            let measured = axis_gap(
+                axis,
+                actual.nodes[previous_id].bounds,
+                actual.nodes[node_id].bounds,
+            );
+            push_derived_difference(
+                node_id,
+                previous_id,
+                match axis {
+                    LayoutAxis::Horizontal => "spacing.horizontal",
+                    LayoutAxis::Vertical => "spacing.vertical",
+                },
+                expected,
+                measured,
+                thresholds.geometry_absolute_px,
+                &mut differences,
+            );
+        }
+
+        let expected_parent = reference.nodes[&parent_id].bounds;
+        let actual_parent = actual.nodes[&parent_id].bounds;
+        for node_id in child_ids {
+            let expected =
+                cross_axis_center_offset(axis, expected_parent, reference.nodes[node_id].bounds);
+            let measured =
+                cross_axis_center_offset(axis, actual_parent, actual.nodes[node_id].bounds);
+            push_derived_difference(
+                node_id,
+                &parent_id,
+                match axis {
+                    LayoutAxis::Horizontal => "alignment.cross_axis_center_y",
+                    LayoutAxis::Vertical => "alignment.cross_axis_center_x",
+                },
+                expected,
+                measured,
+                thresholds.geometry_absolute_px,
+                &mut differences,
+            );
+        }
+    }
+
+    (differences, diagnostics)
+}
+
+fn infer_layout_axis(
+    child_ids: &[&str],
+    geometry: &GeometrySnapshot,
+    tolerance: f32,
+) -> Option<LayoutAxis> {
+    let mut minimum_x = f32::INFINITY;
+    let mut maximum_x = f32::NEG_INFINITY;
+    let mut minimum_y = f32::INFINITY;
+    let mut maximum_y = f32::NEG_INFINITY;
+    for node_id in child_ids {
+        let bounds = geometry.nodes[*node_id].bounds;
+        let center_x = bounds.x + bounds.width / 2.0;
+        let center_y = bounds.y + bounds.height / 2.0;
+        minimum_x = minimum_x.min(center_x);
+        maximum_x = maximum_x.max(center_x);
+        minimum_y = minimum_y.min(center_y);
+        maximum_y = maximum_y.max(center_y);
+    }
+    let horizontal_span = maximum_x - minimum_x;
+    let vertical_span = maximum_y - minimum_y;
+    if horizontal_span > vertical_span + tolerance {
+        Some(LayoutAxis::Horizontal)
+    } else if vertical_span > horizontal_span + tolerance {
+        Some(LayoutAxis::Vertical)
+    } else {
+        None
+    }
+}
+
+fn axis_gap(axis: LayoutAxis, previous: Bounds, current: Bounds) -> f32 {
+    match axis {
+        LayoutAxis::Horizontal => current.x - (previous.x + previous.width),
+        LayoutAxis::Vertical => current.y - (previous.y + previous.height),
+    }
+}
+
+fn cross_axis_center_offset(axis: LayoutAxis, parent: Bounds, child: Bounds) -> f32 {
+    match axis {
+        LayoutAxis::Horizontal => child.y + child.height / 2.0 - parent.y,
+        LayoutAxis::Vertical => child.x + child.width / 2.0 - parent.x,
+    }
+}
+
+fn push_derived_difference(
+    node_id: &str,
+    related_node_id: &str,
+    property: &str,
+    expected: f32,
+    actual: f32,
+    tolerance: f32,
+    differences: &mut Vec<DerivedGeometryDifference>,
+) {
+    if (expected - actual).abs() > tolerance {
+        differences.push(DerivedGeometryDifference {
+            node_id: node_id.to_owned(),
+            related_node_id: related_node_id.to_owned(),
+            property: property.to_owned(),
+            expected: format!("{expected:.4}"),
+            actual: format!("{actual:.4}"),
+        });
+    }
+}
+
 fn compare_bounds(
     node_id: &str,
     prefix: &str,
@@ -436,6 +728,284 @@ fn compare_scalar(
     }
 }
 
+#[derive(Clone, Copy)]
+struct PixelCandidate<'a> {
+    node_id: &'a str,
+    reference: Bounds,
+    actual: Bounds,
+    depth: usize,
+    area: f64,
+}
+
+#[derive(Default)]
+struct PixelAccumulator {
+    count: u32,
+    error_sum: f64,
+    maximum_error: f64,
+    minimum_x: u32,
+    minimum_y: u32,
+    maximum_x: u32,
+    maximum_y: u32,
+}
+
+fn attribute_pixel_differences(
+    reference_image: &RgbaImage,
+    actual_image: &RgbaImage,
+    reference_geometry: &GeometrySnapshot,
+    actual_geometry: &GeometrySnapshot,
+) -> (Vec<NodePixelDifference>, Vec<AnalysisDiagnostic>) {
+    let mut diagnostics = Vec::new();
+    if !viewport_matches_image(reference_geometry.viewport, reference_image)
+        || !viewport_matches_image(actual_geometry.viewport, actual_image)
+    {
+        diagnostics.push(AnalysisDiagnostic {
+            code: "FR-VERIFY-PIXEL-001".to_owned(),
+            node_id: "<viewport>".to_owned(),
+            property: "pixel_attribution.viewport_scale".to_owned(),
+            message: format!(
+                "node-scoped pixel attribution requires 1:1 geometry/image dimensions; reference viewport {:?}, actual viewport {:?}, image {:?}",
+                reference_geometry.viewport,
+                actual_geometry.viewport,
+                reference_image.dimensions()
+            ),
+        });
+        return (Vec::new(), diagnostics);
+    }
+
+    let common_nodes = common_geometry_nodes(reference_geometry, actual_geometry);
+    let candidates = pixel_candidates(reference_geometry, actual_geometry, &common_nodes);
+    let pixel_count = u64::from(reference_image.width()) * u64::from(reference_image.height());
+    let candidate_count = u64::try_from(candidates.len()).unwrap_or(u64::MAX);
+    let work = pixel_count.saturating_mul(candidate_count);
+    if work > MAX_PIXEL_ATTRIBUTION_WORK {
+        diagnostics.push(AnalysisDiagnostic {
+            code: "FR-VERIFY-PIXEL-002".to_owned(),
+            node_id: "<viewport>".to_owned(),
+            property: "pixel_attribution.work_limit".to_owned(),
+            message: format!(
+                "node-scoped pixel attribution requires {work} pixel-node checks, exceeding the bounded limit {MAX_PIXEL_ATTRIBUTION_WORK}"
+            ),
+        });
+        return (Vec::new(), diagnostics);
+    }
+
+    let (accumulators, owned_counts, unmapped) =
+        collect_pixel_attribution(reference_image, actual_image, &candidates);
+
+    if unmapped > 0 {
+        diagnostics.push(AnalysisDiagnostic {
+            code: "FR-VERIFY-PIXEL-003".to_owned(),
+            node_id: "<viewport>".to_owned(),
+            property: "pixel_attribution.unmapped".to_owned(),
+            message: format!(
+                "{unmapped} changed pixels were outside every common source-node bound"
+            ),
+        });
+    }
+
+    let differences = finish_pixel_attribution(accumulators, &owned_counts);
+    (differences, diagnostics)
+}
+
+fn common_geometry_nodes(
+    reference: &GeometrySnapshot,
+    actual: &GeometrySnapshot,
+) -> BTreeSet<String> {
+    reference
+        .nodes
+        .keys()
+        .filter(|node_id| actual.nodes.contains_key(*node_id))
+        .cloned()
+        .collect()
+}
+
+fn pixel_candidates<'a>(
+    reference_geometry: &'a GeometrySnapshot,
+    actual_geometry: &'a GeometrySnapshot,
+    common_nodes: &BTreeSet<String>,
+) -> Vec<PixelCandidate<'a>> {
+    common_nodes
+        .iter()
+        .filter_map(|node_id| {
+            let (reference_id, reference) = reference_geometry.nodes.get_key_value(node_id)?;
+            let actual = &actual_geometry.nodes[node_id];
+            if reference.parent != actual.parent
+                || !valid_attribution_bounds(reference.bounds)
+                || !valid_attribution_bounds(actual.bounds)
+            {
+                return None;
+            }
+            let reference_area =
+                f64::from(reference.bounds.width) * f64::from(reference.bounds.height);
+            let actual_area = f64::from(actual.bounds.width) * f64::from(actual.bounds.height);
+            Some(PixelCandidate {
+                node_id: reference_id,
+                reference: reference.bounds,
+                actual: actual.bounds,
+                depth: node_depth(node_id, reference_geometry, common_nodes),
+                area: reference_area.min(actual_area),
+            })
+        })
+        .collect()
+}
+
+fn collect_pixel_attribution<'a>(
+    reference: &RgbaImage,
+    actual: &RgbaImage,
+    candidates: &'a [PixelCandidate<'a>],
+) -> (
+    BTreeMap<&'a str, PixelAccumulator>,
+    BTreeMap<&'a str, u32>,
+    u64,
+) {
+    let mut accumulators = BTreeMap::<&str, PixelAccumulator>::new();
+    let mut owned_counts = BTreeMap::<&str, u32>::new();
+    let mut unmapped = 0_u64;
+    for (x, y, expected) in reference.enumerate_pixels() {
+        let center_x = f64::from(x) + 0.5;
+        let center_y = f64::from(y) + 0.5;
+        let owner = pixel_owner(candidates, center_x, center_y);
+        if let Some(owner) = owner {
+            *owned_counts.entry(owner.node_id).or_default() += 1;
+        }
+        let error = normalized_pixel_error(expected.0, actual.get_pixel(x, y).0);
+        if error <= PIXEL_CHANGE_THRESHOLD {
+            continue;
+        }
+        let Some(owner) = owner else {
+            unmapped += 1;
+            continue;
+        };
+        update_pixel_accumulator(&mut accumulators, owner.node_id, x, y, error);
+    }
+    (accumulators, owned_counts, unmapped)
+}
+
+fn pixel_owner<'a>(
+    candidates: &'a [PixelCandidate<'a>],
+    x: f64,
+    y: f64,
+) -> Option<&'a PixelCandidate<'a>> {
+    candidates
+        .iter()
+        .filter(|candidate| {
+            bounds_contains(candidate.reference, x, y) || bounds_contains(candidate.actual, x, y)
+        })
+        .max_by(|left, right| {
+            left.depth
+                .cmp(&right.depth)
+                .then_with(|| right.area.total_cmp(&left.area))
+                .then_with(|| right.node_id.cmp(left.node_id))
+        })
+}
+
+fn update_pixel_accumulator<'a>(
+    accumulators: &mut BTreeMap<&'a str, PixelAccumulator>,
+    node_id: &'a str,
+    x: u32,
+    y: u32,
+    error: f64,
+) {
+    let accumulator = accumulators
+        .entry(node_id)
+        .or_insert_with(|| PixelAccumulator {
+            minimum_x: x,
+            minimum_y: y,
+            maximum_x: x,
+            maximum_y: y,
+            ..PixelAccumulator::default()
+        });
+    accumulator.count += 1;
+    accumulator.error_sum += error;
+    accumulator.maximum_error = accumulator.maximum_error.max(error);
+    accumulator.minimum_x = accumulator.minimum_x.min(x);
+    accumulator.minimum_y = accumulator.minimum_y.min(y);
+    accumulator.maximum_x = accumulator.maximum_x.max(x);
+    accumulator.maximum_y = accumulator.maximum_y.max(y);
+}
+
+fn finish_pixel_attribution(
+    accumulators: BTreeMap<&str, PixelAccumulator>,
+    owned_counts: &BTreeMap<&str, u32>,
+) -> Vec<NodePixelDifference> {
+    accumulators
+        .into_iter()
+        .map(|(node_id, accumulator)| {
+            let owned_count = owned_counts.get(node_id).copied().unwrap_or(1);
+            NodePixelDifference {
+                node_id: node_id.to_owned(),
+                changed_pixel_count: u64::from(accumulator.count),
+                changed_pixel_ratio: f64::from(accumulator.count) / f64::from(owned_count),
+                mean_absolute_error: accumulator.error_sum / f64::from(accumulator.count),
+                maximum_pixel_error: accumulator.maximum_error,
+                changed_bounds: PixelBounds {
+                    x: accumulator.minimum_x,
+                    y: accumulator.minimum_y,
+                    width: accumulator.maximum_x - accumulator.minimum_x + 1,
+                    height: accumulator.maximum_y - accumulator.minimum_y + 1,
+                },
+            }
+        })
+        .collect()
+}
+
+fn viewport_matches_image(viewport: [f32; 2], image: &RgbaImage) -> bool {
+    viewport[0].is_finite()
+        && viewport[1].is_finite()
+        && (f64::from(viewport[0]) - f64::from(image.width())).abs() < f64::EPSILON
+        && (f64::from(viewport[1]) - f64::from(image.height())).abs() < f64::EPSILON
+}
+
+fn valid_attribution_bounds(bounds: Bounds) -> bool {
+    bounds.x.is_finite()
+        && bounds.y.is_finite()
+        && bounds.width.is_finite()
+        && bounds.height.is_finite()
+        && bounds.width > 0.0
+        && bounds.height > 0.0
+}
+
+fn node_depth(
+    node_id: &str,
+    geometry: &GeometrySnapshot,
+    common_nodes: &BTreeSet<String>,
+) -> usize {
+    let mut depth = 0;
+    let mut current = geometry.nodes[node_id].parent.as_deref();
+    let mut visited = BTreeSet::new();
+    while let Some(parent_id) = current {
+        if !common_nodes.contains(parent_id) || !visited.insert(parent_id) {
+            break;
+        }
+        depth += 1;
+        current = geometry
+            .nodes
+            .get(parent_id)
+            .and_then(|node| node.parent.as_deref());
+    }
+    depth
+}
+
+fn bounds_contains(bounds: Bounds, x: f64, y: f64) -> bool {
+    x >= f64::from(bounds.x)
+        && y >= f64::from(bounds.y)
+        && x < f64::from(bounds.x + bounds.width)
+        && y < f64::from(bounds.y + bounds.height)
+}
+
+fn normalized_pixel_error(expected: [u8; 4], actual: [u8; 4]) -> f64 {
+    let expected_alpha = f64::from(expected[3]) / 255.0;
+    let actual_alpha = f64::from(actual[3]) / 255.0;
+    let rgb_error = (0..3)
+        .map(|channel| {
+            let expected = f64::from(expected[channel]) / 255.0 * expected_alpha;
+            let actual = f64::from(actual[channel]) / 255.0 * actual_alpha;
+            (expected - actual).abs()
+        })
+        .sum::<f64>();
+    (rgb_error + (expected_alpha - actual_alpha).abs()) / 4.0
+}
+
 fn compare_images(reference: &RgbaImage, actual: &RgbaImage) -> ImageMetrics {
     if reference.dimensions() != actual.dimensions() || reference.is_empty() {
         return ImageMetrics {
@@ -451,18 +1021,9 @@ fn compare_images(reference: &RgbaImage, actual: &RgbaImage) -> ImageMetrics {
     let mut reference_luma = Vec::with_capacity(reference.len() / 4);
     let mut actual_luma = Vec::with_capacity(actual.len() / 4);
     for (expected, actual) in reference.pixels().zip(actual.pixels()) {
-        let expected_alpha = f64::from(expected[3]) / 255.0;
-        let actual_alpha = f64::from(actual[3]) / 255.0;
-        let rgb_error = (0..3)
-            .map(|channel| {
-                let expected = f64::from(expected[channel]) / 255.0 * expected_alpha;
-                let actual = f64::from(actual[channel]) / 255.0 * actual_alpha;
-                (expected - actual).abs()
-            })
-            .sum::<f64>();
-        let pixel_error = rgb_error + (expected_alpha - actual_alpha).abs();
+        let pixel_error = normalized_pixel_error(expected.0, actual.0);
         absolute_sum += pixel_error;
-        if pixel_error / 4.0 > 0.02 {
+        if pixel_error > PIXEL_CHANGE_THRESHOLD {
             changed += 1.0;
         }
         reference_luma.push(luminance(expected.0));
@@ -471,7 +1032,7 @@ fn compare_images(reference: &RgbaImage, actual: &RgbaImage) -> ImageMetrics {
 
     let pixel_count = f64::from(reference.width()) * f64::from(reference.height());
     ImageMetrics {
-        mean_absolute_error: absolute_sum / (pixel_count * 4.0),
+        mean_absolute_error: absolute_sum / pixel_count,
         changed_pixel_ratio: changed / pixel_count,
         edge_error: edge_error(
             &reference_luma,
@@ -544,8 +1105,8 @@ mod tests {
     use image::{Rgba, RgbaImage};
 
     use super::{
-        Bounds, GeometryNode, GeometrySnapshot, Thresholds, compare_geometry, compare_images,
-        verify_manifest,
+        Bounds, GeometryNode, GeometrySnapshot, Thresholds, attribute_pixel_differences,
+        compare_derived_geometry, compare_geometry, compare_images, verify_manifest,
     };
 
     #[test]
@@ -599,6 +1160,40 @@ mod tests {
             report.inputs.reference_image.as_deref(),
             Some("00b870f8e967362deb405959a68758d31f10615aa949eb44e7cfa6cdad84db89")
         );
+    }
+
+    #[test]
+    fn attribution_fixture_reports_spacing_alignment_and_color_owner() {
+        let manifest = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/verification-attribution/verify.json");
+        let report = verify_manifest(&manifest)
+            .unwrap_or_else(|error| panic!("attribution fixture verification must run: {error}"));
+
+        assert!(!report.passed);
+        assert!(report.analysis_diagnostics.is_empty());
+        assert!(
+            report
+                .derived_geometry_differences
+                .iter()
+                .any(|difference| {
+                    difference.node_id == "1:3"
+                        && difference.related_node_id == "1:2"
+                        && difference.property == "spacing.horizontal"
+                })
+        );
+        assert!(
+            report
+                .derived_geometry_differences
+                .iter()
+                .any(|difference| {
+                    difference.node_id == "1:3"
+                        && difference.related_node_id == "1:1"
+                        && difference.property == "alignment.cross_axis_center_y"
+                })
+        );
+        assert_eq!(report.node_pixel_differences.len(), 1);
+        assert_eq!(report.node_pixel_differences[0].node_id, "1:2");
+        assert_eq!(report.node_pixel_differences[0].changed_pixel_count, 1);
     }
 
     #[test]
@@ -691,6 +1286,65 @@ mod tests {
         assert!(metrics.changed_pixel_ratio.abs() < f64::EPSILON);
     }
 
+    #[test]
+    fn spacing_and_alignment_differences_name_the_affected_nodes() {
+        let reference = nested_layout_geometry(10.0, 5.0);
+        let actual = nested_layout_geometry(12.0, 7.0);
+
+        let (differences, diagnostics) =
+            compare_derived_geometry(&reference, &actual, zero_thresholds());
+
+        assert!(diagnostics.is_empty());
+        assert!(differences.iter().any(|difference| {
+            difference.node_id == "1:3"
+                && difference.related_node_id == "1:2"
+                && difference.property == "spacing.horizontal"
+                && difference.expected == "10.0000"
+                && difference.actual == "12.0000"
+        }));
+        assert!(differences.iter().any(|difference| {
+            difference.node_id == "1:3"
+                && difference.related_node_id == "1:1"
+                && difference.property == "alignment.cross_axis_center_y"
+                && difference.expected == "10.0000"
+                && difference.actual == "12.0000"
+        }));
+    }
+
+    #[test]
+    fn changed_pixels_are_attributed_to_the_smallest_common_node() {
+        let geometry = nested_layout_geometry(10.0, 5.0);
+        let reference = RgbaImage::from_pixel(40, 20, Rgba([255, 255, 255, 255]));
+        let mut actual = reference.clone();
+        actual.put_pixel(2, 6, Rgba([255, 0, 0, 255]));
+
+        let (differences, diagnostics) =
+            attribute_pixel_differences(&reference, &actual, &geometry, &geometry);
+
+        assert!(diagnostics.is_empty());
+        assert_eq!(differences.len(), 1);
+        assert_eq!(differences[0].node_id, "1:2");
+        assert_eq!(differences[0].changed_pixel_count, 1);
+        assert_eq!(differences[0].changed_bounds.x, 2);
+        assert_eq!(differences[0].changed_bounds.y, 6);
+    }
+
+    #[test]
+    fn pixel_attribution_fails_closed_when_viewport_scale_is_unknown() {
+        let geometry = nested_layout_geometry(10.0, 5.0);
+        let reference = RgbaImage::from_pixel(80, 40, Rgba([255, 255, 255, 255]));
+        let mut actual = reference.clone();
+        actual.put_pixel(4, 12, Rgba([255, 0, 0, 255]));
+
+        let (differences, diagnostics) =
+            attribute_pixel_differences(&reference, &actual, &geometry, &geometry);
+
+        assert!(differences.is_empty());
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].code, "FR-VERIFY-PIXEL-001");
+        assert_eq!(diagnostics[0].property, "pixel_attribution.viewport_scale");
+    }
+
     fn geometry_node(x: f32, sibling_index: u32) -> GeometrySnapshot {
         GeometrySnapshot {
             viewport: [100.0, 50.0],
@@ -709,6 +1363,70 @@ mod tests {
                     text_bounds: None,
                 },
             )]),
+        }
+    }
+
+    fn nested_layout_geometry(second_gap: f32, second_y: f32) -> GeometrySnapshot {
+        GeometrySnapshot {
+            viewport: [40.0, 20.0],
+            nodes: BTreeMap::from([
+                (
+                    "1:1".to_owned(),
+                    GeometryNode {
+                        parent: None,
+                        sibling_index: 0,
+                        bounds: Bounds {
+                            x: 0.0,
+                            y: 0.0,
+                            width: 40.0,
+                            height: 20.0,
+                        },
+                        clipped: false,
+                        text_bounds: None,
+                    },
+                ),
+                (
+                    "1:2".to_owned(),
+                    GeometryNode {
+                        parent: Some("1:1".to_owned()),
+                        sibling_index: 0,
+                        bounds: Bounds {
+                            x: 0.0,
+                            y: 5.0,
+                            width: 10.0,
+                            height: 10.0,
+                        },
+                        clipped: false,
+                        text_bounds: None,
+                    },
+                ),
+                (
+                    "1:3".to_owned(),
+                    GeometryNode {
+                        parent: Some("1:1".to_owned()),
+                        sibling_index: 1,
+                        bounds: Bounds {
+                            x: 10.0 + second_gap,
+                            y: second_y,
+                            width: 10.0,
+                            height: 10.0,
+                        },
+                        clipped: false,
+                        text_bounds: None,
+                    },
+                ),
+            ]),
+        }
+    }
+
+    fn zero_thresholds() -> Thresholds {
+        Thresholds {
+            geometry_absolute_px: 0.0,
+            geometry_relative: 0.0,
+            mean_absolute_pixel_error: 0.0,
+            changed_pixel_ratio: 0.0,
+            edge_error: 0.0,
+            minimum_ssim: 1.0,
         }
     }
 }

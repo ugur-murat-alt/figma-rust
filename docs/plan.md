@@ -139,9 +139,11 @@ service; Codegen callback performs no Cargo/render work and respects the deadlin
   reference image, fonts, and thresholds.
 - [x] Add deterministic GPUI test-support geometry capture.
 - [x] Add hierarchy/bounds/clipping comparison.
-- [ ] Add derived spacing and alignment comparison.
+- [x] Add derived spacing and alignment comparison with source-node pairs and
+  fail-closed ambiguous-axis diagnostics.
 - [x] Add PNG color/edge/perceptual comparison.
-- [ ] Add node-scoped pixel difference reporting.
+- [x] Add bounded node-scoped pixel difference reporting at a proven 1:1
+  geometry/image scale while retaining global metrics.
 - [x] Add compositor-backed Linux capture harness and record its limitation.
 - [ ] Add macOS headless capture job when a macOS runner is available.
 - [ ] Build fixtures for horizontal, vertical, nested, HUG/FILL/FIXED, simple and
