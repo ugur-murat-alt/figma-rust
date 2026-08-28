@@ -47,12 +47,13 @@ The plugin emits a versioned JSON bundle. The current version is `2`:
 ```text
 ExtractionBundle
   schema_version
-  source { file_key?, page_id, selected_node_ids, plugin_api_version }
+  source { extractor?, extractor_version?, file_key?, page_id, selected_node_ids, plugin_api_version }
   roots: RawNode[]
   variables: RawVariable[]
   components: RawComponent[]
   assets: RawAsset[]
   extraction_diagnostics: Diagnostic[]
+  extraction_manifest { capabilities, traversal }
   rest_snapshot?: JSON_REST_V1 object
 ```
 
@@ -76,6 +77,20 @@ new Figma fields do not disappear silently.
 
 V1 bundles are deserialized only far enough to produce the explicit
 `FR-SCHEMA-001` compatibility error. They are never compiled as v2 data.
+
+Schema v2 readers accept additive optional/defaulted fields. Removing a field,
+changing its meaning, or making an optional field required needs a new schema
+version. Version 1 is legacy diagnostic-only; structurally parseable
+unknown/future versions are unsupported diagnostic-only. The writer emits only
+the current version.
+
+`inspect` reports fingerprint contract v1: SHA-256 over the canonical typed
+bundle with the domain prefix `figma-rust-extraction-fingerprint-v1\0`.
+Deserialization removes JSON object-key/whitespace differences; capability flags
+are sorted and deduplicated, while semantically ordered arrays remain ordered.
+The digest binds extractor/API versions, source identity, selected roots,
+capabilities, diagnostics, and extracted semantic content without printing the
+private source values that were hashed.
 
 A direct REST-to-Raw-Model importer is planned but not implemented. The plugin
 can retain an optional `rest_snapshot` for provenance; current CLI commands

@@ -34,6 +34,8 @@ pub struct ExtractionBundle {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExtractionManifest {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<String>,
     pub traversal: ExtractionTraversalManifest,
 }
 
@@ -67,6 +69,10 @@ pub struct ExtractionTraversalRoot {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RawSource {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extractor: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extractor_version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub file_key: Option<String>,
     pub page_id: String,

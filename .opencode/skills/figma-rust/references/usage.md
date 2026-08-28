@@ -120,6 +120,13 @@ Build once or use Cargo directly:
   lint path/to/extraction.json --json
 ```
 
+`inspect` also reports schema compatibility and extraction fingerprint v1.
+Matching fingerprints identify equal canonical typed bundle semantics under the
+SHA-256 collision assumption, not merely equal source bytes; JSON
+object-key/whitespace order and capability-flag order are ignored.
+Any extracted semantic, source identity, extractor/API version, diagnostic, or
+capability change produces a different privacy-safe SHA-256 digest.
+
 Use `--strict` only for a gate where warnings must fail:
 
 ```sh

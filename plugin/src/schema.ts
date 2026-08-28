@@ -1,5 +1,7 @@
 export const SCHEMA_VERSION = 2;
 export const PLUGIN_TYPINGS_VERSION = "1.135.0";
+export const EXTRACTOR_NAME = "figma-rust-plugin";
+export const EXTRACTOR_VERSION = "0.3.0";
 
 export type JsonValue =
   | null
@@ -23,6 +25,8 @@ export interface ExtractionDiagnostic {
 export type RawExtensions = Record<string, JsonValue>;
 
 export interface RawSource {
+  extractor?: string;
+  extractor_version?: string;
   file_key?: string;
   page_id: string;
   selected_node_ids: string[];
@@ -330,6 +334,7 @@ export interface ExtractionTraversalRoot {
 }
 
 export interface ExtractionManifest {
+  capabilities: string[];
   traversal: {
     chunk_node_limit: number;
     node_count: number;

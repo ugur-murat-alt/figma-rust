@@ -7,7 +7,10 @@ use std::{
 
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use figma_rust_codegen::{CodegenError, GeneratedOutput};
-use figma_rust_core::{Diagnostic, NormalizationOutput, Severity, normalize_bundle, parse_bundle};
+use figma_rust_core::{
+    Diagnostic, ExtractionFingerprint, NormalizationOutput, SchemaCompatibility, Severity,
+    extraction_fingerprint, normalize_bundle, parse_bundle, schema_compatibility,
+};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -133,6 +136,8 @@ impl InspectNode {
 #[derive(Debug, Serialize)]
 pub struct InspectReport {
     pub schema_version: u32,
+    pub schema_compatibility: SchemaCompatibility,
+    pub extraction_fingerprint: ExtractionFingerprint,
     pub root_count: usize,
     pub node_count: usize,
     pub diagnostic_summary: DiagnosticSummary,
@@ -144,10 +149,14 @@ impl InspectReport {
     #[must_use]
     pub fn text(&self) -> String {
         let mut output = format!(
-            "schema {}: {} root(s), {} node(s)\ndiagnostics: {} error(s), {} warning(s), {} info\n",
+            "schema {} ({}): {} root(s), {} node(s)\nfingerprint v{} {}: {}\ndiagnostics: {} error(s), {} warning(s), {} info\n",
             self.schema_version,
+            self.schema_compatibility,
             self.root_count,
             self.node_count,
+            self.extraction_fingerprint.version,
+            self.extraction_fingerprint.algorithm,
+            self.extraction_fingerprint.value,
             self.diagnostic_summary.errors,
             self.diagnostic_summary.warnings,
             self.diagnostic_summary.info
@@ -208,10 +217,12 @@ pub struct CompilerResponse {
 
 pub fn inspect_file(path: &Path) -> Result<InspectReport, CliError> {
     let bundle = read_bundle(path)?;
-    Ok(inspect_bundle(&bundle))
+    inspect_bundle(&bundle)
 }
 
-fn inspect_bundle(bundle: &figma_rust_core::raw::ExtractionBundle) -> InspectReport {
+fn inspect_bundle(
+    bundle: &figma_rust_core::raw::ExtractionBundle,
+) -> Result<InspectReport, CliError> {
     let normalization = normalize_bundle(bundle);
     let tree = bundle
         .roots
@@ -219,14 +230,21 @@ fn inspect_bundle(bundle: &figma_rust_core::raw::ExtractionBundle) -> InspectRep
         .map(InspectNode::from_raw)
         .collect::<Vec<_>>();
     let node_count = tree.iter().map(InspectNode::node_count).sum();
-    InspectReport {
+    Ok(InspectReport {
         schema_version: bundle.schema_version,
+        schema_compatibility: schema_compatibility(bundle.schema_version),
+        extraction_fingerprint: extraction_fingerprint(bundle).map_err(|source| {
+            CliError::Serialize {
+                label: "extraction fingerprint",
+                source,
+            }
+        })?,
         root_count: tree.len(),
         node_count,
         diagnostic_summary: DiagnosticSummary::from_diagnostics(&normalization.diagnostics),
         tree,
         diagnostics: normalization.diagnostics,
-    }
+    })
 }
 
 pub fn lint_file(path: &Path) -> Result<LintReport, CliError> {
@@ -1005,9 +1023,12 @@ mod tests {
     fn inspect_is_deterministic_and_counts_preorder_tree() -> Result<(), Box<dyn std::error::Error>>
     {
         let bundle = parse_bundle(BASIC)?;
-        let first = serde_json::to_string_pretty(&inspect_bundle(&bundle))?;
-        let second = serde_json::to_string_pretty(&inspect_bundle(&bundle))?;
+        let first = serde_json::to_string_pretty(&inspect_bundle(&bundle)?)?;
+        let second = serde_json::to_string_pretty(&inspect_bundle(&bundle)?)?;
         assert_eq!(first, second);
+        assert!(first.contains("\"schema_compatibility\": \"CURRENT\""));
+        assert!(first.contains("\"algorithm\": \"SHA-256\""));
+        assert!(first.contains("\"value\":"));
         assert!(first.contains("\"node_count\": 1"));
         assert!(first.contains("\"id\": \"1:1\""));
         Ok(())

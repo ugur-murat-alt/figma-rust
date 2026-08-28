@@ -1,4 +1,6 @@
 import {
+  EXTRACTOR_NAME,
+  EXTRACTOR_VERSION,
   PLUGIN_TYPINGS_VERSION,
   SCHEMA_VERSION,
   type ExtractionBundle,
@@ -215,6 +217,8 @@ export async function extractNodes(
   return {
     schema_version: SCHEMA_VERSION,
     source: {
+      extractor: EXTRACTOR_NAME,
+      extractor_version: EXTRACTOR_VERSION,
       ...(figma.fileKey ? { file_key: figma.fileKey } : {}),
       page_id: figma.currentPage.id,
       selected_node_ids: selection.map((node) => node.id),
@@ -226,6 +230,15 @@ export async function extractNodes(
     assets: [...context.assets.values()].sort(compareAssets),
     extraction_diagnostics: context.diagnostics,
     extraction_manifest: {
+      capabilities: [
+        ...(includeAssetPayloads ? ["asset-payload-export"] : []),
+        "bounded-traversal",
+        "child-counter-alignment",
+        "modeled-bound-dimensions",
+        ...(restSnapshot === undefined ? [] : ["rest-snapshot"]),
+        "schema-v2",
+        "typed-text-layout",
+      ].sort(),
       traversal: {
         chunk_node_limit: MAX_TRAVERSAL_NODES,
         node_count: context.nodeCount,

@@ -80,6 +80,16 @@ async function extractsGroupLocalCoordinates(): Promise<void> {
     realGroupFixture.group as unknown as SceneNode,
   ]);
   assert.equal(bundle.source.file_key, realGroupFixture.file_key);
+  assert.equal(bundle.source.extractor, "figma-rust-plugin");
+  assert.equal(bundle.source.extractor_version, "0.3.0");
+  assert.deepEqual(bundle.extraction_manifest.capabilities, [
+    "asset-payload-export",
+    "bounded-traversal",
+    "child-counter-alignment",
+    "modeled-bound-dimensions",
+    "schema-v2",
+    "typed-text-layout",
+  ]);
   const positions = bundle.roots[0].children.map((child) => [
     child.id,
     child.position.x,

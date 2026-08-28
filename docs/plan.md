@@ -162,7 +162,7 @@ name the differing Figma node. Compile-only success is insufficient.
 
 ## M6: Hardening and release readiness
 
-- [ ] Add schema compatibility policy and extraction fingerprinting.
+- [x] Add schema compatibility policy and privacy-safe canonical extraction fingerprinting.
 - [ ] Add asset cache invalidation and deterministic content addressing.
 - [ ] Add REST importer with lower-fidelity diagnostics.
 - [ ] Add optional Code Connect template adapter without making it mandatory.
