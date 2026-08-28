@@ -738,7 +738,7 @@ fn validate_node(
         return Ok(());
     }
     match node.kind {
-        RawNodeKind::Vector | RawNodeKind::Image => {
+        RawNodeKind::Vector | RawNodeKind::Image | RawNodeKind::Slice => {
             return unsupported(node, "kind", format!("{:?} asset node", node.kind));
         }
         RawNodeKind::Frame
@@ -747,7 +747,9 @@ fn validate_node(
         | RawNodeKind::Ellipse
         | RawNodeKind::Text
         | RawNodeKind::Component
+        | RawNodeKind::ComponentSet
         | RawNodeKind::Instance
+        | RawNodeKind::Slot
         | RawNodeKind::Scroll => {}
     }
 

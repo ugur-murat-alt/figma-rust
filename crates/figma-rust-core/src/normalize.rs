@@ -226,7 +226,7 @@ pub fn normalize_bundle_with_registry(
     let roots = bundle
         .roots
         .iter()
-        .map(|root| context.normalize_node(root, None, None))
+        .filter_map(|root| context.normalize_visual_node(root, None, None, true))
         .collect();
 
     let normalized_variables = raw_variables
@@ -290,7 +290,9 @@ fn pass_through_requires_runtime(raw: &RawNode) -> bool {
         RawNodeKind::Frame
             | RawNodeKind::Group
             | RawNodeKind::Component
+            | RawNodeKind::ComponentSet
             | RawNodeKind::Instance
+            | RawNodeKind::Slot
             | RawNodeKind::Scroll
     );
     !raw.children.is_empty() && (!is_container || raw.opacity.to_bits() != 1.0_f64.to_bits())
@@ -304,6 +306,34 @@ struct Context<'a> {
 }
 
 impl Context<'_> {
+    fn normalize_visual_node(
+        &mut self,
+        raw: &RawNode,
+        parent: Option<ParentLayout>,
+        component_scope: Option<&BTreeMap<String, RawComponentValue>>,
+        selected_root: bool,
+    ) -> Option<Node> {
+        if raw.kind == RawNodeKind::Slice {
+            self.diagnostics.push(Diagnostic::node(
+                if selected_root {
+                    Severity::Error
+                } else {
+                    Severity::Info
+                },
+                codes::NON_RENDERING_SLICE,
+                if selected_root {
+                    "a selected SLICE is export-only metadata and cannot be compiled as visual UI"
+                } else {
+                    "SLICE export metadata was omitted from visual IR"
+                },
+                &raw.id,
+                Some("kind"),
+            ));
+            return None;
+        }
+        Some(self.normalize_node(raw, parent, component_scope))
+    }
+
     fn normalize_node(
         &mut self,
         raw: &RawNode,
@@ -350,6 +380,7 @@ impl Context<'_> {
         };
         let style = self.normalize_style(raw);
         let (text, visibility_binding) = self.normalize_component_consumers(raw, component_scope);
+        let slot_property = self.normalize_slot_property(raw, component_scope);
         let component = if let Some(component) = raw.component.as_ref() {
             Some(self.normalize_component(raw, component))
         } else {
@@ -374,7 +405,9 @@ impl Context<'_> {
         let children = raw
             .children
             .iter()
-            .map(|child| self.normalize_node(child, Some(child_parent), child_scope))
+            .filter_map(|child| {
+                self.normalize_visual_node(child, Some(child_parent), child_scope, false)
+            })
             .collect();
 
         Node {
@@ -391,6 +424,7 @@ impl Context<'_> {
             style,
             text,
             component,
+            slot_property,
             reactions: raw.reactions.clone(),
             asset_decision,
             children,
@@ -996,6 +1030,48 @@ impl Context<'_> {
         (text, visibility)
     }
 
+    fn normalize_slot_property(
+        &mut self,
+        raw: &RawNode,
+        scope: Option<&BTreeMap<String, RawComponentValue>>,
+    ) -> Option<String> {
+        let reference = raw.component_property_references.main_component.as_deref();
+        match (raw.kind, reference) {
+            (RawNodeKind::Slot, Some(reference)) => {
+                if matches!(
+                    scope.and_then(|properties| properties.get(reference)),
+                    Some(RawComponentValue::Slot(_))
+                ) {
+                    Some(reference.to_owned())
+                } else {
+                    self.component_reference_error(raw, reference, "SLOT", "main_component");
+                    None
+                }
+            }
+            (RawNodeKind::Slot, None) => {
+                self.diagnostics.push(Diagnostic::node(
+                    Severity::Error,
+                    codes::COMPONENT_METADATA_MISMATCH,
+                    "SLOT node has no owning component property reference",
+                    &raw.id,
+                    Some("component_property_references.main_component"),
+                ));
+                None
+            }
+            (_, Some(_)) => {
+                self.diagnostics.push(Diagnostic::node(
+                    Severity::Error,
+                    codes::COMPONENT_METADATA_MISMATCH,
+                    "main_component property reference requires a SLOT consumer",
+                    &raw.id,
+                    Some("component_property_references.main_component"),
+                ));
+                None
+            }
+            (_, None) => None,
+        }
+    }
+
     fn component_text_binding(
         &mut self,
         raw: &RawNode,
@@ -1090,6 +1166,7 @@ impl Context<'_> {
         let role_matches = matches!(
             (raw.kind, component.role),
             (RawNodeKind::Component, RawComponentRole::Component)
+                | (RawNodeKind::ComponentSet, RawComponentRole::ComponentSet)
                 | (RawNodeKind::Instance, RawComponentRole::Instance)
         );
         if !role_matches {
@@ -1103,9 +1180,6 @@ impl Context<'_> {
         }
 
         let resolution = match (raw.kind, component.role) {
-            (RawNodeKind::Component, RawComponentRole::Component) => {
-                ComponentResolution::Definition
-            }
             (RawNodeKind::Instance, RawComponentRole::Instance) => {
                 if let Some(mapping) = self.registry.mapping_for(component) {
                     ComponentResolution::Mapped {
@@ -1125,11 +1199,14 @@ impl Context<'_> {
                     ComponentResolution::StructuralFallback
                 }
             }
-            (RawNodeKind::Instance, RawComponentRole::Component) => {
-                ComponentResolution::StructuralFallback
+            (
+                RawNodeKind::Instance,
+                RawComponentRole::Component | RawComponentRole::ComponentSet,
+            )
+            | (_, RawComponentRole::Instance) => ComponentResolution::StructuralFallback,
+            (_, RawComponentRole::Component | RawComponentRole::ComponentSet) => {
+                ComponentResolution::Definition
             }
-            (_, RawComponentRole::Component) => ComponentResolution::Definition,
-            (_, RawComponentRole::Instance) => ComponentResolution::StructuralFallback,
         };
         ComponentMetadata {
             role: component.role,

@@ -131,6 +131,95 @@ fn extraction_traversal_manifest_is_typed_and_round_trips() {
 }
 
 #[test]
+fn component_set_and_slot_metadata_survive_normalization() {
+    let mut content = fixed_node("31:3", "RECTANGLE");
+    content["name"] = json!("Authored content");
+    let mut slot = fixed_node("31:2", "SLOT");
+    slot["component_property_references"] = json!({"main_component": "Body#31:0"});
+    slot["children"] = json!([content]);
+    let mut component_set = fixed_node("31:1", "COMPONENT_SET");
+    component_set["component"] = json!({
+        "role": "COMPONENT_SET",
+        "component_key": "component-set:31",
+        "variants": {},
+        "properties": {
+            "Body#31:0": {
+                "kind": "SLOT",
+                "value": {
+                    "description": "Body content",
+                    "preferred_values": [
+                        {"type": "COMPONENT", "key": "preferred:31"}
+                    ],
+                    "stretch_child_on_insert": true,
+                    "display_empty_by_default": false,
+                    "min_children": 1,
+                    "max_children": 3,
+                    "allow_preferred_values_only": true
+                }
+            }
+        },
+        "overrides": []
+    });
+    component_set["children"] = json!([slot]);
+
+    let bundle = bundle_with_roots(&json!([component_set]));
+    let first = normalize_bundle(&bundle);
+    let second = normalize_bundle(&bundle);
+    assert_eq!(first, second);
+    assert!(!first.has_errors(), "{:?}", first.diagnostics);
+    assert_eq!(
+        first.document.roots[0]
+            .component
+            .as_ref()
+            .expect("component set metadata")
+            .role,
+        figma_rust_core::raw::RawComponentRole::ComponentSet
+    );
+    assert_eq!(
+        first.document.roots[0].children[0].slot_property.as_deref(),
+        Some("Body#31:0")
+    );
+    assert_eq!(
+        first.document.roots[0].children[0].children[0].source_id,
+        "31:3"
+    );
+}
+
+#[test]
+fn slices_are_retained_in_raw_but_omitted_from_visual_ir() {
+    let mut root = fixed_node("32:1", "FRAME");
+    root["children"] = json!([
+        fixed_node("32:2", "RECTANGLE"),
+        fixed_node("32:3", "SLICE"),
+        fixed_node("32:4", "RECTANGLE")
+    ]);
+    let nested = normalize_bundle(&bundle_with_roots(&json!([root])));
+    assert!(!nested.has_errors(), "{:?}", nested.diagnostics);
+    assert_eq!(
+        nested.document.roots[0]
+            .children
+            .iter()
+            .map(|child| child.source_id.as_str())
+            .collect::<Vec<_>>(),
+        ["32:2", "32:4"]
+    );
+    assert!(nested.diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == codes::NON_RENDERING_SLICE
+            && diagnostic.severity == Severity::Info
+            && diagnostic.node_id.as_deref() == Some("32:3")
+    }));
+
+    let root_only = normalize_bundle(&bundle_with_roots(&json!([fixed_node("32:5", "SLICE")])));
+    assert!(root_only.has_errors());
+    assert!(root_only.document.roots.is_empty());
+    assert!(root_only.diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == codes::NON_RENDERING_SLICE
+            && diagnostic.severity == Severity::Error
+            && diagnostic.node_id.as_deref() == Some("32:5")
+    }));
+}
+
+#[test]
 fn fill_is_parent_aware() {
     let mut root = fixed_node("1:1", "FRAME");
     root["layout"] = json!({"mode": "HORIZONTAL"});
@@ -610,23 +699,25 @@ fn instance_without_metadata_is_diagnosed_and_children_survive() {
 
 #[test]
 fn component_role_mismatch_is_not_treated_as_a_definition() {
-    let mut instance = fixed_node("8:3", "INSTANCE");
-    instance["component"] = json!({
-        "role": "COMPONENT",
-        "component_key": "broken-instance"
-    });
-    let output = normalize_bundle(&bundle_with_roots(&json!([instance])));
-    assert_eq!(
-        output.document.roots[0]
-            .component
-            .as_ref()
-            .map(|metadata| &metadata.resolution),
-        Some(&ComponentResolution::StructuralFallback)
-    );
-    assert!(output.diagnostics.iter().any(|diagnostic| {
-        diagnostic.code == codes::COMPONENT_METADATA_MISMATCH
-            && diagnostic.node_id.as_deref() == Some("8:3")
-    }));
+    for role in ["COMPONENT", "COMPONENT_SET"] {
+        let mut instance = fixed_node("8:3", "INSTANCE");
+        instance["component"] = json!({
+            "role": role,
+            "component_key": "broken-instance"
+        });
+        let output = normalize_bundle(&bundle_with_roots(&json!([instance])));
+        assert_eq!(
+            output.document.roots[0]
+                .component
+                .as_ref()
+                .map(|metadata| &metadata.resolution),
+            Some(&ComponentResolution::StructuralFallback)
+        );
+        assert!(output.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == codes::COMPONENT_METADATA_MISMATCH
+                && diagnostic.node_id.as_deref() == Some("8:3")
+        }));
+    }
 }
 
 #[test]

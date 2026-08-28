@@ -1,5 +1,5 @@
 use figma_rust_codegen::{SourceMap, generate};
-use figma_rust_core::{ir::DesignDocument, parse_and_normalize};
+use figma_rust_core::{Diagnostic, ir::DesignDocument, parse_and_normalize};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
@@ -105,12 +105,19 @@ fn all_hidden_rust_has_no_unused_trait_imports() {
 
 #[test]
 fn real_group_artifacts_match_fresh_generation() {
-    let output = match generate(&real_group_document()) {
+    let document = real_group_document();
+    let output = match generate(&document) {
         Ok(output) => output,
         Err(error) => panic!("real Figma fixture must generate: {error}"),
     };
     let expected_map = serde_json::from_str::<SourceMap>(include_str!(
         "../../../fixtures/real-figma/generated/source-map.json"
+    ));
+    let expected_ir = serde_json::from_str::<DesignDocument>(include_str!(
+        "../../../fixtures/real-figma/generated/ir.json"
+    ));
+    let expected_diagnostics = serde_json::from_str::<Vec<Diagnostic>>(include_str!(
+        "../../../fixtures/real-figma/generated/diagnostics.json"
     ));
 
     assert_eq!(
@@ -120,6 +127,17 @@ fn real_group_artifacts_match_fresh_generation() {
     match expected_map {
         Ok(expected_map) => assert_eq!(output.source_map, expected_map),
         Err(error) => panic!("real Figma source map must deserialize: {error}"),
+    }
+    match expected_ir {
+        Ok(expected_ir) => assert_eq!(document, expected_ir),
+        Err(error) => panic!("real Figma IR must deserialize: {error}"),
+    }
+    let normalized =
+        parse_and_normalize(include_str!("../../../fixtures/real-figma/extraction.json"))
+            .unwrap_or_else(|error| panic!("real Figma fixture must parse: {error}"));
+    match expected_diagnostics {
+        Ok(expected_diagnostics) => assert_eq!(normalized.diagnostics, expected_diagnostics),
+        Err(error) => panic!("real Figma diagnostics must deserialize: {error}"),
     }
 }
 

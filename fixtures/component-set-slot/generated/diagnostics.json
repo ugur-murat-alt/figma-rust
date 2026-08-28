@@ -1,0 +1,9 @@
+[
+  {
+    "severity": "INFO",
+    "code": "FR-NODE-001",
+    "message": "SLICE export metadata was omitted from visual IR",
+    "node_id": "31:4",
+    "property_path": "kind"
+  }
+]

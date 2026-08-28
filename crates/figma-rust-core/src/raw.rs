@@ -121,12 +121,14 @@ pub struct RawComponentPropertyReferences {
     pub visible: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub characters: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub main_component: Option<String>,
 }
 
 impl RawComponentPropertyReferences {
     #[must_use]
     pub fn is_empty(&self) -> bool {
-        self.visible.is_none() && self.characters.is_none()
+        self.visible.is_none() && self.characters.is_none() && self.main_component.is_none()
     }
 }
 
@@ -149,7 +151,10 @@ pub enum RawNodeKind {
     Vector,
     Image,
     Component,
+    ComponentSet,
     Instance,
+    Slot,
+    Slice,
     Scroll,
 }
 
@@ -683,7 +688,40 @@ pub struct RawComponentMetadata {
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum RawComponentRole {
     Component,
+    ComponentSet,
     Instance,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RawPreferredComponent {
+    #[serde(rename = "type")]
+    pub component_type: RawPreferredComponentType,
+    pub key: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RawPreferredComponentType {
+    Component,
+    ComponentSet,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RawSlotProperty {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub preferred_values: Vec<RawPreferredComponent>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stretch_child_on_insert: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_empty_by_default: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub min_children: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_children: Option<usize>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub allow_preferred_values_only: Option<bool>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -695,6 +733,7 @@ pub enum RawComponentValue {
     Boolean(bool),
     BoundBoolean(RawBoundValue<bool>),
     InstanceSwap(String),
+    Slot(RawSlotProperty),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

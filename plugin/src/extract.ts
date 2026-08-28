@@ -17,6 +17,7 @@ import {
   type RawColor,
   type RawComponent,
   type RawComponentMetadata,
+  type RawComponentPropertyReferences,
   type RawComponentValue,
   type RawConstraint,
   type RawEffect,
@@ -35,10 +36,12 @@ import {
   type RawPaint,
   type RawPosition,
   type RawPositioning,
+  type RawPreferredComponent,
   type RawReaction,
   type RawRadii,
   type RawScroll,
   type RawSize,
+  type RawSlotProperty,
   type RawStrokeAlign,
   type RawStyle,
   type RawText,
@@ -286,6 +289,28 @@ async function extractNode(
   if (boundVariables !== undefined) {
     extensions.figma_bound_variables = toJson(boundVariables);
   }
+  if (nodeType === "SLICE") {
+    const exportSettings = field(record, "exportSettings");
+    if (exportSettings !== undefined) {
+      extensions.figma_export_settings = toJson(exportSettings);
+    }
+  }
+  if (nodeType === "SLOT") {
+    const limitViolations = field(record, "limitViolations");
+    if (limitViolations !== undefined) {
+      extensions.figma_slot_limit_violations = toJson(limitViolations);
+      if (Array.isArray(limitViolations) && limitViolations.length > 0) {
+        addDiagnostic(
+          context,
+          "WARNING",
+          "FR-COMPONENT-SLOT-001",
+          `Slot content violates ${limitViolations.join(", ")}.`,
+          node.id,
+          "slot.limit_violations",
+        );
+      }
+    }
+  }
 
   const kind = nodeKind(nodeType);
   if (kind === undefined) {
@@ -323,6 +348,7 @@ async function extractNode(
   const componentPropertyReferences = extractComponentPropertyReferences(
     field(record, "componentPropertyReferences"),
     node.id,
+    nodeType,
     context,
   );
   const reactions = extractReactions(record, node.id, context, extensions);
@@ -334,7 +360,9 @@ async function extractNode(
     figma_node_type: nodeType,
     ...(typeof locked === "boolean" ? { figma_locked: locked } : {}),
     kind: kind ?? "GROUP",
-    visible: booleanValue(field(record, "visible"), true, node.id, "visible", context),
+    visible: nodeType === "SLICE"
+      ? false
+      : booleanValue(field(record, "visible"), true, node.id, "visible", context),
     opacity: numberValue(field(record, "opacity"), 1, node.id, "opacity", context),
     layout,
     size,
@@ -1551,8 +1579,24 @@ async function extractComponentMetadata(node: SceneNode, context: ExtractionCont
   const type = stringValue(field(record, "type"));
   if (type === "COMPONENT_SET") {
     const key = stringValue(field(record, "key"));
-    if (key !== undefined) registerComponentDefinition(record, key, undefined, context);
-    return undefined;
+    if (key === undefined) {
+      addDiagnostic(context, "ERROR", "FR-COMPONENT-EXTRACT-001", "Component set has no key; component metadata was omitted.", node.id, "component.component_key");
+      return undefined;
+    }
+    registerComponentDefinition(record, key, undefined, context);
+    return {
+      role: "COMPONENT_SET",
+      component_key: key,
+      variants: {},
+      properties: extractComponentProperties(
+        field(record, "componentPropertyDefinitions"),
+        node.id,
+        "component.properties",
+        context,
+        true,
+      ),
+      overrides: [],
+    };
   }
   if (type !== "COMPONENT" && type !== "INSTANCE") return undefined;
 
@@ -1668,7 +1712,14 @@ function extractComponentProperties(
         registerVariableReference(tokenId, node, `${propertyPath}.${name}.${boundField}`, context);
       }
     }
-    const converted = componentValue(type, rawValue, nodeId, `${propertyPath}.${name}`, context);
+    const converted = componentValue(
+      type,
+      rawValue,
+      property,
+      nodeId,
+      `${propertyPath}.${name}`,
+      context,
+    );
     if (converted === undefined) continue;
     if (tokenId !== undefined && converted.kind === "TEXT") {
       properties[name] = {
@@ -1693,8 +1744,9 @@ function extractComponentProperties(
 function extractComponentPropertyReferences(
   value: unknown,
   nodeId: string,
+  nodeType: string,
   context: ExtractionContext,
-): { visible?: string; characters?: string } | undefined {
+): RawComponentPropertyReferences | undefined {
   if (value === undefined || value === null) return undefined;
   if (!isRecord(value)) {
     addDiagnostic(context, "ERROR", "FR-COMPONENT-EXTRACT-005", "componentPropertyReferences is not an object.", nodeId, "component_property_references");
@@ -1705,6 +1757,7 @@ function extractComponentPropertyReferences(
   const mainComponentValue = field(value, "mainComponent");
   const visible = stringValue(visibleValue);
   const characters = stringValue(charactersValue);
+  const mainComponent = stringValue(mainComponentValue);
   for (const [property, raw, parsed] of [
     ["visible", visibleValue, visible],
     ["characters", charactersValue, characters],
@@ -1713,19 +1766,25 @@ function extractComponentPropertyReferences(
       addDiagnostic(context, "ERROR", "FR-COMPONENT-EXTRACT-005", `${property} component property reference is not a string.`, nodeId, `component_property_references.${property}`);
     }
   }
-  if (mainComponentValue !== undefined) {
-    addDiagnostic(context, "ERROR", "FR-COMPONENT-EXTRACT-004", "mainComponent property references are not in the bounded TEXT/BOOLEAN consumer set.", nodeId, "component_property_references.mainComponent");
+  if (mainComponentValue !== undefined && mainComponent === undefined) {
+    addDiagnostic(context, "ERROR", "FR-COMPONENT-EXTRACT-005", "mainComponent component property reference is not a string.", nodeId, "component_property_references.mainComponent");
+  } else if (mainComponent !== undefined && nodeType !== "SLOT") {
+    addDiagnostic(context, "ERROR", "FR-COMPONENT-EXTRACT-004", "mainComponent property references are supported only for SLOT consumers.", nodeId, "component_property_references.mainComponent");
   }
-  if (visible === undefined && characters === undefined) return undefined;
+  if (visible === undefined && characters === undefined && mainComponent === undefined) return undefined;
   return {
     ...(visible === undefined ? {} : { visible }),
     ...(characters === undefined ? {} : { characters }),
+    ...(mainComponent === undefined || nodeType !== "SLOT"
+      ? {}
+      : { main_component: mainComponent }),
   };
 }
 
 function componentValue(
   type: string | undefined,
   value: unknown,
+  property: UnknownRecord,
   nodeId: string,
   propertyPath: string,
   context: ExtractionContext,
@@ -1735,11 +1794,79 @@ function componentValue(
   if (type === "BOOLEAN" && typeof value === "boolean") return { kind: "BOOLEAN", value };
   if (type === "INSTANCE_SWAP" && typeof value === "string") return { kind: "INSTANCE_SWAP", value };
   if (type === "SLOT") {
-    addDiagnostic(context, "ERROR", "FR-COMPONENT-EXTRACT-004", "SLOT component properties are not represented by the raw component model.", nodeId, propertyPath);
-    return undefined;
+    return { kind: "SLOT", value: extractSlotProperty(property, nodeId, propertyPath, context) };
   }
   addDiagnostic(context, "ERROR", "FR-COMPONENT-EXTRACT-005", `Component property type ${type ?? "UNKNOWN"} or value is not representable.`, nodeId, propertyPath);
   return undefined;
+}
+
+function extractSlotProperty(
+  property: UnknownRecord,
+  nodeId: string,
+  propertyPath: string,
+  context: ExtractionContext,
+): RawSlotProperty {
+  const preferredValues = field(property, "preferredValues");
+  const preferred: RawPreferredComponent[] = [];
+  if (preferredValues !== undefined) {
+    if (!Array.isArray(preferredValues)) {
+      addDiagnostic(context, "ERROR", "FR-COMPONENT-EXTRACT-005", "SLOT preferred values are not an array.", nodeId, `${propertyPath}.preferredValues`);
+    } else {
+      for (let index = 0; index < preferredValues.length; index += 1) {
+        const entry = preferredValues[index];
+        const preferredType = isRecord(entry) ? stringValue(field(entry, "type")) : undefined;
+        const key = isRecord(entry) ? stringValue(field(entry, "key")) : undefined;
+        if ((preferredType === "COMPONENT" || preferredType === "COMPONENT_SET") && key !== undefined) {
+          preferred.push({ type: preferredType, key });
+        } else {
+          addDiagnostic(context, "ERROR", "FR-COMPONENT-EXTRACT-005", "SLOT preferred value must identify a component or component set.", nodeId, `${propertyPath}.preferredValues[${index}]`);
+        }
+      }
+    }
+  }
+  preferred.sort((left, right) => compareStrings(`${left.type}:${left.key}`, `${right.type}:${right.key}`));
+
+  const settingsValue = field(property, "slotSettings");
+  const settings = isRecord(settingsValue) ? settingsValue : undefined;
+  if (settingsValue !== undefined && settings === undefined) {
+    addDiagnostic(context, "ERROR", "FR-COMPONENT-EXTRACT-005", "SLOT settings are not an object.", nodeId, `${propertyPath}.slotSettings`);
+  }
+  const optionalBooleanSetting = (name: string): boolean | undefined => {
+    const raw = settings === undefined ? undefined : field(settings, name);
+    if (raw === undefined || raw === null) return undefined;
+    if (typeof raw === "boolean") return raw;
+    addDiagnostic(context, "ERROR", "FR-COMPONENT-EXTRACT-005", `SLOT setting ${name} is not boolean.`, nodeId, `${propertyPath}.slotSettings.${name}`);
+    return undefined;
+  };
+  const optionalCount = (name: string): number | undefined => {
+    const raw = settings === undefined ? undefined : field(settings, name);
+    if (raw === undefined || raw === null) return undefined;
+    return optionalUnsignedInteger(raw, Number.MAX_SAFE_INTEGER, nodeId, `${propertyPath}.slotSettings.${name}`, context);
+  };
+  const description = stringValue(field(property, "description"));
+  const stretchChildOnInsert = optionalBooleanSetting("stretchChildOnInsert");
+  const displayEmptyByDefault = optionalBooleanSetting("displayEmptyByDefault");
+  const minChildren = optionalCount("minChildren");
+  const maxChildren = optionalCount("maxChildren");
+  const allowPreferredValuesOnly = optionalBooleanSetting("allowPreferredValuesOnly");
+  if (minChildren !== undefined && maxChildren !== undefined && minChildren > maxChildren) {
+    addDiagnostic(context, "ERROR", "FR-COMPONENT-EXTRACT-005", "SLOT minimum child count exceeds the maximum.", nodeId, `${propertyPath}.slotSettings`);
+  }
+  return {
+    ...(description === undefined ? {} : { description }),
+    preferred_values: preferred,
+    ...(stretchChildOnInsert === undefined
+      ? {}
+      : { stretch_child_on_insert: stretchChildOnInsert }),
+    ...(displayEmptyByDefault === undefined
+      ? {}
+      : { display_empty_by_default: displayEmptyByDefault }),
+    ...(minChildren === undefined ? {} : { min_children: minChildren }),
+    ...(maxChildren === undefined ? {} : { max_children: maxChildren }),
+    ...(allowPreferredValuesOnly === undefined
+      ? {}
+      : { allow_preferred_values_only: allowPreferredValuesOnly }),
+  };
 }
 
 function extractOverrides(value: unknown, nodeId: string, context: ExtractionContext): RawComponentMetadata["overrides"] {
@@ -2563,13 +2690,20 @@ function nodeKind(type: string): RawNodeKind | undefined {
     case "TEXT":
       return "TEXT";
     case "VECTOR":
+    case "LINE":
       return "VECTOR";
     case "IMAGE":
       return "IMAGE";
     case "COMPONENT":
       return "COMPONENT";
+    case "COMPONENT_SET":
+      return "COMPONENT_SET";
     case "INSTANCE":
       return "INSTANCE";
+    case "SLOT":
+      return "SLOT";
+    case "SLICE":
+      return "SLICE";
     case "SCROLL":
       return "SCROLL";
     default:

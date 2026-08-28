@@ -67,6 +67,14 @@ pub mod generated_component_properties {
     ));
 }
 
+/// Output compiled from the synthetic component-set, SLOT, and Slice fixture.
+pub mod generated_component_set_slot {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../component-set-slot/generated/generated.rs"
+    ));
+}
+
 /// Asset-backed generated output must not borrow its local resolvers.
 pub fn generated_asset_fallback_view() -> impl IntoElement {
     let assets = figma_gpui_runtime::DirectoryAssets::new(concat!(
@@ -235,6 +243,12 @@ mod tests {
     #[test]
     fn bound_component_property_view_constructs_with_fallback_tokens() {
         let _view = super::generated_component_properties::generated_view(&FallbackTokens);
+    }
+
+    #[test]
+    fn component_set_slot_view_constructs_against_pinned_gpui() {
+        let _ =
+            super::generated_component_set_slot::generated_view(&FallbackTokens).into_any_element();
     }
 
     #[test]

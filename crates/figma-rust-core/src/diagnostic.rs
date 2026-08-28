@@ -68,6 +68,7 @@ pub mod codes {
     pub const UNRESOLVED_TOKEN: &str = "FR-TOKEN-001";
     pub const UNMAPPED_COMPONENT: &str = "FR-COMPONENT-001";
     pub const COMPONENT_METADATA_MISMATCH: &str = "FR-COMPONENT-002";
+    pub const NON_RENDERING_SLICE: &str = "FR-NODE-001";
     pub const UNSUPPORTED_EFFECT: &str = "FR-PAINT-001";
     pub const RUNTIME_FALLBACK: &str = "FR-ASSET-001";
     pub const SVG_FALLBACK: &str = "FR-ASSET-002";

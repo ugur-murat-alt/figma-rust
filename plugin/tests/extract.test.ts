@@ -19,6 +19,7 @@ import {
   isTemporaryTransferNodeName,
 } from "../src/transfer";
 import type { ExtractionBundle } from "../src/schema";
+import pluginPackage from "../package.json";
 import realGroupFixture from "./fixtures/real-group.plugin-api.json";
 import multiModeFixture from "./fixtures/multi-mode-variables.json";
 import extendedCollectionFixture from "./fixtures/extended-variable-collection.json";
@@ -30,7 +31,17 @@ type Transform = [[number, number, number], [number, number, number]];
 interface TestNode {
   id: string;
   name: string;
-  type: "COMPONENT" | "GROUP" | "RECTANGLE" | "TEXT" | "VECTOR";
+  type:
+    | "COMPONENT"
+    | "COMPONENT_SET"
+    | "FRAME"
+    | "GROUP"
+    | "LINE"
+    | "RECTANGLE"
+    | "SLICE"
+    | "SLOT"
+    | "TEXT"
+    | "VECTOR";
   x: number;
   y: number;
   width: number;
@@ -82,7 +93,7 @@ async function extractsGroupLocalCoordinates(): Promise<void> {
   ]);
   assert.equal(bundle.source.file_key, realGroupFixture.file_key);
   assert.equal(bundle.source.extractor, "figma-rust-plugin");
-  assert.equal(bundle.source.extractor_version, "0.3.0");
+  assert.equal(bundle.source.extractor_version, pluginPackage.version);
   assert.deepEqual(bundle.extraction_manifest.capabilities, [
     "asset-payload-export",
     "bound-component-properties",
@@ -930,6 +941,162 @@ async function preservesBoundTextAndBooleanComponentProperties(): Promise<void> 
   testCollections.clear();
 }
 
+async function extractsComponentSetRootsAndVariantChildren(): Promise<void> {
+  const set = {
+    ...rectangle("31:1", [[1, 0, 0], [0, 1, 0]]),
+    type: "COMPONENT_SET",
+    key: "component-set:31",
+    componentPropertyDefinitions: {
+      State: { type: "VARIANT", defaultValue: "Default" },
+    },
+    children: [],
+  } as TestNode & Record<string, unknown>;
+  const firstVariant = {
+    ...rectangle("31:2", [[1, 0, 0], [0, 1, 0]]),
+    type: "COMPONENT",
+    key: "component:31:default",
+    parent: set,
+    variantProperties: { State: "Default" },
+    componentPropertyDefinitions: {},
+  } as TestNode & Record<string, unknown>;
+  const secondVariant = {
+    ...rectangle("31:3", [[1, 0, 30], [0, 1, 0]]),
+    type: "COMPONENT",
+    key: "component:31:hover",
+    parent: set,
+    variantProperties: { State: "Hover" },
+    componentPropertyDefinitions: {},
+  } as TestNode & Record<string, unknown>;
+  set.children = [firstVariant, secondVariant];
+
+  const bundle = await extractNodes([set as unknown as SceneNode]);
+  const root = bundle.roots[0];
+  assert.equal(root.kind, "COMPONENT_SET");
+  assert.deepEqual(root.component, {
+    role: "COMPONENT_SET",
+    component_key: "component-set:31",
+    variants: {},
+    properties: { State: { kind: "VARIANT", value: "Default" } },
+    overrides: [],
+  });
+  assert.deepEqual(root.children.map((child) => child.id), ["31:2", "31:3"]);
+  assert.equal(root.children[0].component?.component_set_key, "component-set:31");
+  assert.equal(root.children[1].component?.variants.State, "Hover");
+  assert.equal(bundle.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.code === "FR-NODE-EXTRACT-001"
+  ), false);
+}
+
+async function exportsLineNodesThroughTheSvgRouteDeterministically(): Promise<void> {
+  const line = {
+    ...rectangle("32:1", [[1, 0, 0], [0, 1, 0]]),
+    type: "LINE",
+    width: 100,
+    height: 1,
+    exportAsync: async () => new TextEncoder().encode("<svg><path d=\"M0 0h100\"/></svg>"),
+  } as TestNode;
+
+  const first = await extractNodes([line as unknown as SceneNode]);
+  const second = await extractNodes([line as unknown as SceneNode]);
+  assert.deepEqual(first, second);
+  assert.equal(first.roots[0].kind, "VECTOR");
+  assert.equal(first.assets.length, 1);
+  assert.equal(first.assets[0].source_node_id, "32:1");
+  assert.equal(first.assets[0].media_type, "image/svg+xml");
+  assert.equal(first.assets[0].export_settings.color_policy, "authored");
+  assert.equal(first.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.code === "FR-NODE-EXTRACT-001"
+  ), false);
+}
+
+async function preservesSlotPropertiesAndStructuralContent(): Promise<void> {
+  const content = rectangle("33:3", [[1, 0, 4], [0, 1, 4]]);
+  const slot = {
+    ...rectangle("33:2", [[1, 0, 0], [0, 1, 0]]),
+    type: "SLOT",
+    componentPropertyReferences: { mainComponent: "Body#33:0" },
+    limitViolations: [],
+    children: [content],
+  } as TestNode & Record<string, unknown>;
+  const component = {
+    ...rectangle("33:1", [[1, 0, 0], [0, 1, 0]]),
+    type: "COMPONENT",
+    key: "component:33",
+    componentPropertyDefinitions: {
+      "Body#33:0": {
+        type: "SLOT",
+        preferredValues: [{ type: "COMPONENT", key: "preferred:33" }],
+        description: "Body content",
+        slotSettings: {
+          stretchChildOnInsert: true,
+          displayEmptyByDefault: false,
+          minChildren: 1,
+          maxChildren: 3,
+          allowPreferredValuesOnly: true,
+        },
+      },
+    },
+    children: [slot],
+  } as TestNode & Record<string, unknown>;
+
+  const first = await extractNodes([component as unknown as SceneNode]);
+  const second = await extractNodes([component as unknown as SceneNode]);
+  assert.deepEqual(first, second);
+  assert.deepEqual(first.roots[0].component?.properties["Body#33:0"], {
+    kind: "SLOT",
+    value: {
+      description: "Body content",
+      preferred_values: [{ type: "COMPONENT", key: "preferred:33" }],
+      stretch_child_on_insert: true,
+      display_empty_by_default: false,
+      min_children: 1,
+      max_children: 3,
+      allow_preferred_values_only: true,
+    },
+  });
+  assert.equal(first.roots[0].children[0].kind, "SLOT");
+  assert.deepEqual(first.roots[0].children[0].component_property_references, {
+    main_component: "Body#33:0",
+  });
+  assert.deepEqual(first.roots[0].children[0].children.map((child) => child.id), ["33:3"]);
+  assert.equal(first.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.severity === "ERROR"
+  ), false);
+
+  slot.limitViolations = ["HAS_NON_PREFERRED"];
+  const violating = await extractNodes([component as unknown as SceneNode]);
+  assert.ok(violating.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.code === "FR-COMPONENT-SLOT-001"
+    && diagnostic.node_id === "33:2"
+    && diagnostic.property_path === "slot.limit_violations"
+  ));
+}
+
+async function preservesSlicesAsInvisibleExportMetadata(): Promise<void> {
+  const slice = {
+    ...rectangle("34:2", [[1, 0, 10], [0, 1, 10]]),
+    type: "SLICE",
+    visible: true,
+    exportSettings: [{ format: "PNG", suffix: "@2x" }],
+  } as TestNode & Record<string, unknown>;
+  const frame = {
+    ...rectangle("34:1", [[1, 0, 0], [0, 1, 0]]),
+    type: "FRAME",
+    children: [rectangle("34:3", [[1, 0, 0], [0, 1, 0]]), slice],
+  } as TestNode;
+
+  const first = await extractNodes([frame as unknown as SceneNode]);
+  const second = await extractNodes([frame as unknown as SceneNode]);
+  assert.deepEqual(first, second);
+  const extractedSlice = first.roots[0].children[1];
+  assert.equal(extractedSlice.kind, "SLICE");
+  assert.equal(extractedSlice.visible, false);
+  assert.deepEqual(extractedSlice.figma_export_settings, [{ format: "PNG", suffix: "@2x" }]);
+  assert.equal(first.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.code === "FR-NODE-EXTRACT-001"
+  ), false);
+}
+
 async function preservesChildCounterAxisAlignmentOverrides(): Promise<void> {
   const values = ["INHERIT", "MIN", "CENTER", "MAX", "STRETCH"] as const;
   const roots = values.map((layoutAlign, index) => {
@@ -1417,6 +1584,10 @@ await preservesVariableValuesAcrossConsumerModes();
 await preservesModeledNumericBindings();
 await preservesBoundDimensionsAcrossConsumerModes();
 await preservesBoundTextAndBooleanComponentProperties();
+await extractsComponentSetRootsAndVariantChildren();
+await exportsLineNodesThroughTheSvgRouteDeterministically();
+await preservesSlotPropertiesAndStructuralContent();
+await preservesSlicesAsInvisibleExportMetadata();
 await preservesChildCounterAxisAlignmentOverrides();
 supportsCompactExportAndLargeSelectionFeedback();
 validatesBridgeExportCompletionBeforeTrustingTheFile();

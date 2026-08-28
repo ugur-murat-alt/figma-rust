@@ -42,6 +42,8 @@ pub struct Node {
     pub text: Option<Text>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub component: Option<ComponentMetadata>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub slot_property: Option<String>,
     pub reactions: Vec<Reaction>,
     pub asset_decision: AssetDecision,
     pub children: Vec<Node>,
