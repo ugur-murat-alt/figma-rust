@@ -28,7 +28,9 @@ jobs:
         with:
           fetch-depth: 1
       - name: Install native build dependencies
-        run: sudo apt-get update && sudo apt-get install --yes libfontconfig-dev
+        run: >-
+          sudo apt-get update &&
+          sudo apt-get install --yes libfontconfig-dev libxkbcommon-dev
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.97.1 --profile minimal --component clippy,rustfmt
       - name: Qualify candidate twice
