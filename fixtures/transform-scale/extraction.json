@@ -1,0 +1,62 @@
+{
+  "schema_version": 2,
+  "source": {
+    "extractor": "synthetic-regression-fixture",
+    "extractor_version": "1",
+    "page_id": "fixture:transform-scale",
+    "selected_node_ids": ["15:center", "15:top-left"],
+    "plugin_api_version": "1.135.0"
+  },
+  "roots": [
+    {
+      "id": "15:center",
+      "name": "Centered 0.985 scale",
+      "kind": "FRAME",
+      "size": {
+        "width": 100.0,
+        "height": 100.0,
+        "horizontal": "FIXED",
+        "vertical": "FIXED"
+      },
+      "position": {
+        "transform": { "matrix": [0.985, 0.0, 0.0, 0.985, 0.75, 0.75] }
+      },
+      "layout": { "clips_content": true },
+      "style": {
+        "fills": [
+          {
+            "kind": "SOLID",
+            "color": { "literal": { "r": 0.125, "g": 0.25, "b": 0.5, "a": 1.0 } }
+          }
+        ]
+      }
+    },
+    {
+      "id": "15:top-left",
+      "name": "Top-left 0.985 scale",
+      "kind": "FRAME",
+      "size": {
+        "width": 100.0,
+        "height": 100.0,
+        "horizontal": "FIXED",
+        "vertical": "FIXED"
+      },
+      "position": {
+        "transform": { "matrix": [0.985, 0.0, 0.0, 0.985, 0.0, 0.0] }
+      },
+      "layout": { "clips_content": true },
+      "style": {
+        "fills": [
+          {
+            "kind": "SOLID",
+            "color": { "literal": { "r": 0.5, "g": 0.25, "b": 0.125, "a": 1.0 } }
+          }
+        ]
+      }
+    }
+  ],
+  "variables": [],
+  "components": [],
+  "assets": [],
+  "extraction_diagnostics": []
+}

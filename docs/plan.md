@@ -95,8 +95,11 @@ compiles against the pinned upstream; no string-concatenated Rust syntax remains
 - [ ] Add mixed-track grid primitive only if native/nested lowering cannot match
   fixtures.
 - [ ] Add exact image crop/fit helper.
-- [ ] Add stroke alignment, richer gradient, transform, and mixed-text helpers one
-  at a time, each gated by a minimal fixture.
+- [x] Fold bounded positive uniform subtree scale/translation into generated
+  geometry, with center/top-left fixtures and explicit rejection outside the
+  proven contract.
+- [ ] Add stroke alignment, richer gradient, and mixed-text helpers one at a time,
+  each gated by a minimal fixture.
 - [ ] Keep arbitrary masks/effects on SVG/raster paths until a tested primitive
   exists.
 

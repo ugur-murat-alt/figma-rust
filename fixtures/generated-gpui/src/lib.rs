@@ -43,6 +43,14 @@ pub mod generated_child_alignment {
     ));
 }
 
+/// Output compiled from the bounded uniform subtree transform fixture.
+pub mod generated_transform_scale {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../transform-scale/generated/generated.rs"
+    ));
+}
+
 /// Asset-backed generated output must not borrow its local resolvers.
 pub fn generated_asset_fallback_view() -> impl IntoElement {
     let assets = figma_gpui_runtime::DirectoryAssets::new(concat!(
@@ -122,6 +130,8 @@ mod tests {
 
     struct ChildAlignmentView;
 
+    struct TransformScaleView;
+
     impl Render for RealGroupView {
         fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
             super::generated_real_group::generated_view(&FallbackTokens)
@@ -131,6 +141,12 @@ mod tests {
     impl Render for ChildAlignmentView {
         fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
             super::generated_child_alignment::generated_view(&FallbackTokens)
+        }
+    }
+
+    impl Render for TransformScaleView {
+        fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+            super::generated_transform_scale::generated_view(&FallbackTokens)
         }
     }
 
@@ -220,6 +236,26 @@ mod tests {
     fn child_alignment_fixture_constructs_against_pinned_gpui() {
         let _ =
             super::generated_child_alignment::generated_view(&FallbackTokens).into_any_element();
+    }
+
+    #[test]
+    fn transform_scale_fixture_constructs_against_pinned_gpui() {
+        let _ =
+            super::generated_transform_scale::generated_view(&FallbackTokens).into_any_element();
+    }
+
+    #[gpui::test]
+    fn transform_scale_geometry_uses_scaled_hit_and_clip_bounds(cx: &mut TestAppContext) {
+        let window = cx.open_window(size(px(240.0), px(120.0)), |_, _| TransformScaleView);
+        cx.run_until_parked();
+        let mut cx = VisualTestContext::from_window(window.into(), cx);
+        let centered = required_bounds(&mut cx, "figma-node-0000");
+        let top_left = required_bounds(&mut cx, "figma-node-0001");
+
+        assert!((f32::from(centered.origin.x) - 0.75).abs() <= 0.25);
+        assert!((f32::from(centered.origin.y) - 0.75).abs() <= 0.25);
+        assert_eq!(centered.size, size(px(98.5), px(98.5)));
+        assert_eq!(top_left.size, size(px(98.5), px(98.5)));
     }
 
     #[gpui::test]

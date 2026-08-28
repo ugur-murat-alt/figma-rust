@@ -5,7 +5,7 @@ use std::fmt;
 
 use figma_rust_core::ir::{
     AssetRoute, Axis, AxisSize, AxisSizing, BoundValue, Color, ComponentResolution, DesignDocument,
-    Edges, Effect, Layout, Node, Paint, Positioning, TextStyle, TokenRef,
+    Edges, Effect, GridTrack, Layout, Node, Paint, Positioning, TextStyle, TokenRef,
 };
 use figma_rust_core::raw::{
     RawAlignment, RawAsset, RawBlendMode, RawChildAlignment, RawConstraint, RawNodeKind,
@@ -97,6 +97,11 @@ struct IndexedNode<'a> {
 /// Returns [`CodegenError`] when the document contains an unsupported or invalid
 /// construct, generated syntax does not parse, or source spans cannot be found.
 pub fn generate(document: &DesignDocument) -> Result<GeneratedOutput, CodegenError> {
+    let prepared = prepare_transforms(document)?;
+    generate_prepared(&prepared)
+}
+
+fn generate_prepared(document: &DesignDocument) -> Result<GeneratedOutput, CodegenError> {
     let (indexed, ordinals) = index_document(document)?;
     for indexed_node in &indexed {
         validate_node(
@@ -201,6 +206,156 @@ pub fn generate(document: &DesignDocument) -> Result<GeneratedOutput, CodegenErr
     let source_map = build_source_map(&rust, &emitted)?;
 
     Ok(GeneratedOutput { rust, source_map })
+}
+
+fn prepare_transforms(document: &DesignDocument) -> Result<DesignDocument, CodegenError> {
+    let mut prepared = document.clone();
+    for root in &mut prepared.roots {
+        prepare_node_transform(root, 1.0)?;
+    }
+    Ok(prepared)
+}
+
+fn prepare_node_transform(node: &mut Node, parent_scale: f64) -> Result<(), CodegenError> {
+    let matrix = match node.positioning {
+        Positioning::Auto { transform, .. } | Positioning::Absolute { transform, .. } => {
+            transform.matrix
+        }
+    };
+    let [scale_x, skew_y, skew_x, scale_y, matrix_x, matrix_y] = matrix;
+    let valid = matrix.iter().all(|value| value.is_finite())
+        && scale_x > 0.0
+        && same_f64(scale_x, scale_y)
+        && same_f64(skew_x, 0.0)
+        && same_f64(skew_y, 0.0);
+    if !valid {
+        return unsupported(
+            node,
+            "positioning.transform",
+            "transform outside positive uniform scale and translation",
+        );
+    }
+    let scale = parent_scale * scale_x;
+    if !scale_node_geometry(node, scale) {
+        return unsupported(
+            node,
+            "positioning.transform",
+            "uniform scale over variable-bound numeric geometry",
+        );
+    }
+    let offset_x = canonical_f64(matrix_x * parent_scale);
+    let offset_y = canonical_f64(matrix_y * parent_scale);
+    match &mut node.positioning {
+        Positioning::Auto { transform, .. } => {
+            transform.matrix = [1.0, 0.0, 0.0, 1.0, offset_x, offset_y];
+        }
+        Positioning::Absolute {
+            x, y, transform, ..
+        } => {
+            *x = canonical_f64(*x * parent_scale);
+            *y = canonical_f64(*y * parent_scale);
+            transform.matrix = [1.0, 0.0, 0.0, 1.0, offset_x, offset_y];
+        }
+    }
+    for child in &mut node.children {
+        prepare_node_transform(child, scale)?;
+    }
+    Ok(())
+}
+
+fn scale_node_geometry(node: &mut Node, scale: f64) -> bool {
+    let mut supported = scale_axis_size(&mut node.size.horizontal, scale)
+        && scale_axis_size(&mut node.size.vertical, scale);
+    match &mut node.layout {
+        Layout::Stack { gap, padding, .. } => {
+            supported &= scale_bound(gap, scale) && scale_edges(padding, scale);
+        }
+        Layout::Grid {
+            columns,
+            rows,
+            column_gap,
+            row_gap,
+            padding,
+            ..
+        } => {
+            for track in columns.iter_mut().chain(rows) {
+                if let GridTrack::Fixed(value) = track {
+                    *value = canonical_f64(*value * scale);
+                }
+            }
+            *column_gap = canonical_f64(*column_gap * scale);
+            *row_gap = canonical_f64(*row_gap * scale);
+            supported &= scale_edges(padding, scale);
+        }
+        Layout::Plain { .. } | Layout::Absolute { .. } => {}
+    }
+    supported &= scale_edges(&mut node.style.stroke_widths, scale);
+    supported &= scale_bound(&mut node.style.radii.top_left, scale)
+        && scale_bound(&mut node.style.radii.top_right, scale)
+        && scale_bound(&mut node.style.radii.bottom_right, scale)
+        && scale_bound(&mut node.style.radii.bottom_left, scale);
+    for effect in &mut node.style.effects {
+        if let Effect::Shadow {
+            offset_x,
+            offset_y,
+            blur,
+            spread,
+            ..
+        } = effect
+        {
+            *offset_x = canonical_f64(*offset_x * scale);
+            *offset_y = canonical_f64(*offset_y * scale);
+            *blur = canonical_f64(*blur * scale);
+            *spread = canonical_f64(*spread * scale);
+        }
+    }
+    if let Some(text) = &mut node.text {
+        for run in &mut text.runs {
+            if let Some(font_size) = &mut run.style.font_size {
+                supported &= scale_bound(font_size, scale);
+            }
+            if let Some(line_height) = &mut run.style.line_height {
+                *line_height = canonical_f64(*line_height * scale);
+            }
+            if let Some(letter_spacing) = &mut run.style.letter_spacing {
+                *letter_spacing = canonical_f64(*letter_spacing * scale);
+            }
+        }
+    }
+    supported
+}
+
+fn scale_axis_size(axis: &mut AxisSize, scale: f64) -> bool {
+    let mut supported = true;
+    if let AxisSizing::Fixed(value) = &mut axis.sizing {
+        supported &= scale_bound(value, scale);
+    }
+    for value in [&mut axis.measured, &mut axis.min, &mut axis.max]
+        .into_iter()
+        .flatten()
+    {
+        supported &= scale_bound(value, scale);
+    }
+    supported
+}
+
+fn scale_edges(edges: &mut Edges, scale: f64) -> bool {
+    scale_bound(&mut edges.top, scale)
+        && scale_bound(&mut edges.right, scale)
+        && scale_bound(&mut edges.bottom, scale)
+        && scale_bound(&mut edges.left, scale)
+}
+
+fn scale_bound(value: &mut BoundValue<f64>, scale: f64) -> bool {
+    if !same_f64(scale, 1.0) && value.token.is_some() {
+        return false;
+    }
+    value.fallback = canonical_f64(value.fallback * scale);
+    true
+}
+
+fn canonical_f64(value: f64) -> f64 {
+    if value == 0.0 { 0.0 } else { value }
 }
 
 fn index_document(
@@ -557,14 +712,19 @@ fn validate_transform(node: &Node) -> Result<(), CodegenError> {
     let transform = match node.positioning {
         Positioning::Auto { transform, .. } | Positioning::Absolute { transform, .. } => transform,
     };
-    let identity = [1.0, 0.0, 0.0, 1.0, 0.0, 0.0];
-    if !transform
-        .matrix
-        .iter()
-        .zip(identity)
-        .all(|(actual, expected)| same_f64(*actual, expected))
+    let [scale_x, skew_y, skew_x, scale_y, translate_x, translate_y] = transform.matrix;
+    if !same_f64(scale_x, 1.0)
+        || !same_f64(scale_y, 1.0)
+        || !same_f64(skew_x, 0.0)
+        || !same_f64(skew_y, 0.0)
+        || !translate_x.is_finite()
+        || !translate_y.is_finite()
     {
-        return unsupported(node, "positioning.transform", "non-identity transform");
+        return unsupported(
+            node,
+            "positioning.transform",
+            "transform outside prepared translation",
+        );
     }
     Ok(())
 }
@@ -667,15 +827,36 @@ fn lower_position(mut element: TokenStream, node: &Node) -> Result<TokenStream, 
         Positioning::Auto { grid: Some(_), .. } => {
             return unsupported(node, "positioning.grid", "grid placement");
         }
-        Positioning::Auto { grid: None, .. } => {
+        Positioning::Auto {
+            grid: None,
+            transform,
+        } => {
             element = quote! { #element.relative() };
+            let translate_x = checked_f32(
+                node,
+                "positioning.transform.translate_x",
+                transform.matrix[4],
+                false,
+            )?;
+            let translate_y = checked_f32(
+                node,
+                "positioning.transform.translate_y",
+                transform.matrix[5],
+                false,
+            )?;
+            if translate_x != 0.0 {
+                element = quote! { #element.left(gpui::px(#translate_x)) };
+            }
+            if translate_y != 0.0 {
+                element = quote! { #element.top(gpui::px(#translate_y)) };
+            }
         }
         Positioning::Absolute {
             x,
             y,
             horizontal_constraint,
             vertical_constraint,
-            ..
+            transform,
         } => {
             if horizontal_constraint != RawConstraint::Min
                 || vertical_constraint != RawConstraint::Min
@@ -686,8 +867,8 @@ fn lower_position(mut element: TokenStream, node: &Node) -> Result<TokenStream, 
                     "absolute constraints other than MIN/MIN",
                 );
             }
-            let x = checked_f32(node, "positioning.x", x, false)?;
-            let y = checked_f32(node, "positioning.y", y, false)?;
+            let x = checked_f32(node, "positioning.x", x + transform.matrix[4], false)?;
+            let y = checked_f32(node, "positioning.y", y + transform.matrix[5], false)?;
             element = quote! { #element.absolute().left(gpui::px(#x)).top(gpui::px(#y)) };
         }
     }
@@ -1493,6 +1674,45 @@ mod tests {
         document
     }
 
+    fn transformed_document(scale: f64, translate_x: f64, translate_y: f64) -> DesignDocument {
+        let mut document = basic_document();
+        let root = &mut document.roots[0];
+        root.layout = Layout::Plain {
+            clips_content: true,
+            scroll: Scroll {
+                horizontal: false,
+                vertical: false,
+            },
+        };
+        root.size = Size {
+            horizontal: AxisSize {
+                sizing: AxisSizing::Fixed(number(100.0)),
+                measured: None,
+                min: None,
+                max: None,
+            },
+            vertical: AxisSize {
+                sizing: AxisSizing::Fixed(number(100.0)),
+                measured: None,
+                min: None,
+                max: None,
+            },
+            aspect_ratio: None,
+        };
+        root.positioning = Positioning::Auto {
+            grid: None,
+            transform: figma_rust_core::ir::Transform {
+                matrix: [scale, 0.0, 0.0, scale, translate_x, translate_y],
+            },
+        };
+        root.style = empty_style();
+        root.text = None;
+        root.component = None;
+        root.reactions.clear();
+        root.children.clear();
+        document
+    }
+
     fn configure_supported_root(root: &mut figma_rust_core::ir::Node) {
         root.layout = Layout::Stack {
             axis: Axis::Vertical,
@@ -1686,6 +1906,49 @@ mod tests {
             assert!(first.rust.contains(method), "missing size method {method}");
         }
         assert!(first.rust.contains("TokenResolver::number_with_context"));
+    }
+
+    #[test]
+    fn lowers_uniform_scale_and_translation_into_layout_geometry() {
+        let centered = generate(&transformed_document(0.985, 0.75, 0.75))
+            .expect("center-origin scale must generate");
+        let centered_again = generate(&transformed_document(0.985, 0.75, 0.75))
+            .expect("center-origin scale must generate deterministically");
+        let top_left =
+            generate(&transformed_document(0.985, 0.0, 0.0)).expect("top-left scale must generate");
+
+        assert_eq!(centered, centered_again);
+        assert!(centered.rust.contains(".w(gpui::px(98.5f32))"));
+        assert!(centered.rust.contains(".h(gpui::px(98.5f32))"));
+        assert!(centered.rust.contains(".left(gpui::px(0.75f32))"));
+        assert!(centered.rust.contains(".top(gpui::px(0.75f32))"));
+        assert!(!top_left.rust.contains(".left("));
+        assert!(!top_left.rust.contains(".top("));
+    }
+
+    #[test]
+    fn rejects_skew_and_scaled_variable_geometry_at_the_source_transform() {
+        let mut skewed = transformed_document(1.0, 0.0, 0.0);
+        let Positioning::Auto { transform, .. } = &mut skewed.roots[0].positioning else {
+            panic!("fixture root must be auto-positioned");
+        };
+        transform.matrix[2] = 0.25;
+        let error = generate(&skewed).expect_err("skew must stay fail-closed");
+        assert!(matches!(
+            error,
+            CodegenError::Unsupported { location, .. }
+                if location.node_id == "1:1" && location.property == "positioning.transform"
+        ));
+
+        let mut bound = transformed_document(0.985, 0.0, 0.0);
+        bound.roots[0].size.horizontal.sizing =
+            AxisSizing::Fixed(bound_number("dimension.width", 100.0));
+        let error = generate(&bound).expect_err("scaled token geometry must stay fail-closed");
+        assert!(
+            error
+                .to_string()
+                .contains("variable-bound numeric geometry")
+        );
     }
 
     #[test]

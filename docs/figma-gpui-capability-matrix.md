@@ -49,7 +49,7 @@ fallback or add the missing runtime proof.
 | Rounded clipping | GPUI native | Radius plus clipping; verify nested shadows. |
 | Arbitrary vector mask | asset/SVG, raster fallback | Preserve mask in SVG when possible; raster only when SVG cannot preserve effects. |
 | Rotation of SVG/path | GPUI native | SVG/path transform APIs. |
-| General subtree transform | figma-rust runtime | Custom scene/surface transform; not a generic Styled feature. |
+| General subtree transform | figma-rust runtime | Positive uniform scale plus affine translation is deterministically folded into concrete generated layout/text/paint geometry, including center-origin matrices; clipping and hit testing therefore use transformed bounds. Rotation, skew, non-uniform/non-positive scale, and scaled variable-bound numeric geometry remain explicit codegen errors. |
 | Skew/perspective | asset/SVG, raster fallback | Preserve vector transform in SVG; perspective has no Figma 2D equivalent in normal nodes. |
 | Layer opacity | GPUI native | Native element opacity. |
 | PASS_THROUGH blend | GPUI native, figma-rust runtime | An opacity-1 `GROUP` is structural and lowers natively; other node kinds or group opacity require explicit compositing. |
