@@ -147,7 +147,8 @@ service; Codegen callback performs no Cargo/render work and respects the deadlin
 - [x] Add PNG color/edge/perceptual comparison.
 - [x] Add bounded node-scoped pixel difference reporting at a proven 1:1
   geometry/image scale while retaining global metrics.
-- [x] Add compositor-backed Linux capture harness and record its limitation.
+- [x] Add compositor-backed Linux capture harness, including a repository-owned
+  GNOME Wayland adapter and a fail-closed Computer Use portal fallback.
 - [ ] Add macOS headless capture job when a macOS runner is available.
 - [ ] Build fixtures for horizontal, vertical, nested, HUG/FILL/FIXED, simple and
   mixed grid, absolute, min/max, text/multiline/mixed text, border/radius,
@@ -165,10 +166,12 @@ portal at scale 1, and reconstructs straight-alpha RGBA before atomic publicatio
 `verify.image.json` passes at zero tolerance with MAE 0, changed-pixel ratio 0,
 edge error 0, and SSIM 1. Pinned GPUI still returns
 `render_to_image not implemented for this platform`; the checked-in probe retains
-that failure path while `/capture-linux` supplies a repeatable Computer Use
-fallback. The Rust capture binary exposes explicit display, validated data-URL
-ingest, reconstruction, and provenance-finalization modes; malformed or mismatched
-capture evidence fails before artifact publication.
+that failure path. On GNOME Wayland, `scripts/capture-linux-first-party.sh`
+targets the ready fixture process and uses `gnome-screenshot` without Computer
+Use. `/capture-linux` remains the portal fallback for other desktops. Both paths
+use the Rust binary's validated data-URL ingest, reconstruction, and
+provenance-finalization modes; malformed or mismatched capture evidence fails
+before artifact publication.
 
 Exit criterion: every implemented capability has a fixture and a regression can
 name the differing Figma node. Compile-only success is insufficient.
@@ -220,7 +223,8 @@ Every feature follows this gate before its checkbox becomes complete:
   node/property-scoped `FR-TOKEN-MODE-005`. Schema v2 does not claim override
   lineage until a real Enterprise fixture proves inherited and overridden values.
 - Linux headless pixel rendering is not supplied by pinned GPUI; a compositor is
-  required for pixel artifacts.
+  required for pixel artifacts. GNOME Wayland has a repository-owned adapter;
+  other desktops still require the external portal fallback.
 - Exact font pixels are platform-dependent; geometry and text envelopes are
   first-class metrics.
 - Figma Codegen has a 15-second deadline; full verification cannot run there.

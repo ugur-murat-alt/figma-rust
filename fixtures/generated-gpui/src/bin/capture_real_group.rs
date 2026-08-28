@@ -74,6 +74,9 @@ enum CaptureCommand {
     IngestDataUrl {
         output: PathBuf,
     },
+    IngestGnomeDataUrl {
+        output: PathBuf,
+    },
     Reconstruct {
         black: PathBuf,
         white: PathBuf,
@@ -138,6 +141,7 @@ impl Render for CaptureView {
                     return;
                 }
 
+                window.activate_window();
                 window.set_window_title(EXTERNAL_READY_TITLE);
                 let event = serde_json::json!({
                     "schema_version": 1,
@@ -344,6 +348,9 @@ fn parse_command(args: impl IntoIterator<Item = OsString>) -> Result<CaptureComm
         Some("--ingest-data-url") => CaptureCommand::IngestDataUrl {
             output: required_arg(&mut args, "--ingest-data-url requires OUTPUT")?.into(),
         },
+        Some("--ingest-gnome-data-url") => CaptureCommand::IngestGnomeDataUrl {
+            output: required_arg(&mut args, "--ingest-gnome-data-url requires OUTPUT")?.into(),
+        },
         Some("--reconstruct") => CaptureCommand::Reconstruct {
             black: required_arg(&mut args, "--reconstruct requires BLACK WHITE OUTPUT")?.into(),
             white: required_arg(&mut args, "--reconstruct requires BLACK WHITE OUTPUT")?.into(),
@@ -409,6 +416,16 @@ fn required_arg(
 }
 
 fn ingest_data_url_from_stdin(output: &Path) -> Result<(), String> {
+    let input = read_data_url_from_stdin()?;
+    ingest_data_url(&input, output)
+}
+
+fn ingest_gnome_data_url_from_stdin(output: &Path) -> Result<(), String> {
+    let input = read_data_url_from_stdin()?;
+    ingest_gnome_data_url(&input, output)
+}
+
+fn read_data_url_from_stdin() -> Result<String, String> {
     let mut input = String::new();
     io::stdin()
         .take(MAX_DATA_URL_BYTES + 1)
@@ -419,20 +436,72 @@ fn ingest_data_url_from_stdin(output: &Path) -> Result<(), String> {
             "PNG data URL exceeds the {MAX_DATA_URL_BYTES}-byte input limit"
         ));
     }
-    ingest_data_url(&input, output)
+    Ok(input)
 }
 
 fn ingest_data_url(input: &str, output: &Path) -> Result<(), String> {
+    let bytes = decode_data_url(input)?;
+    let image = decode_capture_png(&bytes, "PNG data URL")?;
+    validate_opaque_composite(&image, "PNG data URL")?;
+    publish_ingested_image(output, &bytes, &image, None)
+}
+
+fn ingest_gnome_data_url(input: &str, output: &Path) -> Result<(), String> {
+    let bytes = decode_data_url(input)?;
+    let mut image = decode_capture_png(&bytes, "GNOME window PNG data URL")?;
+    let (minimum_alpha, maximum_alpha) = image
+        .pixels()
+        .map(|pixel| pixel.0[3])
+        .fold((u8::MAX, u8::MIN), |(minimum, maximum), alpha| {
+            (minimum.min(alpha), maximum.max(alpha))
+        });
+    if minimum_alpha < 253 {
+        return Err(format!(
+            "GNOME opaque-window PNG alpha range must be within 253..=255, got {minimum_alpha}..={maximum_alpha}"
+        ));
+    }
+    for pixel in image.pixels_mut() {
+        pixel.0[3] = 255;
+    }
+    let normalized = encode_capture_png(&image)?;
+    publish_ingested_image(
+        output,
+        &normalized,
+        &image,
+        Some((minimum_alpha, maximum_alpha)),
+    )
+}
+
+fn decode_data_url(input: &str) -> Result<Vec<u8>, String> {
     let encoded = input
         .trim()
         .strip_prefix(PNG_DATA_URL_PREFIX)
         .ok_or_else(|| format!("capture input must start with {PNG_DATA_URL_PREFIX}"))?;
-    let bytes = base64::engine::general_purpose::STANDARD
+    base64::engine::general_purpose::STANDARD
         .decode(encoded)
-        .map_err(|error| format!("failed to decode PNG data URL: {error}"))?;
-    let image = decode_capture_png(&bytes, "PNG data URL")?;
-    validate_opaque_composite(&image, "PNG data URL")?;
-    publish_bytes(output, &bytes)?;
+        .map_err(|error| format!("failed to decode PNG data URL: {error}"))
+}
+
+fn encode_capture_png(image: &image::RgbaImage) -> Result<Vec<u8>, String> {
+    let mut bytes = Vec::new();
+    image::ImageEncoder::write_image(
+        image::codecs::png::PngEncoder::new(&mut bytes),
+        image.as_raw(),
+        image.width(),
+        image.height(),
+        image::ExtendedColorType::Rgba8,
+    )
+    .map_err(|error| format!("failed to encode normalized capture PNG: {error}"))?;
+    Ok(bytes)
+}
+
+fn publish_ingested_image(
+    output: &Path,
+    bytes: &[u8],
+    image: &image::RgbaImage,
+    normalized_alpha_range: Option<(u8, u8)>,
+) -> Result<(), String> {
+    publish_bytes(output, bytes)?;
 
     let event = serde_json::json!({
         "schema_version": 1,
@@ -441,7 +510,10 @@ fn ingest_data_url(input: &str, output: &Path) -> Result<(), String> {
         "bytes": bytes.len(),
         "width": image.width(),
         "height": image.height(),
-        "sha256": sha256_hex(&bytes),
+        "sha256": sha256_hex(bytes),
+        "normalized_alpha_range": normalized_alpha_range.map(|(minimum, maximum)| {
+            serde_json::json!({ "minimum": minimum, "maximum": maximum })
+        }),
     });
     println!("{event}");
     Ok(())
@@ -544,11 +616,7 @@ fn finalize_provenance(
     report: &Path,
     source: &str,
 ) -> Result<(), String> {
-    if source != "xdg-desktop-portal" {
-        return Err(format!(
-            "capture source must be `xdg-desktop-portal`, got {source:?}"
-        ));
-    }
+    let engine = capture_engine(source)?;
 
     let black_name = artifact_name(metadata, black)?;
     let white_name = artifact_name(metadata, white)?;
@@ -588,8 +656,12 @@ fn finalize_provenance(
             .duration_since(UNIX_EPOCH)
             .map_err(|error| format!("system clock is before Unix epoch: {error}"))?
             .as_millis(),
-        "engine": "computer-use-linux",
+        "engine": engine,
         "source": source,
+        "capture_normalization": match source {
+            "gnome-shell-screenshot" => "opaque-window-alpha-253-through-255-to-opaque-v1",
+            _ => "none",
+        },
         "session_type": environment("XDG_SESSION_TYPE"),
         "wayland_display": environment("WAYLAND_DISPLAY"),
         "gpui_revision": GPUI_REVISION,
@@ -638,6 +710,16 @@ fn finalize_provenance(
     });
     println!("{event}");
     Ok(())
+}
+
+fn capture_engine(source: &str) -> Result<&'static str, String> {
+    match source {
+        "xdg-desktop-portal" => Ok("computer-use-linux"),
+        "gnome-shell-screenshot" => Ok("figma-rust-linux-capture"),
+        _ => Err(format!(
+            "capture source must be `xdg-desktop-portal` or `gnome-shell-screenshot`, got {source:?}"
+        )),
+    }
 }
 
 fn validate_metadata_path(
@@ -989,6 +1071,10 @@ fn main() -> ExitCode {
             ingest_data_url_from_stdin(&output),
             "failed to ingest external capture",
         ),
+        CaptureCommand::IngestGnomeDataUrl { output } => finish_command(
+            ingest_gnome_data_url_from_stdin(&output),
+            "failed to ingest GNOME window capture",
+        ),
         CaptureCommand::Reconstruct {
             black,
             white,
@@ -1057,7 +1143,11 @@ fn run_window_capture(output: Option<PathBuf>, backdrop: Option<Backdrop>) -> Ex
                 })),
                 focus: external_capture,
                 show: true,
-                window_background: WindowBackgroundAppearance::Transparent,
+                window_background: if external_capture {
+                    WindowBackgroundAppearance::Opaque
+                } else {
+                    WindowBackgroundAppearance::Transparent
+                },
                 ..WindowOptions::default()
             },
             move |window, cx| {
@@ -1098,9 +1188,10 @@ mod tests {
     use base64::Engine as _;
 
     use super::{
-        CaptureCommand, cleanup_temporary_capture, create_temporary_file, finalize_provenance,
-        ingest_data_url, manifest_artifacts, parse_command, prepare_capture, read_capture_image,
-        reconstruct_rgba, temporary_output_path, temporary_output_prefix, validate_metadata_path,
+        CaptureCommand, capture_engine, cleanup_temporary_capture, create_temporary_file,
+        finalize_provenance, ingest_data_url, ingest_gnome_data_url, manifest_artifacts,
+        parse_command, prepare_capture, read_capture_image, reconstruct_rgba,
+        temporary_output_path, temporary_output_prefix, validate_metadata_path,
         validate_reconstruction_paths, verification_inputs, window_capture_exit_code,
     };
 
@@ -1505,6 +1596,13 @@ mod tests {
             .unwrap_or_else(|error| panic!("ingest command must parse: {error}"));
         assert!(matches!(ingest, CaptureCommand::IngestDataUrl { .. }));
 
+        let gnome_ingest = parse_command(["--ingest-gnome-data-url".into(), "capture.png".into()])
+            .unwrap_or_else(|error| panic!("GNOME ingest command must parse: {error}"));
+        assert!(matches!(
+            gnome_ingest,
+            CaptureCommand::IngestGnomeDataUrl { .. }
+        ));
+
         let reconstruct = parse_command([
             "--reconstruct".into(),
             "black.png".into(),
@@ -1516,6 +1614,20 @@ mod tests {
 
         let error = parse_command(["--display".into(), "white".into(), "extra".into()]).err();
         assert!(error.is_some_and(|error| error.contains("unexpected trailing")));
+    }
+
+    #[test]
+    fn provenance_accepts_only_declared_capture_adapters() {
+        assert_eq!(
+            capture_engine("xdg-desktop-portal"),
+            Ok("computer-use-linux")
+        );
+        assert_eq!(
+            capture_engine("gnome-shell-screenshot"),
+            Ok("figma-rust-linux-capture")
+        );
+        let error = capture_engine("desktop-crop").err();
+        assert!(error.is_some_and(|error| error.contains("must be")));
     }
 
     #[test]
@@ -1537,6 +1649,45 @@ mod tests {
             .unwrap_or_else(|error| panic!("valid data URL must publish: {error}"));
 
         assert_eq!(fs::read(&output).ok().as_deref(), Some(bytes.as_slice()));
+        remove_test_directory(&output);
+    }
+
+    #[test]
+    fn gnome_data_url_ingest_normalizes_only_near_opaque_window_alpha() {
+        let output = test_output("gnome-data-url-ingest");
+        let image = image::RgbaImage::from_pixel(
+            super::WIDTH,
+            super::HEIGHT,
+            image::Rgba([20, 40, 80, 254]),
+        );
+        let bytes = encode_png(&image);
+        let data_url = format!(
+            "{}{}",
+            super::PNG_DATA_URL_PREFIX,
+            base64::engine::general_purpose::STANDARD.encode(bytes)
+        );
+
+        ingest_gnome_data_url(&data_url, &output)
+            .unwrap_or_else(|error| panic!("uniform GNOME alpha must normalize: {error}"));
+        let normalized = read_capture_image(&output)
+            .unwrap_or_else(|error| panic!("normalized GNOME PNG must decode: {error}"));
+        assert!(
+            normalized
+                .pixels()
+                .all(|pixel| pixel.0 == [20, 40, 80, 255])
+        );
+
+        let mut invalid = image;
+        invalid.put_pixel(0, 0, image::Rgba([20, 40, 80, 252]));
+        let invalid_url = format!(
+            "{}{}",
+            super::PNG_DATA_URL_PREFIX,
+            base64::engine::general_purpose::STANDARD.encode(encode_png(&invalid))
+        );
+        let before = fs::read(&output).unwrap_or_else(|error| panic!("output must exist: {error}"));
+        let error = ingest_gnome_data_url(&invalid_url, &output).err();
+        assert!(error.is_some_and(|error| error.contains("alpha range")));
+        assert_eq!(fs::read(&output).ok().as_deref(), Some(before.as_slice()));
         remove_test_directory(&output);
     }
 
