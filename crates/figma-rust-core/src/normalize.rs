@@ -1102,11 +1102,16 @@ impl Context<'_> {
     fn emit_asset_diagnostic(&mut self, raw: &RawNode, decision: &AssetDecision) {
         let (severity, code, route_name) = match decision.route {
             AssetRoute::Native => return,
-            AssetRoute::Runtime => (Severity::Info, codes::RUNTIME_FALLBACK, "runtime"),
+            AssetRoute::Runtime => (Severity::Error, codes::RUNTIME_FALLBACK, "runtime"),
             AssetRoute::Svg => (Severity::Warning, codes::SVG_FALLBACK, "SVG"),
             AssetRoute::Raster => (Severity::Warning, codes::RASTER_FALLBACK, "raster"),
         };
-        self.diagnostics.push(Diagnostic::node(
+        let property_path = if decision.route == AssetRoute::Runtime {
+            "asset_decision.route"
+        } else {
+            "asset_decision"
+        };
+        let mut diagnostic = Diagnostic::node(
             severity,
             code,
             format!(
@@ -1114,8 +1119,15 @@ impl Context<'_> {
                 decision.reasons.join(", ")
             ),
             &raw.id,
-            Some("asset_decision"),
-        ));
+            Some(property_path),
+        );
+        if decision.route == AssetRoute::Runtime {
+            diagnostic.help = Some(
+                "Use a source SVG/raster fallback when semantically valid, or add a verified runtime lowering before compilation."
+                    .to_owned(),
+            );
+        }
+        self.diagnostics.push(diagnostic);
     }
 
     fn normalize_edges(

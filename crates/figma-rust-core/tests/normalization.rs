@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use figma_rust_core::diagnostic::codes;
+use figma_rust_core::diagnostic::{Diagnostic, Severity, codes};
 use figma_rust_core::ir::{
     AssetRoute, AxisSizing, ComponentResolution, Layout, Paint, Positioning,
 };
@@ -13,6 +13,27 @@ use figma_rust_core::{
     parse_and_normalize, parse_bundle,
 };
 use serde_json::{Value, json};
+
+fn assert_runtime_route_error(diagnostics: &[Diagnostic], node_id: &str) {
+    let diagnostic = diagnostics
+        .iter()
+        .find(|diagnostic| {
+            diagnostic.code == codes::RUNTIME_FALLBACK
+                && diagnostic.node_id.as_deref() == Some(node_id)
+        })
+        .expect("runtime route diagnostic must identify the source node");
+    assert_eq!(diagnostic.severity, Severity::Error);
+    assert_eq!(
+        diagnostic.property_path.as_deref(),
+        Some("asset_decision.route")
+    );
+    assert_eq!(
+        diagnostic.help.as_deref(),
+        Some(
+            "Use a source SVG/raster fallback when semantically valid, or add a verified runtime lowering before compilation."
+        )
+    );
+}
 
 fn bundle_with_roots(roots: &Value) -> figma_rust_core::raw::ExtractionBundle {
     let value = json!({
@@ -289,9 +310,22 @@ fn grid_absolute_and_min_max_contracts_are_normalized() {
     assert!(output.diagnostics.iter().any(|diagnostic| {
         diagnostic.code == codes::INVALID_CONSTRAINT && diagnostic.node_id.as_deref() == Some("4:1")
     }));
-    assert!(output.diagnostics.iter().any(|diagnostic| {
-        diagnostic.code == codes::RUNTIME_FALLBACK && diagnostic.node_id.as_deref() == Some("3:1")
-    }));
+    assert_runtime_route_error(&output.diagnostics, "3:1");
+    assert!(output.has_errors());
+}
+
+#[test]
+fn runtime_route_fixture_is_rejected_before_codegen() {
+    let output = parse_and_normalize(include_str!(
+        "../../../fixtures/runtime-route/extraction.json"
+    ))
+    .expect("runtime-route fixture must parse");
+    assert!(output.has_errors());
+    assert_eq!(
+        output.document.roots[0].asset_decision.route,
+        AssetRoute::Runtime
+    );
+    assert_runtime_route_error(&output.diagnostics, "11:runtime");
 }
 
 #[test]

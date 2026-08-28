@@ -12,6 +12,12 @@ Classification is intentionally conservative:
 Rows can name more than one route in preference order. The compiler emits a
 diagnostic whenever it leaves the first route.
 
+`figma-rust runtime` is a capability classification, not permission to emit an
+unimplemented route. Until a row has a verified runtime primitive/lowering, a
+planned `Runtime` asset decision fails normalization with node/property-scoped
+`FR-ASSET-001`; operators must use a semantically valid source SVG/raster
+fallback or add the missing runtime proof.
+
 | Figma feature | Classification | Current lowering and limits |
 | --- | --- | --- |
 | Node hierarchy and source ID | GPUI native | Stable generated functions, element IDs, debug selectors, and sidecar source map. |
