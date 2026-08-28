@@ -1,7 +1,7 @@
 export const SCHEMA_VERSION = 2;
 export const PLUGIN_TYPINGS_VERSION = "1.135.0";
 export const EXTRACTOR_NAME = "figma-rust-plugin";
-export const EXTRACTOR_VERSION = "0.3.0";
+export const EXTRACTOR_VERSION = "0.4.0";
 
 export type JsonValue =
   | null

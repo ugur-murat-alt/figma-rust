@@ -19,6 +19,7 @@ import {
   isTemporaryTransferNodeName,
 } from "../src/transfer";
 import type { ExtractionBundle } from "../src/schema";
+import pluginPackage from "../package.json";
 import realGroupFixture from "./fixtures/real-group.plugin-api.json";
 import multiModeFixture from "./fixtures/multi-mode-variables.json";
 import extendedCollectionFixture from "./fixtures/extended-variable-collection.json";
@@ -82,7 +83,7 @@ async function extractsGroupLocalCoordinates(): Promise<void> {
   ]);
   assert.equal(bundle.source.file_key, realGroupFixture.file_key);
   assert.equal(bundle.source.extractor, "figma-rust-plugin");
-  assert.equal(bundle.source.extractor_version, "0.3.0");
+  assert.equal(bundle.source.extractor_version, pluginPackage.version);
   assert.deepEqual(bundle.extraction_manifest.capabilities, [
     "asset-payload-export",
     "bound-component-properties",
