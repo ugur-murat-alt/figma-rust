@@ -242,8 +242,15 @@ export type RawComponentRole = "COMPONENT" | "INSTANCE";
 export type RawComponentValue =
   | { kind: "VARIANT"; value: string }
   | { kind: "TEXT"; value: string }
+  | { kind: "BOUND_TEXT"; value: RawBoundValue<string> }
   | { kind: "BOOLEAN"; value: boolean }
+  | { kind: "BOUND_BOOLEAN"; value: RawBoundValue<boolean> }
   | { kind: "INSTANCE_SWAP"; value: string };
+
+export interface RawComponentPropertyReferences {
+  visible?: string;
+  characters?: string;
+}
 
 export interface RawOverride {
   node_id: string;
@@ -322,6 +329,7 @@ export interface RawNode {
   style: RawStyle;
   text?: RawText;
   component?: RawComponentMetadata;
+  component_property_references?: RawComponentPropertyReferences;
   reactions: RawReaction[];
   children: RawNode[];
 }

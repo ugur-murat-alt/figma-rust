@@ -235,6 +235,7 @@ export async function extractNodes(
       capabilities: [
         ...(includeAssetPayloads ? ["asset-payload-export"] : []),
         "bounded-traversal",
+        "bound-component-properties",
         "child-counter-alignment",
         "modeled-bound-dimensions",
         ...(restSnapshot === undefined ? [] : ["rest-snapshot"]),
@@ -319,6 +320,11 @@ async function extractNode(
   );
 
   const component = await extractComponentMetadata(node, context);
+  const componentPropertyReferences = extractComponentPropertyReferences(
+    field(record, "componentPropertyReferences"),
+    node.id,
+    context,
+  );
   const reactions = extractReactions(record, node.id, context, extensions);
   diagnoseNodeVariableBindings(record, node, context);
 
@@ -336,6 +342,9 @@ async function extractNode(
     style,
     ...(text === undefined ? {} : { text }),
     ...(component === undefined ? {} : { component }),
+    ...(componentPropertyReferences === undefined
+      ? {}
+      : { component_property_references: componentPropertyReferences }),
     reactions,
     children,
     ...extensions,
@@ -1650,14 +1659,68 @@ function extractComponentProperties(
     }
     const type = stringValue(field(property, "type"));
     const rawValue = field(property, definitions ? "defaultValue" : "value");
-    const converted = componentValue(type, rawValue, nodeId, `${propertyPath}.${name}`, context);
-    if (converted !== undefined) properties[name] = converted;
     const boundVariables = field(property, "boundVariables");
-    if (hasAnyAlias(boundVariables)) {
-      addDiagnostic(context, "ERROR", "FR-TOKEN-LOSS-002", "Component property variable bindings are not represented by the raw component model.", nodeId, `${propertyPath}.${name}.boundVariables`);
+    const boundField = definitions ? "defaultValue" : "value";
+    const tokenId = aliasIdFromRecord(boundVariables, boundField);
+    if (tokenId !== undefined) {
+      const node = context.nodes.get(nodeId);
+      if (node !== undefined) {
+        registerVariableReference(tokenId, node, `${propertyPath}.${name}.${boundField}`, context);
+      }
+    }
+    const converted = componentValue(type, rawValue, nodeId, `${propertyPath}.${name}`, context);
+    if (converted === undefined) continue;
+    if (tokenId !== undefined && converted.kind === "TEXT") {
+      properties[name] = {
+        kind: "BOUND_TEXT",
+        value: boundValue(converted.value, tokenId, nodeId, context),
+      };
+    } else if (tokenId !== undefined && converted.kind === "BOOLEAN") {
+      properties[name] = {
+        kind: "BOUND_BOOLEAN",
+        value: boundValue(converted.value, tokenId, nodeId, context),
+      };
+    } else {
+      properties[name] = converted;
+      if (tokenId !== undefined) {
+        addDiagnostic(context, "ERROR", "FR-TOKEN-LOSS-002", `Component property variable binding is unsupported for ${converted.kind}.`, nodeId, `${propertyPath}.${name}.boundVariables.${boundField}`);
+      }
     }
   }
   return properties;
+}
+
+function extractComponentPropertyReferences(
+  value: unknown,
+  nodeId: string,
+  context: ExtractionContext,
+): { visible?: string; characters?: string } | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (!isRecord(value)) {
+    addDiagnostic(context, "ERROR", "FR-COMPONENT-EXTRACT-005", "componentPropertyReferences is not an object.", nodeId, "component_property_references");
+    return undefined;
+  }
+  const visibleValue = field(value, "visible");
+  const charactersValue = field(value, "characters");
+  const mainComponentValue = field(value, "mainComponent");
+  const visible = stringValue(visibleValue);
+  const characters = stringValue(charactersValue);
+  for (const [property, raw, parsed] of [
+    ["visible", visibleValue, visible],
+    ["characters", charactersValue, characters],
+  ] as const) {
+    if (raw !== undefined && parsed === undefined) {
+      addDiagnostic(context, "ERROR", "FR-COMPONENT-EXTRACT-005", `${property} component property reference is not a string.`, nodeId, `component_property_references.${property}`);
+    }
+  }
+  if (mainComponentValue !== undefined) {
+    addDiagnostic(context, "ERROR", "FR-COMPONENT-EXTRACT-004", "mainComponent property references are not in the bounded TEXT/BOOLEAN consumer set.", nodeId, "component_property_references.mainComponent");
+  }
+  if (visible === undefined && characters === undefined) return undefined;
+  return {
+    ...(visible === undefined ? {} : { visible }),
+    ...(characters === undefined ? {} : { characters }),
+  };
 }
 
 function componentValue(

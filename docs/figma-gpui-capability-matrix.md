@@ -91,7 +91,7 @@ fallback or add the missing runtime proof.
 | Leading trim/text wrap styles | figma-rust runtime | Retained as source metadata with property-scoped warnings; text helper plus geometry fixture remains pending. |
 | Missing font | unsupported/ambiguous | Error in fidelity mode; configured substitution only with diagnostic. |
 | Variable-bound color and modeled numbers | figma-rust runtime | Colors, width/height/min/max dimensions, text size, Auto Layout gap/padding, corner radii, and per-edge stroke widths retain `TokenRef`, full mode context, and literal fallback. Other numeric paths remain diagnostic until modeled. |
-| Variable-bound string/boolean | figma-rust runtime | Raw variable values and runtime resolver methods exist; no generated property consumer is claimed yet. |
+| Variable-bound string/boolean | figma-rust runtime | Component TEXT `characters` and BOOLEAN `visible` references lower through context-aware resolvers with literal fallback. Other string/boolean consumers remain unsupported and node/property-scoped. |
 | Variable modes/collections | figma-rust runtime | Extraction schema v2 preserves each `(variable, mode context)` value for standard collections and cross-collection aliases; generated resolvers receive the applicable collection/mode map. Enterprise extension lineage is recognized from `isExtension`, `parentVariableCollectionId`, and `rootVariableCollectionId`, then rejected before alias/value resolution with node/property-scoped `FR-TOKEN-MODE-005`; override lowering remains unclaimed without a real Enterprise fixture. |
 | Component set and variants | figma-rust runtime | Semantic registry resolves Figma key and variant properties. |
 | TEXT/BOOLEAN component property | figma-rust runtime | Typed property mapping. |

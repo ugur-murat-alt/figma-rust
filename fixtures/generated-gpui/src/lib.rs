@@ -59,6 +59,14 @@ pub mod generated_image_crop {
     ));
 }
 
+/// Output compiled from two-mode bound TEXT and BOOLEAN component properties.
+pub mod generated_component_properties {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../component-properties/generated/generated.rs"
+    ));
+}
+
 /// Asset-backed generated output must not borrow its local resolvers.
 pub fn generated_asset_fallback_view() -> impl IntoElement {
     let assets = figma_gpui_runtime::DirectoryAssets::new(concat!(
@@ -140,6 +148,8 @@ mod tests {
 
     struct TransformScaleView;
 
+    struct ComponentPropertyView;
+
     impl Render for RealGroupView {
         fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
             super::generated_real_group::generated_view(&FallbackTokens)
@@ -155,6 +165,12 @@ mod tests {
     impl Render for TransformScaleView {
         fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
             super::generated_transform_scale::generated_view(&FallbackTokens)
+        }
+    }
+
+    impl Render for ComponentPropertyView {
+        fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+            super::generated_component_properties::generated_view(&FallbackTokens)
         }
     }
 
@@ -217,6 +233,11 @@ mod tests {
     }
 
     #[test]
+    fn bound_component_property_view_constructs_with_fallback_tokens() {
+        let _view = super::generated_component_properties::generated_view(&FallbackTokens);
+    }
+
+    #[test]
     fn codegen_golden_constructs_without_an_application() {
         let _view = super::generated_basic::generated_view(&FallbackTokens);
     }
@@ -260,6 +281,16 @@ mod tests {
         ));
         let _ = super::generated_image_crop::generated_view(&FallbackTokens, &assets)
             .into_any_element();
+    }
+
+    #[gpui::test]
+    fn boolean_fallback_omits_hidden_component_children(cx: &mut TestAppContext) {
+        let window = cx.open_window(size(px(320.0), px(120.0)), |_, _| ComponentPropertyView);
+        cx.run_until_parked();
+        let mut cx = VisualTestContext::from_window(window.into(), cx);
+
+        assert!(cx.debug_bounds("figma-node-0002").is_some());
+        assert!(cx.debug_bounds("figma-node-0005").is_none());
     }
 
     #[gpui::test]

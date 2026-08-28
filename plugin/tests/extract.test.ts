@@ -30,7 +30,7 @@ type Transform = [[number, number, number], [number, number, number]];
 interface TestNode {
   id: string;
   name: string;
-  type: "GROUP" | "RECTANGLE" | "VECTOR";
+  type: "COMPONENT" | "GROUP" | "RECTANGLE" | "TEXT" | "VECTOR";
   x: number;
   y: number;
   width: number;
@@ -85,6 +85,7 @@ async function extractsGroupLocalCoordinates(): Promise<void> {
   assert.equal(bundle.source.extractor_version, "0.3.0");
   assert.deepEqual(bundle.extraction_manifest.capabilities, [
     "asset-payload-export",
+    "bound-component-properties",
     "bounded-traversal",
     "child-counter-alignment",
     "modeled-bound-dimensions",
@@ -810,6 +811,125 @@ async function preservesBoundDimensionsAcrossConsumerModes(): Promise<void> {
   testCollections.clear();
 }
 
+async function preservesBoundTextAndBooleanComponentProperties(): Promise<void> {
+  const collectionId = "VariableCollectionId:test:content";
+  const lightMode = "mode-light";
+  const darkMode = "mode-dark";
+  const labelId = "VariableID:test:label";
+  const visibleId = "VariableID:test:visible";
+  testCollections.set(collectionId, {
+    id: collectionId,
+    defaultModeId: lightMode,
+    modes: [
+      { modeId: lightMode, name: "Light" },
+      { modeId: darkMode, name: "Dark" },
+    ],
+  });
+  testVariables.set(labelId, {
+    id: labelId,
+    name: "content/label",
+    variableCollectionId: collectionId,
+    valuesByMode: { [lightMode]: "Light label", [darkMode]: "Dark label" },
+    resolveForConsumer: (consumer: TestNode) => ({
+      value: consumer.resolvedVariableModes?.[collectionId] === darkMode
+        ? "Dark label"
+        : "Light label",
+      resolvedType: "STRING",
+    }),
+  });
+  testVariables.set(visibleId, {
+    id: visibleId,
+    name: "content/visible",
+    variableCollectionId: collectionId,
+    valuesByMode: { [lightMode]: true, [darkMode]: false },
+    resolveForConsumer: (consumer: TestNode) => ({
+      value: consumer.resolvedVariableModes?.[collectionId] !== darkMode,
+      resolvedType: "BOOLEAN",
+    }),
+  });
+  const alias = (id: string) => ({ type: "VARIABLE_ALIAS", id });
+  const makeComponent = (id: string, modeId: string, label: string, visible: boolean) => {
+    const text = {
+      ...rectangle(`${id}:label`, [[1, 0, 0], [0, 1, 0]]),
+      type: "TEXT",
+      characters: label,
+      componentPropertyReferences: { characters: "Label#27:1" },
+    } as TestNode & Record<string, unknown>;
+    const optional = {
+      ...rectangle(`${id}:optional`, [[1, 0, 0], [0, 1, 20]]),
+      visible,
+      componentPropertyReferences: { visible: "Visible#27:2" },
+    } as TestNode & Record<string, unknown>;
+    const component = {
+      ...rectangle(id, [[1, 0, 0], [0, 1, 0]]),
+      type: "COMPONENT",
+      key: `component:${id}`,
+      resolvedVariableModes: { [collectionId]: modeId },
+      componentPropertyDefinitions: {
+        "Label#27:1": {
+          type: "TEXT",
+          defaultValue: label,
+          boundVariables: { defaultValue: alias(labelId) },
+        },
+        "Visible#27:2": {
+          type: "BOOLEAN",
+          defaultValue: visible,
+          boundVariables: { defaultValue: alias(visibleId) },
+        },
+      },
+      children: [text, optional],
+    } as TestNode & Record<string, unknown>;
+    return component;
+  };
+
+  const bundle = await extractNodes([
+    makeComponent("27:light", lightMode, "Light label", true) as unknown as SceneNode,
+    makeComponent("27:dark", darkMode, "Dark label", false) as unknown as SceneNode,
+  ]);
+  for (const [root, modeId, label, visible] of [
+    [bundle.roots[0], lightMode, "Light label", true],
+    [bundle.roots[1], darkMode, "Dark label", false],
+  ] as const) {
+    assert.deepEqual(root.component?.properties["Label#27:1"], {
+      kind: "BOUND_TEXT",
+      value: {
+        literal: label,
+        token_id: labelId,
+        mode_context: { [collectionId]: modeId },
+      },
+    });
+    assert.deepEqual(root.component?.properties["Visible#27:2"], {
+      kind: "BOUND_BOOLEAN",
+      value: {
+        literal: visible,
+        token_id: visibleId,
+        mode_context: { [collectionId]: modeId },
+      },
+    });
+    assert.deepEqual(root.children[0].component_property_references, {
+      characters: "Label#27:1",
+    });
+    assert.deepEqual(root.children[1].component_property_references, {
+      visible: "Visible#27:2",
+    });
+  }
+  assert.equal(bundle.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.code === "FR-TOKEN-LOSS-002"
+  ), false);
+
+  const unsupported = rectangle("27:unsupported", [[1, 0, 0], [0, 1, 0]]) as TestNode &
+    Record<string, unknown>;
+  unsupported.componentPropertyReferences = { mainComponent: "Swap#27:3" };
+  const unsupportedBundle = await extractNodes([unsupported as unknown as SceneNode]);
+  assert.ok(unsupportedBundle.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.code === "FR-COMPONENT-EXTRACT-004"
+    && diagnostic.node_id === "27:unsupported"
+    && diagnostic.property_path === "component_property_references.mainComponent"
+  ));
+  testVariables.clear();
+  testCollections.clear();
+}
+
 async function preservesChildCounterAxisAlignmentOverrides(): Promise<void> {
   const values = ["INHERIT", "MIN", "CENTER", "MAX", "STRETCH"] as const;
   const roots = values.map((layoutAlign, index) => {
@@ -1296,6 +1416,7 @@ await rejectsEnterpriseExtendedModeOverridesBeforeAliasResolution();
 await preservesVariableValuesAcrossConsumerModes();
 await preservesModeledNumericBindings();
 await preservesBoundDimensionsAcrossConsumerModes();
+await preservesBoundTextAndBooleanComponentProperties();
 await preservesChildCounterAxisAlignmentOverrides();
 supportsCompactExportAndLargeSelectionFeedback();
 validatesBridgeExportCompletionBeforeTrustingTheFile();

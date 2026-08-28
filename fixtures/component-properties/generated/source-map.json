@@ -1,0 +1,34 @@
+{
+  "nodes": {
+    "27:dark": {
+      "symbol": "node_0003",
+      "start_line": 80,
+      "end_line": 109
+    },
+    "27:dark:label": {
+      "symbol": "node_0004",
+      "start_line": 111,
+      "end_line": 134
+    },
+    "27:dark:optional": {
+      "symbol": "node_0005",
+      "start_line": 136,
+      "end_line": 147
+    },
+    "27:light": {
+      "symbol": "node_0000",
+      "start_line": 11,
+      "end_line": 40
+    },
+    "27:light:label": {
+      "symbol": "node_0001",
+      "start_line": 42,
+      "end_line": 65
+    },
+    "27:light:optional": {
+      "symbol": "node_0002",
+      "start_line": 67,
+      "end_line": 78
+    }
+  }
+}

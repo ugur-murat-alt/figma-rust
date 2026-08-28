@@ -87,6 +87,11 @@ struct IndexedNode<'a> {
     parent_stack_axis: Option<Axis>,
 }
 
+struct LoweredRoot {
+    tokens: TokenStream,
+    uses_parent_element: bool,
+}
+
 /// Lowers a normalized design document into deterministic GPUI Rust.
 ///
 /// The returned Rust accepts the runtime's `TokenResolver`; bound colors use
@@ -126,39 +131,17 @@ fn generate_prepared(document: &DesignDocument) -> Result<GeneratedOutput, Codeg
         .iter()
         .map(|indexed_node| lower_function(*indexed_node, &ordinals, &document.assets, uses_assets))
         .collect::<Result<Vec<_>, _>>()?;
-    let root_symbols = document
-        .roots
-        .iter()
-        .filter(|node| node.visible)
-        .map(|node| {
-            let ordinal = ordinals[node.source_id.as_str()];
-            node_symbol(ordinal)
-        })
-        .collect::<Vec<_>>();
-    let root_elements = root_symbols
-        .iter()
-        .map(|symbol| {
-            if uses_assets {
-                quote! { #symbol(tokens, assets) }
-            } else {
-                quote! { #symbol(tokens) }
-            }
-        })
-        .collect::<Vec<_>>();
-    let uses_parent_element = root_symbols.len() > 1
+    let root = lower_document_root(document, &ordinals, uses_assets);
+    let uses_parent_element = root.uses_parent_element
         || emitted.iter().any(|indexed| {
             !is_asset_fallback(indexed.node)
                 && (indexed.node.text.is_some()
-                    || indexed.node.children.iter().any(|child| child.visible)
+                    || indexed.node.children.iter().any(is_potentially_visible)
                     || image_fill(indexed.node).is_some()
                     || has_visible_stroke(indexed.node))
         });
-    let imports = generated_imports(emitted.is_empty(), uses_parent_element, uses_images);
-    let root = match root_elements.as_slice() {
-        [] => quote! { gpui::div() },
-        [element] => quote! { #element },
-        elements => quote! { gpui::div() #(.child(#elements))* },
-    };
+    let imports = generated_imports(&emitted, uses_parent_element, uses_images);
+    let root = root.tokens;
     let generated_view = if uses_assets {
         quote! {
             pub fn generated_view<Tokens, Assets>(
@@ -202,8 +185,50 @@ fn generate_prepared(document: &DesignDocument) -> Result<GeneratedOutput, Codeg
     Ok(GeneratedOutput { rust, source_map })
 }
 
-fn generated_imports(empty: bool, uses_parent: bool, uses_images: bool) -> TokenStream {
-    match (empty, uses_parent, uses_images) {
+fn lower_document_root(
+    document: &DesignDocument,
+    ordinals: &BTreeMap<&str, usize>,
+    uses_assets: bool,
+) -> LoweredRoot {
+    let roots = document
+        .roots
+        .iter()
+        .filter(|node| is_potentially_visible(node))
+        .map(|node| {
+            let symbol = node_symbol(ordinals[node.source_id.as_str()]);
+            let element = if uses_assets {
+                quote! { #symbol(tokens, assets) }
+            } else {
+                quote! { #symbol(tokens) }
+            };
+            (node, element)
+        })
+        .collect::<Vec<_>>();
+    let uses_parent_element = roots.len() > 1
+        || roots
+            .iter()
+            .any(|(node, _)| node.visibility_binding.is_some());
+    let tokens = if roots.len() == 1 && roots[0].0.visibility_binding.is_none() {
+        roots[0].1.clone()
+    } else {
+        roots
+            .iter()
+            .fold(quote! { gpui::div() }, |parent, (node, child)| {
+                append_child(&parent, child, node.visibility_binding.as_ref())
+            })
+    };
+    LoweredRoot {
+        tokens,
+        uses_parent_element,
+    }
+}
+
+fn generated_imports(
+    emitted: &[IndexedNode<'_>],
+    uses_parent: bool,
+    uses_images: bool,
+) -> TokenStream {
+    let gpui_imports = match (emitted.is_empty(), uses_parent, uses_images) {
         (true, _, _) => quote! {},
         (false, true, true) => quote! {
             use gpui::{InteractiveElement as _, ParentElement as _, Styled as _, StyledImage as _};
@@ -214,6 +239,18 @@ fn generated_imports(empty: bool, uses_parent: bool, uses_images: bool) -> Token
         (false, false, _) => quote! {
             use gpui::{InteractiveElement as _, Styled as _};
         },
+    };
+    let fluent_builder = if emitted
+        .iter()
+        .any(|indexed| indexed.node.visibility_binding.is_some())
+    {
+        quote! { use gpui::prelude::FluentBuilder as _; }
+    } else {
+        quote! {}
+    };
+    quote! {
+        #gpui_imports
+        #fluent_builder
     }
 }
 
@@ -384,7 +421,7 @@ fn index_document(
                 node_id: node.source_id.clone(),
             });
         }
-        let emitted = ancestors_visible && node.visible && !captured_by_asset;
+        let emitted = ancestors_visible && is_potentially_visible(node) && !captured_by_asset;
         indexed.push(IndexedNode {
             ordinal,
             node,
@@ -534,21 +571,47 @@ fn lower_node(
         if matches!(&node.size.horizontal.sizing, AxisSizing::Hug) {
             element = quote! { #element.whitespace_nowrap() };
         }
-        let characters = &text.characters;
+        let fallback_characters = &text.characters;
+        let characters = text
+            .characters_binding
+            .as_ref()
+            .map_or_else(|| quote! { #fallback_characters }, string_tokens);
         element = quote! { #element.child(#characters) };
     }
-    for child in node.children.iter().filter(|child| child.visible) {
+    for child in node
+        .children
+        .iter()
+        .filter(|child| is_potentially_visible(child))
+    {
         let child_symbol = node_symbol(ordinals[child.source_id.as_str()]);
-        element = if uses_assets {
-            quote! { #element.child(#child_symbol(tokens, assets)) }
+        let call = if uses_assets {
+            quote! { #child_symbol(tokens, assets) }
         } else {
-            quote! { #element.child(#child_symbol(tokens)) }
+            quote! { #child_symbol(tokens) }
         };
+        element = append_child(&element, &call, child.visibility_binding.as_ref());
     }
     if let Some(stroke) = lower_stroke_overlay(node)? {
         element = quote! { #element.child(#stroke) };
     }
     Ok(element)
+}
+
+fn is_potentially_visible(node: &Node) -> bool {
+    node.visible || node.visibility_binding.is_some()
+}
+
+fn append_child(
+    parent: &TokenStream,
+    child: &TokenStream,
+    visibility: Option<&BoundValue<bool>>,
+) -> TokenStream {
+    if let Some(visibility) = visibility {
+        let visible = boolean_tokens(visibility);
+        quote! { #parent.when(#visible, |this| this.child(#child)) }
+    } else {
+        quote! { #parent.child(#child) }
+    }
 }
 
 fn is_asset_fallback(node: &Node) -> bool {
@@ -640,9 +703,38 @@ fn validate_node(
         return unsupported(node, "reactions", "prototype reactions");
     }
     if captured_by_asset {
+        if node.visibility_binding.is_some() {
+            return unsupported(
+                node,
+                "component_property_references.visible",
+                "variable component visibility captured by an ancestor asset fallback",
+            );
+        }
+        if node
+            .text
+            .as_ref()
+            .is_some_and(|text| text.characters_binding.is_some())
+        {
+            return unsupported(
+                node,
+                "component_property_references.characters",
+                "variable component text captured by an ancestor asset fallback",
+            );
+        }
         return Ok(());
     }
     if fallback_asset(node, assets)?.is_some() {
+        if node
+            .text
+            .as_ref()
+            .is_some_and(|text| text.characters_binding.is_some())
+        {
+            return unsupported(
+                node,
+                "component_property_references.characters",
+                "variable component text cannot be represented by a static asset fallback",
+            );
+        }
         return Ok(());
     }
     match node.kind {
@@ -1589,6 +1681,30 @@ fn number_tokens(
     })
 }
 
+fn string_tokens(value: &BoundValue<String>) -> TokenStream {
+    let fallback = &value.fallback;
+    if let Some(token) = &value.token {
+        let context = token_context_tokens(token, &value.mode_context);
+        quote! {
+            figma_gpui_runtime::TokenResolver::string_with_context(tokens, #context, #fallback)
+        }
+    } else {
+        quote! { #fallback }
+    }
+}
+
+fn boolean_tokens(value: &BoundValue<bool>) -> TokenStream {
+    let fallback = value.fallback;
+    if let Some(token) = &value.token {
+        let context = token_context_tokens(token, &value.mode_context);
+        quote! {
+            figma_gpui_runtime::TokenResolver::boolean_with_context(tokens, #context, #fallback)
+        }
+    } else {
+        quote! { #fallback }
+    }
+}
+
 fn bound_number_is_visible(number: &BoundValue<f64>) -> bool {
     number.token.is_some() || number.fallback != 0.0
 }
@@ -1774,6 +1890,32 @@ mod tests {
                 "collection.dimensions".to_owned(),
                 "mode.compact".to_owned(),
             )]),
+            fallback: value,
+        }
+    }
+
+    fn bound_string(id: &str, value: &str, mode: &str) -> BoundValue<String> {
+        BoundValue {
+            token: Some(TokenRef {
+                id: id.to_owned(),
+                name: Some(id.to_owned()),
+                collection_id: Some("collection.content".to_owned()),
+                mode_id: Some(mode.to_owned()),
+            }),
+            mode_context: BTreeMap::from([("collection.content".to_owned(), mode.to_owned())]),
+            fallback: value.to_owned(),
+        }
+    }
+
+    fn bound_boolean(id: &str, value: bool, mode: &str) -> BoundValue<bool> {
+        BoundValue {
+            token: Some(TokenRef {
+                id: id.to_owned(),
+                name: Some(id.to_owned()),
+                collection_id: Some("collection.content".to_owned()),
+                mode_id: Some(mode.to_owned()),
+            }),
+            mode_context: BTreeMap::from([("collection.content".to_owned(), mode.to_owned())]),
             fallback: value,
         }
     }
@@ -2093,6 +2235,48 @@ mod tests {
             assert!(first.rust.contains(method), "missing size method {method}");
         }
         assert!(first.rust.contains("TokenResolver::number_with_context"));
+    }
+
+    #[test]
+    fn lowers_bound_component_text_and_visibility_with_literal_fallbacks() {
+        let mut document = basic_document();
+        let mut label = text_child();
+        let text = label.text.as_mut().expect("text fixture must carry text");
+        text.characters_binding = Some(bound_string(
+            "content.label",
+            "Fallback label",
+            "mode.light",
+        ));
+
+        let mut optional = absolute_child();
+        optional.source_id = "1:4".to_owned();
+        optional.visible = false;
+        optional.visibility_binding = Some(bound_boolean("content.visible", false, "mode.light"));
+        document.roots[0].children = vec![label, optional];
+
+        let first = generate(&document).expect("bound component consumers must generate");
+        let second = generate(&document).expect("bound consumers must generate deterministically");
+        assert_eq!(first, second);
+        assert!(first.rust.contains("TokenResolver::string_with_context"));
+        assert!(first.rust.contains("TokenResolver::boolean_with_context"));
+        assert!(first.rust.contains("Fallback label"));
+        assert!(first.rust.contains("mode.light"));
+        assert!(first.rust.contains("FluentBuilder as _"));
+        assert!(first.rust.contains(".when("));
+        assert!(first.source_map.nodes.contains_key("1:4"));
+    }
+
+    #[test]
+    fn lowers_bound_root_visibility_with_conditional_child_insertion() {
+        let mut document = basic_document();
+        document.roots[0].visible = false;
+        document.roots[0].visibility_binding =
+            Some(bound_boolean("content.visible", false, "mode.light"));
+
+        let output = generate(&document).expect("bound root visibility must generate");
+        assert!(output.rust.contains(".when("));
+        assert!(output.rust.contains("|this| this.child(node_0000(tokens))"));
+        assert!(output.source_map.nodes.contains_key("1:1"));
     }
 
     #[test]
@@ -2480,6 +2664,47 @@ mod tests {
         assert!(output.rust.contains("asset-6e6f64653a313a313a737667.svg"));
         assert_eq!(output.source_map.nodes.len(), 1);
         assert!(!output.rust.contains("fn node_0001<"));
+    }
+
+    #[test]
+    fn asset_fallback_rejects_captured_dynamic_component_consumers() {
+        let mut document = supported_document();
+        document.roots[0].kind = RawNodeKind::Vector;
+        document.roots[0].asset_decision.route = AssetRoute::Svg;
+        document.assets = vec![RawAsset {
+            id: "node:1:1:svg".to_owned(),
+            source_node_id: "1:1".to_owned(),
+            media_type: "image/svg+xml".to_owned(),
+            content_hash: None,
+            export_settings: BTreeMap::from([("format".to_owned(), "SVG".to_owned())]),
+            payload_base64: Some("PHN2Zy8+".to_owned()),
+        }];
+
+        document.roots[0].children[0].visibility_binding =
+            Some(bound_boolean("content.visible", true, "mode.light"));
+        assert!(matches!(
+            generate(&document),
+            Err(CodegenError::Unsupported { location, .. })
+                if location.node_id == "1:2"
+                    && location.property == "component_property_references.visible"
+        ));
+
+        document.roots[0].children[0].visibility_binding = None;
+        document.roots[0].children[1]
+            .text
+            .as_mut()
+            .expect("fixture text must exist")
+            .characters_binding = Some(bound_string(
+            "content.label",
+            "Fallback label",
+            "mode.light",
+        ));
+        assert!(matches!(
+            generate(&document),
+            Err(CodegenError::Unsupported { location, .. })
+                if location.node_id == "1:3"
+                    && location.property == "component_property_references.characters"
+        ));
     }
 
     #[test]

@@ -29,6 +29,8 @@ pub struct Node {
     pub name: String,
     pub kind: RawNodeKind,
     pub visible: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visibility_binding: Option<BoundValue<bool>>,
     pub opacity: f64,
     pub size: Size,
     pub layout: Layout,
@@ -214,7 +216,7 @@ pub struct Color {
     pub a: f64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BoundValue<T> {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub token: Option<TokenRef>,
@@ -262,6 +264,8 @@ pub struct Radii {
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Text {
     pub characters: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub characters_binding: Option<BoundValue<String>>,
     #[serde(default, skip_serializing_if = "crate::raw::is_default")]
     pub auto_resize: RawTextAutoResize,
     #[serde(default, skip_serializing_if = "crate::raw::is_default")]

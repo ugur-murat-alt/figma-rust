@@ -6,7 +6,7 @@ use figma_rust_core::ir::{
 };
 use figma_rust_core::raw::{
     RawAsset, RawBoundValue, RawChildAlignment, RawColor, RawComponent, RawConstraint, RawLiteral,
-    RawPaint, RawVariable,
+    RawNodeKind, RawPaint, RawVariable,
 };
 use figma_rust_core::{
     ComponentMapping, ComponentRegistry, normalize_bundle, normalize_bundle_with_registry,
@@ -326,6 +326,54 @@ fn runtime_route_fixture_is_rejected_before_codegen() {
         AssetRoute::Runtime
     );
     assert_runtime_route_error(&output.diagnostics, "11:runtime");
+}
+
+#[test]
+fn component_text_and_visibility_bindings_are_mode_aware_and_fail_closed() {
+    let source = include_str!("../../../fixtures/component-properties/extraction.json");
+    let output = parse_and_normalize(source).expect("component property fixture must parse");
+    assert!(!output.has_errors(), "{:?}", output.diagnostics);
+
+    for (root, mode, label, visible) in [
+        (&output.document.roots[0], "mode-light", "Light label", true),
+        (&output.document.roots[1], "mode-dark", "Dark label", false),
+    ] {
+        let label_binding = root.children[0]
+            .text
+            .as_ref()
+            .and_then(|text| text.characters_binding.as_ref())
+            .expect("TEXT reference must normalize to a bound consumer");
+        assert_eq!(label_binding.fallback, label);
+        assert_eq!(
+            label_binding
+                .token
+                .as_ref()
+                .and_then(|token| token.mode_id.as_deref()),
+            Some(mode)
+        );
+        let visible_binding = root.children[1]
+            .visibility_binding
+            .as_ref()
+            .expect("BOOLEAN reference must normalize to a bound consumer");
+        assert_eq!(visible_binding.fallback, visible);
+        assert_eq!(
+            visible_binding
+                .token
+                .as_ref()
+                .and_then(|token| token.mode_id.as_deref()),
+            Some(mode)
+        );
+    }
+
+    let mut invalid = parse_bundle(source).expect("component property fixture must parse as raw");
+    invalid.roots[0].children[0].kind = RawNodeKind::Rectangle;
+    let invalid = normalize_bundle(&invalid);
+    assert!(invalid.diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == codes::COMPONENT_METADATA_MISMATCH
+            && diagnostic.node_id.as_deref() == Some("27:light:label")
+            && diagnostic.property_path.as_deref()
+                == Some("component_property_references.characters")
+    }));
 }
 
 #[test]

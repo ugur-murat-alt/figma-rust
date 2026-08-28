@@ -1,0 +1,187 @@
+{
+  "schema_version": 2,
+  "source": {
+    "page_id": "fixture:component-properties",
+    "selected_node_ids": ["27:light", "27:dark"],
+    "plugin_api_version": "1.135.0"
+  },
+  "roots": [
+    {
+      "id": "27:light",
+      "name": "Bound component light",
+      "kind": "COMPONENT",
+      "size": {
+        "width": { "literal": 160.0 },
+        "height": { "literal": 48.0 },
+        "horizontal": "FIXED",
+        "vertical": "FIXED"
+      },
+      "layout": { "mode": "VERTICAL" },
+      "component": {
+        "role": "COMPONENT",
+        "component_key": "component:27",
+        "variants": {},
+        "properties": {
+          "Label#27:1": {
+            "kind": "BOUND_TEXT",
+            "value": {
+              "literal": "Light label",
+              "token_id": "VariableID:27:label",
+              "mode_context": { "VariableCollectionId:27:content": "mode-light" }
+            }
+          },
+          "Visible#27:2": {
+            "kind": "BOUND_BOOLEAN",
+            "value": {
+              "literal": true,
+              "token_id": "VariableID:27:visible",
+              "mode_context": { "VariableCollectionId:27:content": "mode-light" }
+            }
+          }
+        },
+        "overrides": []
+      },
+      "children": [
+        {
+          "id": "27:light:label",
+          "name": "Label",
+          "kind": "TEXT",
+          "size": {
+            "width": { "literal": 160.0 },
+            "height": { "literal": 24.0 },
+            "horizontal": "FIXED",
+            "vertical": "FIXED"
+          },
+          "text": { "characters": "Light label" },
+          "component_property_references": { "characters": "Label#27:1" }
+        },
+        {
+          "id": "27:light:optional",
+          "name": "Optional",
+          "kind": "RECTANGLE",
+          "size": {
+            "width": { "literal": 24.0 },
+            "height": { "literal": 24.0 },
+            "horizontal": "FIXED",
+            "vertical": "FIXED"
+          },
+          "component_property_references": { "visible": "Visible#27:2" }
+        }
+      ]
+    },
+    {
+      "id": "27:dark",
+      "name": "Bound component dark",
+      "kind": "COMPONENT",
+      "size": {
+        "width": { "literal": 160.0 },
+        "height": { "literal": 48.0 },
+        "horizontal": "FIXED",
+        "vertical": "FIXED"
+      },
+      "layout": { "mode": "VERTICAL" },
+      "component": {
+        "role": "COMPONENT",
+        "component_key": "component:27",
+        "variants": {},
+        "properties": {
+          "Label#27:1": {
+            "kind": "BOUND_TEXT",
+            "value": {
+              "literal": "Dark label",
+              "token_id": "VariableID:27:label",
+              "mode_context": { "VariableCollectionId:27:content": "mode-dark" }
+            }
+          },
+          "Visible#27:2": {
+            "kind": "BOUND_BOOLEAN",
+            "value": {
+              "literal": false,
+              "token_id": "VariableID:27:visible",
+              "mode_context": { "VariableCollectionId:27:content": "mode-dark" }
+            }
+          }
+        },
+        "overrides": []
+      },
+      "children": [
+        {
+          "id": "27:dark:label",
+          "name": "Label",
+          "kind": "TEXT",
+          "size": {
+            "width": { "literal": 160.0 },
+            "height": { "literal": 24.0 },
+            "horizontal": "FIXED",
+            "vertical": "FIXED"
+          },
+          "text": { "characters": "Dark label" },
+          "component_property_references": { "characters": "Label#27:1" }
+        },
+        {
+          "id": "27:dark:optional",
+          "name": "Optional",
+          "kind": "RECTANGLE",
+          "visible": false,
+          "size": {
+            "width": { "literal": 24.0 },
+            "height": { "literal": 24.0 },
+            "horizontal": "FIXED",
+            "vertical": "FIXED"
+          },
+          "component_property_references": { "visible": "Visible#27:2" }
+        }
+      ]
+    }
+  ],
+  "variables": [
+    {
+      "id": "VariableID:27:label",
+      "name": "content/label",
+      "collection_id": "VariableCollectionId:27:content",
+      "mode_id": "mode-dark",
+      "mode_context": { "VariableCollectionId:27:content": "mode-dark" },
+      "source_node_id": "27:dark",
+      "value": { "kind": "STRING", "value": "Dark label" }
+    },
+    {
+      "id": "VariableID:27:label",
+      "name": "content/label",
+      "collection_id": "VariableCollectionId:27:content",
+      "mode_id": "mode-light",
+      "mode_context": { "VariableCollectionId:27:content": "mode-light" },
+      "source_node_id": "27:light",
+      "value": { "kind": "STRING", "value": "Light label" }
+    },
+    {
+      "id": "VariableID:27:visible",
+      "name": "content/visible",
+      "collection_id": "VariableCollectionId:27:content",
+      "mode_id": "mode-dark",
+      "mode_context": { "VariableCollectionId:27:content": "mode-dark" },
+      "source_node_id": "27:dark",
+      "value": { "kind": "BOOLEAN", "value": false }
+    },
+    {
+      "id": "VariableID:27:visible",
+      "name": "content/visible",
+      "collection_id": "VariableCollectionId:27:content",
+      "mode_id": "mode-light",
+      "mode_context": { "VariableCollectionId:27:content": "mode-light" },
+      "source_node_id": "27:light",
+      "value": { "kind": "BOOLEAN", "value": true }
+    }
+  ],
+  "components": [
+    {
+      "key": "component:27",
+      "name": "Bound component",
+      "property_definitions": {
+        "Label#27:1": "TEXT",
+        "Visible#27:2": "BOOLEAN"
+      }
+    }
+  ],
+  "assets": [],
+  "extraction_diagnostics": []
+}

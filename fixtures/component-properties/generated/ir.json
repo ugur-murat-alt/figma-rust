@@ -1,0 +1,782 @@
+{
+  "ir_version": 2,
+  "source": {
+    "page_id": "fixture:component-properties",
+    "selected_node_ids": [
+      "27:light",
+      "27:dark"
+    ],
+    "plugin_api_version": "1.135.0"
+  },
+  "roots": [
+    {
+      "source_id": "27:light",
+      "name": "Bound component light",
+      "kind": "COMPONENT",
+      "visible": true,
+      "opacity": 1.0,
+      "size": {
+        "horizontal": {
+          "sizing": {
+            "kind": "FIXED",
+            "value": {
+              "fallback": 160.0
+            }
+          }
+        },
+        "vertical": {
+          "sizing": {
+            "kind": "FIXED",
+            "value": {
+              "fallback": 48.0
+            }
+          }
+        }
+      },
+      "layout": {
+        "kind": "STACK",
+        "axis": "VERTICAL",
+        "wrap": false,
+        "primary_alignment": "START",
+        "counter_alignment": "START",
+        "gap": {
+          "fallback": 0.0
+        },
+        "padding": {
+          "top": {
+            "fallback": 0.0
+          },
+          "right": {
+            "fallback": 0.0
+          },
+          "bottom": {
+            "fallback": 0.0
+          },
+          "left": {
+            "fallback": 0.0
+          }
+        },
+        "clips_content": false,
+        "scroll": {
+          "horizontal": false,
+          "vertical": false
+        }
+      },
+      "positioning": {
+        "kind": "AUTO",
+        "transform": {
+          "matrix": [
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "style": {
+        "fills": [],
+        "strokes": [],
+        "stroke_widths": {
+          "top": {
+            "fallback": 0.0
+          },
+          "right": {
+            "fallback": 0.0
+          },
+          "bottom": {
+            "fallback": 0.0
+          },
+          "left": {
+            "fallback": 0.0
+          }
+        },
+        "stroke_align": "INSIDE",
+        "radii": {
+          "top_left": {
+            "fallback": 0.0
+          },
+          "top_right": {
+            "fallback": 0.0
+          },
+          "bottom_right": {
+            "fallback": 0.0
+          },
+          "bottom_left": {
+            "fallback": 0.0
+          },
+          "smoothing": 0.0
+        },
+        "effects": [],
+        "blend_mode": "NORMAL",
+        "is_mask": false
+      },
+      "component": {
+        "role": "COMPONENT",
+        "component_key": "component:27",
+        "variants": {},
+        "properties": {
+          "Label#27:1": {
+            "kind": "BOUND_TEXT",
+            "value": {
+              "literal": "Light label",
+              "token_id": "VariableID:27:label",
+              "mode_context": {
+                "VariableCollectionId:27:content": "mode-light"
+              }
+            }
+          },
+          "Visible#27:2": {
+            "kind": "BOUND_BOOLEAN",
+            "value": {
+              "literal": true,
+              "token_id": "VariableID:27:visible",
+              "mode_context": {
+                "VariableCollectionId:27:content": "mode-light"
+              }
+            }
+          }
+        },
+        "overrides": [],
+        "resolution": {
+          "kind": "DEFINITION"
+        }
+      },
+      "reactions": [],
+      "asset_decision": {
+        "route": "NATIVE",
+        "reasons": []
+      },
+      "children": [
+        {
+          "source_id": "27:light:label",
+          "name": "Label",
+          "kind": "TEXT",
+          "visible": true,
+          "opacity": 1.0,
+          "size": {
+            "horizontal": {
+              "sizing": {
+                "kind": "FIXED",
+                "value": {
+                  "fallback": 160.0
+                }
+              }
+            },
+            "vertical": {
+              "sizing": {
+                "kind": "FIXED",
+                "value": {
+                  "fallback": 24.0
+                }
+              }
+            }
+          },
+          "layout": {
+            "kind": "PLAIN",
+            "clips_content": false,
+            "scroll": {
+              "horizontal": false,
+              "vertical": false
+            }
+          },
+          "positioning": {
+            "kind": "AUTO",
+            "transform": {
+              "matrix": [
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "style": {
+            "fills": [],
+            "strokes": [],
+            "stroke_widths": {
+              "top": {
+                "fallback": 0.0
+              },
+              "right": {
+                "fallback": 0.0
+              },
+              "bottom": {
+                "fallback": 0.0
+              },
+              "left": {
+                "fallback": 0.0
+              }
+            },
+            "stroke_align": "INSIDE",
+            "radii": {
+              "top_left": {
+                "fallback": 0.0
+              },
+              "top_right": {
+                "fallback": 0.0
+              },
+              "bottom_right": {
+                "fallback": 0.0
+              },
+              "bottom_left": {
+                "fallback": 0.0
+              },
+              "smoothing": 0.0
+            },
+            "effects": [],
+            "blend_mode": "NORMAL",
+            "is_mask": false
+          },
+          "text": {
+            "characters": "Light label",
+            "characters_binding": {
+              "token": {
+                "id": "VariableID:27:label",
+                "name": "content/label",
+                "collection_id": "VariableCollectionId:27:content",
+                "mode_id": "mode-light"
+              },
+              "mode_context": {
+                "VariableCollectionId:27:content": "mode-light"
+              },
+              "fallback": "Light label"
+            },
+            "runs": []
+          },
+          "reactions": [],
+          "asset_decision": {
+            "route": "NATIVE",
+            "reasons": []
+          },
+          "children": []
+        },
+        {
+          "source_id": "27:light:optional",
+          "name": "Optional",
+          "kind": "RECTANGLE",
+          "visible": true,
+          "visibility_binding": {
+            "token": {
+              "id": "VariableID:27:visible",
+              "name": "content/visible",
+              "collection_id": "VariableCollectionId:27:content",
+              "mode_id": "mode-light"
+            },
+            "mode_context": {
+              "VariableCollectionId:27:content": "mode-light"
+            },
+            "fallback": true
+          },
+          "opacity": 1.0,
+          "size": {
+            "horizontal": {
+              "sizing": {
+                "kind": "FIXED",
+                "value": {
+                  "fallback": 24.0
+                }
+              }
+            },
+            "vertical": {
+              "sizing": {
+                "kind": "FIXED",
+                "value": {
+                  "fallback": 24.0
+                }
+              }
+            }
+          },
+          "layout": {
+            "kind": "PLAIN",
+            "clips_content": false,
+            "scroll": {
+              "horizontal": false,
+              "vertical": false
+            }
+          },
+          "positioning": {
+            "kind": "AUTO",
+            "transform": {
+              "matrix": [
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "style": {
+            "fills": [],
+            "strokes": [],
+            "stroke_widths": {
+              "top": {
+                "fallback": 0.0
+              },
+              "right": {
+                "fallback": 0.0
+              },
+              "bottom": {
+                "fallback": 0.0
+              },
+              "left": {
+                "fallback": 0.0
+              }
+            },
+            "stroke_align": "INSIDE",
+            "radii": {
+              "top_left": {
+                "fallback": 0.0
+              },
+              "top_right": {
+                "fallback": 0.0
+              },
+              "bottom_right": {
+                "fallback": 0.0
+              },
+              "bottom_left": {
+                "fallback": 0.0
+              },
+              "smoothing": 0.0
+            },
+            "effects": [],
+            "blend_mode": "NORMAL",
+            "is_mask": false
+          },
+          "reactions": [],
+          "asset_decision": {
+            "route": "NATIVE",
+            "reasons": []
+          },
+          "children": []
+        }
+      ]
+    },
+    {
+      "source_id": "27:dark",
+      "name": "Bound component dark",
+      "kind": "COMPONENT",
+      "visible": true,
+      "opacity": 1.0,
+      "size": {
+        "horizontal": {
+          "sizing": {
+            "kind": "FIXED",
+            "value": {
+              "fallback": 160.0
+            }
+          }
+        },
+        "vertical": {
+          "sizing": {
+            "kind": "FIXED",
+            "value": {
+              "fallback": 48.0
+            }
+          }
+        }
+      },
+      "layout": {
+        "kind": "STACK",
+        "axis": "VERTICAL",
+        "wrap": false,
+        "primary_alignment": "START",
+        "counter_alignment": "START",
+        "gap": {
+          "fallback": 0.0
+        },
+        "padding": {
+          "top": {
+            "fallback": 0.0
+          },
+          "right": {
+            "fallback": 0.0
+          },
+          "bottom": {
+            "fallback": 0.0
+          },
+          "left": {
+            "fallback": 0.0
+          }
+        },
+        "clips_content": false,
+        "scroll": {
+          "horizontal": false,
+          "vertical": false
+        }
+      },
+      "positioning": {
+        "kind": "AUTO",
+        "transform": {
+          "matrix": [
+            1.0,
+            0.0,
+            0.0,
+            1.0,
+            0.0,
+            0.0
+          ]
+        }
+      },
+      "style": {
+        "fills": [],
+        "strokes": [],
+        "stroke_widths": {
+          "top": {
+            "fallback": 0.0
+          },
+          "right": {
+            "fallback": 0.0
+          },
+          "bottom": {
+            "fallback": 0.0
+          },
+          "left": {
+            "fallback": 0.0
+          }
+        },
+        "stroke_align": "INSIDE",
+        "radii": {
+          "top_left": {
+            "fallback": 0.0
+          },
+          "top_right": {
+            "fallback": 0.0
+          },
+          "bottom_right": {
+            "fallback": 0.0
+          },
+          "bottom_left": {
+            "fallback": 0.0
+          },
+          "smoothing": 0.0
+        },
+        "effects": [],
+        "blend_mode": "NORMAL",
+        "is_mask": false
+      },
+      "component": {
+        "role": "COMPONENT",
+        "component_key": "component:27",
+        "variants": {},
+        "properties": {
+          "Label#27:1": {
+            "kind": "BOUND_TEXT",
+            "value": {
+              "literal": "Dark label",
+              "token_id": "VariableID:27:label",
+              "mode_context": {
+                "VariableCollectionId:27:content": "mode-dark"
+              }
+            }
+          },
+          "Visible#27:2": {
+            "kind": "BOUND_BOOLEAN",
+            "value": {
+              "literal": false,
+              "token_id": "VariableID:27:visible",
+              "mode_context": {
+                "VariableCollectionId:27:content": "mode-dark"
+              }
+            }
+          }
+        },
+        "overrides": [],
+        "resolution": {
+          "kind": "DEFINITION"
+        }
+      },
+      "reactions": [],
+      "asset_decision": {
+        "route": "NATIVE",
+        "reasons": []
+      },
+      "children": [
+        {
+          "source_id": "27:dark:label",
+          "name": "Label",
+          "kind": "TEXT",
+          "visible": true,
+          "opacity": 1.0,
+          "size": {
+            "horizontal": {
+              "sizing": {
+                "kind": "FIXED",
+                "value": {
+                  "fallback": 160.0
+                }
+              }
+            },
+            "vertical": {
+              "sizing": {
+                "kind": "FIXED",
+                "value": {
+                  "fallback": 24.0
+                }
+              }
+            }
+          },
+          "layout": {
+            "kind": "PLAIN",
+            "clips_content": false,
+            "scroll": {
+              "horizontal": false,
+              "vertical": false
+            }
+          },
+          "positioning": {
+            "kind": "AUTO",
+            "transform": {
+              "matrix": [
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "style": {
+            "fills": [],
+            "strokes": [],
+            "stroke_widths": {
+              "top": {
+                "fallback": 0.0
+              },
+              "right": {
+                "fallback": 0.0
+              },
+              "bottom": {
+                "fallback": 0.0
+              },
+              "left": {
+                "fallback": 0.0
+              }
+            },
+            "stroke_align": "INSIDE",
+            "radii": {
+              "top_left": {
+                "fallback": 0.0
+              },
+              "top_right": {
+                "fallback": 0.0
+              },
+              "bottom_right": {
+                "fallback": 0.0
+              },
+              "bottom_left": {
+                "fallback": 0.0
+              },
+              "smoothing": 0.0
+            },
+            "effects": [],
+            "blend_mode": "NORMAL",
+            "is_mask": false
+          },
+          "text": {
+            "characters": "Dark label",
+            "characters_binding": {
+              "token": {
+                "id": "VariableID:27:label",
+                "name": "content/label",
+                "collection_id": "VariableCollectionId:27:content",
+                "mode_id": "mode-dark"
+              },
+              "mode_context": {
+                "VariableCollectionId:27:content": "mode-dark"
+              },
+              "fallback": "Dark label"
+            },
+            "runs": []
+          },
+          "reactions": [],
+          "asset_decision": {
+            "route": "NATIVE",
+            "reasons": []
+          },
+          "children": []
+        },
+        {
+          "source_id": "27:dark:optional",
+          "name": "Optional",
+          "kind": "RECTANGLE",
+          "visible": false,
+          "visibility_binding": {
+            "token": {
+              "id": "VariableID:27:visible",
+              "name": "content/visible",
+              "collection_id": "VariableCollectionId:27:content",
+              "mode_id": "mode-dark"
+            },
+            "mode_context": {
+              "VariableCollectionId:27:content": "mode-dark"
+            },
+            "fallback": false
+          },
+          "opacity": 1.0,
+          "size": {
+            "horizontal": {
+              "sizing": {
+                "kind": "FIXED",
+                "value": {
+                  "fallback": 24.0
+                }
+              }
+            },
+            "vertical": {
+              "sizing": {
+                "kind": "FIXED",
+                "value": {
+                  "fallback": 24.0
+                }
+              }
+            }
+          },
+          "layout": {
+            "kind": "PLAIN",
+            "clips_content": false,
+            "scroll": {
+              "horizontal": false,
+              "vertical": false
+            }
+          },
+          "positioning": {
+            "kind": "AUTO",
+            "transform": {
+              "matrix": [
+                1.0,
+                0.0,
+                0.0,
+                1.0,
+                0.0,
+                0.0
+              ]
+            }
+          },
+          "style": {
+            "fills": [],
+            "strokes": [],
+            "stroke_widths": {
+              "top": {
+                "fallback": 0.0
+              },
+              "right": {
+                "fallback": 0.0
+              },
+              "bottom": {
+                "fallback": 0.0
+              },
+              "left": {
+                "fallback": 0.0
+              }
+            },
+            "stroke_align": "INSIDE",
+            "radii": {
+              "top_left": {
+                "fallback": 0.0
+              },
+              "top_right": {
+                "fallback": 0.0
+              },
+              "bottom_right": {
+                "fallback": 0.0
+              },
+              "bottom_left": {
+                "fallback": 0.0
+              },
+              "smoothing": 0.0
+            },
+            "effects": [],
+            "blend_mode": "NORMAL",
+            "is_mask": false
+          },
+          "reactions": [],
+          "asset_decision": {
+            "route": "NATIVE",
+            "reasons": []
+          },
+          "children": []
+        }
+      ]
+    }
+  ],
+  "variables": [
+    {
+      "token": {
+        "id": "VariableID:27:label",
+        "name": "content/label",
+        "collection_id": "VariableCollectionId:27:content",
+        "mode_id": "mode-dark"
+      },
+      "mode_context": {
+        "VariableCollectionId:27:content": "mode-dark"
+      },
+      "value": {
+        "kind": "STRING",
+        "value": "Dark label"
+      }
+    },
+    {
+      "token": {
+        "id": "VariableID:27:label",
+        "name": "content/label",
+        "collection_id": "VariableCollectionId:27:content",
+        "mode_id": "mode-light"
+      },
+      "mode_context": {
+        "VariableCollectionId:27:content": "mode-light"
+      },
+      "value": {
+        "kind": "STRING",
+        "value": "Light label"
+      }
+    },
+    {
+      "token": {
+        "id": "VariableID:27:visible",
+        "name": "content/visible",
+        "collection_id": "VariableCollectionId:27:content",
+        "mode_id": "mode-dark"
+      },
+      "mode_context": {
+        "VariableCollectionId:27:content": "mode-dark"
+      },
+      "value": {
+        "kind": "BOOLEAN",
+        "value": false
+      }
+    },
+    {
+      "token": {
+        "id": "VariableID:27:visible",
+        "name": "content/visible",
+        "collection_id": "VariableCollectionId:27:content",
+        "mode_id": "mode-light"
+      },
+      "mode_context": {
+        "VariableCollectionId:27:content": "mode-light"
+      },
+      "value": {
+        "kind": "BOOLEAN",
+        "value": true
+      }
+    }
+  ],
+  "components": [
+    {
+      "key": "component:27",
+      "name": "Bound component",
+      "property_definitions": {
+        "Label#27:1": "TEXT",
+        "Visible#27:2": "BOOLEAN"
+      }
+    }
+  ],
+  "assets": []
+}

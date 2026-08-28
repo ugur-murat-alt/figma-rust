@@ -13,8 +13,9 @@ use crate::ir::{
 };
 use crate::raw::{
     ExtractionBundle, RawAxisSizing, RawBoundValue, RawChildAlignment, RawColor,
-    RawComponentMetadata, RawComponentRole, RawEffect, RawGridTrack, RawLayoutMode, RawNode,
-    RawNodeKind, RawPaint, RawPositioning, RawText, RawTextStyle, RawVariable,
+    RawComponentMetadata, RawComponentRole, RawComponentValue, RawEffect, RawGridTrack,
+    RawLayoutMode, RawNode, RawNodeKind, RawPaint, RawPositioning, RawText, RawTextStyle,
+    RawVariable,
 };
 
 pub const EXTRACTION_SCHEMA_VERSION: u32 = 2;
@@ -225,7 +226,7 @@ pub fn normalize_bundle_with_registry(
     let roots = bundle
         .roots
         .iter()
-        .map(|root| context.normalize_node(root, None))
+        .map(|root| context.normalize_node(root, None, None))
         .collect();
 
     let normalized_variables = raw_variables
@@ -303,7 +304,12 @@ struct Context<'a> {
 }
 
 impl Context<'_> {
-    fn normalize_node(&mut self, raw: &RawNode, parent: Option<ParentLayout>) -> Node {
+    fn normalize_node(
+        &mut self,
+        raw: &RawNode,
+        parent: Option<ParentLayout>,
+        component_scope: Option<&BTreeMap<String, RawComponentValue>>,
+    ) -> Node {
         let positioning = self.normalize_positioning(raw, parent);
         let is_absolute = matches!(positioning, Positioning::Absolute { .. });
         let child_counter_alignment = raw.layout.child_counter_alignment;
@@ -343,7 +349,7 @@ impl Context<'_> {
             },
         };
         let style = self.normalize_style(raw);
-        let text = raw.text.as_ref().map(|text| self.normalize_text(raw, text));
+        let (text, visibility_binding) = self.normalize_component_consumers(raw, component_scope);
         let component = if let Some(component) = raw.component.as_ref() {
             Some(self.normalize_component(raw, component))
         } else {
@@ -360,10 +366,15 @@ impl Context<'_> {
         };
         let asset_decision = self.decide_asset(raw, &positioning);
         self.emit_asset_diagnostic(raw, &asset_decision);
+        let child_scope = raw
+            .component
+            .as_ref()
+            .map(|component| &component.properties)
+            .or(component_scope);
         let children = raw
             .children
             .iter()
-            .map(|child| self.normalize_node(child, Some(child_parent)))
+            .map(|child| self.normalize_node(child, Some(child_parent), child_scope))
             .collect();
 
         Node {
@@ -371,6 +382,7 @@ impl Context<'_> {
             name: raw.name.clone(),
             kind: raw.kind,
             visible: raw.visible,
+            visibility_binding,
             opacity: self.finite_in_range(raw, raw.opacity, 0.0, 1.0, "opacity"),
             size,
             layout,
@@ -836,6 +848,32 @@ impl Context<'_> {
         }
     }
 
+    fn normalize_string_bound(
+        &mut self,
+        raw: &RawNode,
+        value: &RawBoundValue<String>,
+        path: &str,
+    ) -> BoundValue<String> {
+        BoundValue {
+            token: self.resolve_token(raw, value.token_id.as_deref(), &value.mode_context, path),
+            mode_context: value.mode_context.clone(),
+            fallback: value.literal.clone(),
+        }
+    }
+
+    fn normalize_boolean_bound(
+        &mut self,
+        raw: &RawNode,
+        value: &RawBoundValue<bool>,
+        path: &str,
+    ) -> BoundValue<bool> {
+        BoundValue {
+            token: self.resolve_token(raw, value.token_id.as_deref(), &value.mode_context, path),
+            mode_context: value.mode_context.clone(),
+            fallback: value.literal,
+        }
+    }
+
     fn normalize_non_negative_number_bound(
         &mut self,
         raw: &RawNode,
@@ -919,6 +957,7 @@ impl Context<'_> {
             .collect();
         Text {
             characters: text.characters.clone(),
+            characters_binding: None,
             auto_resize: text.auto_resize,
             horizontal_alignment: text.horizontal_alignment,
             vertical_alignment: text.vertical_alignment,
@@ -926,6 +965,99 @@ impl Context<'_> {
             max_lines: text.max_lines,
             runs,
         }
+    }
+
+    fn normalize_component_consumers(
+        &mut self,
+        raw: &RawNode,
+        scope: Option<&BTreeMap<String, RawComponentValue>>,
+    ) -> (Option<Text>, Option<BoundValue<bool>>) {
+        let mut text = raw.text.as_ref().map(|text| self.normalize_text(raw, text));
+        if let Some(reference) = raw.component_property_references.characters.as_deref() {
+            if raw.kind == RawNodeKind::Text
+                && let Some(text) = text.as_mut()
+            {
+                text.characters_binding = self.component_text_binding(raw, scope, reference);
+            } else {
+                self.diagnostics.push(Diagnostic::node(
+                    Severity::Error,
+                    codes::COMPONENT_METADATA_MISMATCH,
+                    "component characters reference requires a TEXT consumer",
+                    &raw.id,
+                    Some("component_property_references.characters"),
+                ));
+            }
+        }
+        let visibility = raw
+            .component_property_references
+            .visible
+            .as_deref()
+            .and_then(|reference| self.component_boolean_binding(raw, scope, reference));
+        (text, visibility)
+    }
+
+    fn component_text_binding(
+        &mut self,
+        raw: &RawNode,
+        scope: Option<&BTreeMap<String, RawComponentValue>>,
+        reference: &str,
+    ) -> Option<BoundValue<String>> {
+        match scope.and_then(|properties| properties.get(reference)) {
+            Some(RawComponentValue::Text(value)) => Some(BoundValue {
+                token: None,
+                mode_context: BTreeMap::new(),
+                fallback: value.clone(),
+            }),
+            Some(RawComponentValue::BoundText(value)) => Some(self.normalize_string_bound(
+                raw,
+                value,
+                "component_property_references.characters",
+            )),
+            _ => {
+                self.component_reference_error(raw, reference, "TEXT", "characters");
+                None
+            }
+        }
+    }
+
+    fn component_boolean_binding(
+        &mut self,
+        raw: &RawNode,
+        scope: Option<&BTreeMap<String, RawComponentValue>>,
+        reference: &str,
+    ) -> Option<BoundValue<bool>> {
+        match scope.and_then(|properties| properties.get(reference)) {
+            Some(RawComponentValue::Boolean(value)) => Some(BoundValue {
+                token: None,
+                mode_context: BTreeMap::new(),
+                fallback: *value,
+            }),
+            Some(RawComponentValue::BoundBoolean(value)) => Some(self.normalize_boolean_bound(
+                raw,
+                value,
+                "component_property_references.visible",
+            )),
+            _ => {
+                self.component_reference_error(raw, reference, "BOOLEAN", "visible");
+                None
+            }
+        }
+    }
+
+    fn component_reference_error(
+        &mut self,
+        raw: &RawNode,
+        reference: &str,
+        expected: &str,
+        property: &str,
+    ) {
+        self.diagnostics.push(Diagnostic::node(
+            Severity::Error,
+            codes::COMPONENT_METADATA_MISMATCH,
+            format!("component property `{reference}` is missing or is not {expected}"),
+            &raw.id,
+            Some(&format!("component_property_references.{property}")),
+        ));
     }
 
     fn normalize_text_style(&mut self, raw: &RawNode, style: &RawTextStyle) -> TextStyle {

@@ -102,12 +102,32 @@ pub struct RawNode {
     pub text: Option<RawText>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub component: Option<RawComponentMetadata>,
+    #[serde(
+        default,
+        skip_serializing_if = "RawComponentPropertyReferences::is_empty"
+    )]
+    pub component_property_references: RawComponentPropertyReferences,
     #[serde(default)]
     pub reactions: Vec<RawReaction>,
     #[serde(default)]
     pub children: Vec<RawNode>,
     #[serde(default, flatten)]
     pub extensions: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RawComponentPropertyReferences {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub visible: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub characters: Option<String>,
+}
+
+impl RawComponentPropertyReferences {
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.visible.is_none() && self.characters.is_none()
+    }
 }
 
 const fn default_true() -> bool {
@@ -491,7 +511,7 @@ pub struct RawColor {
     pub a: f64,
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct RawBoundValue<T> {
     pub literal: T,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -671,7 +691,9 @@ pub enum RawComponentRole {
 pub enum RawComponentValue {
     Variant(String),
     Text(String),
+    BoundText(RawBoundValue<String>),
     Boolean(bool),
+    BoundBoolean(RawBoundValue<bool>),
     InstanceSwap(String),
 }
 
