@@ -116,6 +116,9 @@ render fixture; runtime contains no controls or application state.
   property, and selected root, with bounded samples and explicit
   `--diagnostics full|grouped` human output.
 - [x] Implement `figma-rust compile` for IR, Rust, source maps, and diagnostics.
+- [x] Publish hash-addressed immutable artifact generations behind one validated
+  atomic current-generation pointer, with pending-journal crash recovery and a
+  backward-compatible flat projection.
 - [x] Add compile-time asset manifest output with locked, staged SVG/PNG payload
   publication and handled-failure rollback.
 - [x] Implement `figma-rust verify` for geometry and image reports.

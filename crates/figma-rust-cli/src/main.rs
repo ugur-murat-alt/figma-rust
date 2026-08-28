@@ -1,4 +1,5 @@
 mod compiler;
+mod generation;
 mod server;
 mod verify;
 

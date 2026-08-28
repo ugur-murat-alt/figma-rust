@@ -591,14 +591,77 @@ fn write_outputs(
 
     let created_directory = ensure_output_directory(output_directory)?;
     let result = with_artifact_lock(output_directory, || {
-        let paths = prepare_publish(output_directory, &outputs)?;
-        if let Err(error) = stage_outputs(&paths, &outputs) {
-            let cleanup_errors = cleanup_temps(&paths);
-            return Err(transaction_error(error, &cleanup_errors));
+        recover_generation(output_directory)?;
+        let prepared = crate::generation::prepare(output_directory, &outputs)
+            .map_err(|error| transaction_error(error, &[]))?;
+        if let Err(error) = project_outputs(output_directory, &outputs) {
+            let recovery_error = recover_generation(output_directory).err();
+            return Err(match recovery_error {
+                Some(recovery_error) => {
+                    transaction_error(error.to_string(), &[recovery_error.to_string()])
+                }
+                None => error,
+            });
         }
-        publish_outputs(&paths)
+        crate::generation::commit(output_directory, &prepared)
+            .map_err(|error| transaction_error(error, &[]))
     });
     finish_output_directory(result, output_directory, created_directory)
+}
+
+fn recover_generation(output_directory: &Path) -> Result<(), CliError> {
+    crate::generation::recover(output_directory, |outputs, owned_names| {
+        project_outputs_with_owned(output_directory, outputs, owned_names.clone())
+            .map_err(|error| error.to_string())
+    })
+    .map_err(|error| transaction_error(error, &[]))
+}
+
+fn project_outputs(output_directory: &Path, outputs: &[OutputArtifact]) -> Result<(), CliError> {
+    let paths = prepare_publish(output_directory, outputs)?;
+    stage_and_publish(&paths, outputs)
+}
+
+fn project_outputs_with_owned(
+    output_directory: &Path,
+    outputs: &[OutputArtifact],
+    owned_names: BTreeSet<String>,
+) -> Result<(), CliError> {
+    cleanup_projection_work_files(output_directory, &owned_names)?;
+    let paths = prepare_publish_with_owned(output_directory, outputs, owned_names)?;
+    stage_and_publish(&paths, outputs)
+}
+
+fn cleanup_projection_work_files(
+    output_directory: &Path,
+    owned_names: &BTreeSet<String>,
+) -> Result<(), CliError> {
+    let mut cleanup_errors = Vec::new();
+    for name in owned_names {
+        validate_artifact_name(name)?;
+        for suffix in ["tmp", "backup"] {
+            let path = work_path(output_directory, name, suffix);
+            if let Err(error) = remove_regular_if_exists(&path) {
+                cleanup_errors.push(error);
+            }
+        }
+    }
+    if cleanup_errors.is_empty() {
+        Ok(())
+    } else {
+        Err(transaction_error(
+            "cleaning interrupted artifact projection",
+            &cleanup_errors,
+        ))
+    }
+}
+
+fn stage_and_publish(paths: &[ArtifactPaths], outputs: &[OutputArtifact]) -> Result<(), CliError> {
+    if let Err(error) = stage_outputs(paths, outputs) {
+        let cleanup_errors = cleanup_temps(paths);
+        return Err(transaction_error(error, &cleanup_errors));
+    }
+    publish_outputs(paths)
 }
 
 fn output_artifacts(
@@ -687,9 +750,9 @@ struct AssetManifestEntry {
     payload_available: bool,
 }
 
-struct OutputArtifact {
-    name: String,
-    content: Vec<u8>,
+pub(crate) struct OutputArtifact {
+    pub(crate) name: String,
+    pub(crate) content: Vec<u8>,
 }
 
 struct ArtifactPaths {
@@ -705,11 +768,20 @@ fn prepare_publish(
     output_directory: &Path,
     outputs: &[OutputArtifact],
 ) -> Result<Vec<ArtifactPaths>, CliError> {
+    let mut owned_names = existing_owned_artifact_names(output_directory)?;
+    owned_names.extend(outputs.iter().map(|output| output.name.clone()));
+    prepare_publish_with_owned(output_directory, outputs, owned_names)
+}
+
+fn prepare_publish_with_owned(
+    output_directory: &Path,
+    outputs: &[OutputArtifact],
+    mut owned_names: BTreeSet<String>,
+) -> Result<Vec<ArtifactPaths>, CliError> {
     let output_names = outputs
         .iter()
         .map(|output| output.name.as_str())
         .collect::<BTreeSet<_>>();
-    let mut owned_names = existing_owned_artifact_names(output_directory)?;
     owned_names.extend(outputs.iter().map(|output| output.name.clone()));
     owned_names
         .into_iter()
@@ -889,6 +961,8 @@ fn invalidate_outputs_locked(output_directory: &Path) -> Result<(), CliError> {
         .filter(|(_, _, had_previous)| *had_previous)
         .filter_map(|(_, quarantine_path, _)| remove_regular_if_exists(quarantine_path).err())
         .collect::<Vec<_>>();
+    let mut cleanup_errors = cleanup_errors;
+    cleanup_errors.extend(crate::generation::invalidate(output_directory));
     if cleanup_errors.is_empty() {
         Ok(())
     } else {
@@ -1320,7 +1394,9 @@ mod tests {
         assert_eq!(
             names,
             [
+                ".figma-rust-generations",
                 "asset-manifest.json",
+                "current-generation.json",
                 "diagnostics.json",
                 "generated.rs",
                 "ir.json",
@@ -1328,9 +1404,52 @@ mod tests {
             ]
             .map(OsString::from)
         );
-        for name in names {
+        for name in ARTIFACT_NAMES {
             assert!(fs::read(out.join(name))?.ends_with(b"\n"));
         }
+        assert!(fs::read(out.join(crate::generation::CURRENT_GENERATION))?.ends_with(b"\n"));
+        assert!(out.join(crate::generation::GENERATION_STORE).is_dir());
+        let first_pointer = fs::read(out.join(crate::generation::CURRENT_GENERATION))?;
+        assert!(compile_file(&raw, &out)?.error.is_none());
+        assert_eq!(
+            fs::read(out.join(crate::generation::CURRENT_GENERATION))?,
+            first_pointer
+        );
+        assert_eq!(
+            fs::read_dir(out.join(crate::generation::GENERATION_STORE))?.count(),
+            1
+        );
+        fs::remove_dir_all(base)?;
+        Ok(())
+    }
+
+    #[test]
+    fn tampered_generation_fails_closed_without_replacing_the_projection()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let base = unique_test_path("tampered-generation");
+        fs::create_dir_all(&base)?;
+        let raw = base.join("raw.json");
+        let out = base.join("out");
+        fs::write(&raw, BASIC)?;
+        assert!(compile_file(&raw, &out)?.error.is_none());
+        let projection = artifact_contents(&out)?;
+        let pointer = serde_json::from_slice::<serde_json::Value>(&fs::read(
+            out.join(crate::generation::CURRENT_GENERATION),
+        )?)?;
+        let generation_id = pointer["generation_id"]
+            .as_str()
+            .ok_or("generation pointer has no ID")?;
+        fs::write(
+            out.join(crate::generation::GENERATION_STORE)
+                .join(generation_id)
+                .join(GENERATED_RUST),
+            "tampered\n",
+        )?;
+
+        let error = compile_file(&raw, &out).expect_err("tampered generation must fail");
+        assert!(error.to_string().contains("hash/size validation"));
+        assert_eq!(artifact_contents(&out)?, projection);
+
         fs::remove_dir_all(base)?;
         Ok(())
     }
@@ -1417,6 +1536,7 @@ mod tests {
         let result = compile_file(&raw, &out)?;
         assert_eq!(result.error.as_deref(), Some("normalization failed"));
         assert!(ARTIFACT_NAMES.iter().all(|name| !out.join(name).exists()));
+        assert!(!out.join(crate::generation::CURRENT_GENERATION).exists());
         assert_eq!(fs::read_to_string(out.join("keep.txt"))?, "unrelated");
 
         fs::write(&raw, BASIC)?;
@@ -1428,6 +1548,7 @@ mod tests {
         let result = compile_file(&raw, &out)?;
         assert!(result.error.is_some());
         assert!(ARTIFACT_NAMES.iter().all(|name| !out.join(name).exists()));
+        assert!(!out.join(crate::generation::CURRENT_GENERATION).exists());
         assert_eq!(fs::read_to_string(out.join("keep.txt"))?, "unrelated");
 
         fs::remove_dir_all(base)?;
@@ -1494,6 +1615,43 @@ mod tests {
         assert!(result.is_err());
         assert_eq!(artifact_contents(&out)?, previous);
         lock.release().map_err(std::io::Error::other)?;
+        assert_eq!(directory_names(&out)?, final_artifact_names());
+
+        fs::remove_dir_all(base)?;
+        Ok(())
+    }
+
+    #[test]
+    fn restart_rolls_pending_generation_forward_from_a_mixed_projection()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let base = unique_test_path("projection-crash-recovery");
+        fs::create_dir_all(&base)?;
+        let raw = base.join("raw.json");
+        let out = base.join("out");
+        fs::write(&raw, BASIC)?;
+        assert!(compile_file(&raw, &out)?.error.is_none());
+
+        let changed_bundle = parse_bundle(&BASIC.replace("\"r\": 0.125", "\"r\": 0.75"))?;
+        let normalization = normalize_bundle(&changed_bundle);
+        let generated = figma_rust_codegen::generate(&normalization.document)?;
+        let outputs = output_artifacts(&normalization, &generated)?;
+        let expected = outputs
+            .iter()
+            .map(|output| (output.name.clone(), output.content.clone()))
+            .collect::<BTreeMap<_, _>>();
+        let _prepared =
+            crate::generation::prepare(&out, &outputs).map_err(std::io::Error::other)?;
+        let paths = prepare_publish(&out, &outputs)?;
+        stage_outputs(&paths, &outputs).map_err(std::io::Error::other)?;
+        for path in paths.iter().filter(|path| path.had_previous) {
+            fs::rename(&path.final_path, &path.backup_path)?;
+        }
+        for path in paths.iter().filter(|path| path.publish).take(2) {
+            fs::rename(&path.temp_path, &path.final_path)?;
+        }
+
+        super::recover_generation(&out)?;
+        assert_eq!(artifact_contents(&out)?, expected);
         assert_eq!(directory_names(&out)?, final_artifact_names());
 
         fs::remove_dir_all(base)?;
@@ -1571,6 +1729,8 @@ mod tests {
 
     fn final_artifact_names() -> Vec<OsString> {
         let mut names = ARTIFACT_NAMES.map(OsString::from).to_vec();
+        names.push(OsString::from(crate::generation::CURRENT_GENERATION));
+        names.push(OsString::from(crate::generation::GENERATION_STORE));
         names.sort();
         names
     }

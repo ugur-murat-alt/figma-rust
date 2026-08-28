@@ -212,6 +212,18 @@ Imports are collected from emitted target operations and component mappings.
 Stable traversal uses source order for child painting and `BTreeMap`/sorted keys
 for unordered metadata. Generated output contains no timestamps or random IDs.
 
+## Compiler output generations
+
+The CLI hashes sorted artifact names, lengths, and exact bytes into one
+platform-independent generation ID. It publishes each immutable generation under
+`.figma-rust-generations/<generation-id>/`, validates every SHA-256 and size, then
+atomically commits `current-generation.json` only after the compatible flat-file
+projection is complete. A synced pending pointer acts as a bounded recovery
+journal: after interruption, the next locked compile either rolls the pending
+generation forward or repairs the flat projection from the last validated current
+generation. Recovery touches only compiler-owned generation paths and removes at
+most a bounded number of recognized temporary/orphan directories per run.
+
 ## Tokens
 
 A bound Figma value is represented as:
