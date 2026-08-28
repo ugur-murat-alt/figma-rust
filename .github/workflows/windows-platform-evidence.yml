@@ -1,0 +1,75 @@
+name: Windows platform evidence
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - fixtures/generated-gpui/**
+      - fixtures/windows-platform/**
+      - scripts/capture-windows-platform.ps1
+      - scripts/windows-dpi-profile.cpp
+      - .github/workflows/windows-platform-evidence.yml
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    if: github.event_name != 'pull_request' || github.head_ref != 'ci/platform-workflow-bootstrap'
+    strategy:
+      fail-fast: false
+      matrix:
+        dpi: [100, 125, 150]
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        shell: pwsh
+        run: rustup toolchain install 1.97.1 --profile minimal --component clippy,rustfmt
+      - uses: ilammy/msvc-dev-cmd@v1
+      - name: Build DPI helper
+        shell: cmd
+        run: if not exist target mkdir target && cl /nologo /std:c++20 /EHsc /W4 /WX scripts\windows-dpi-profile.cpp /Fe:target\windows-dpi-profile.exe
+      - name: Apply and verify display scale
+        shell: pwsh
+        run: target/windows-dpi-profile.exe ${{ matrix.dpi }} | Set-Content "$env:RUNNER_TEMP/dpi-profile.json"
+      - name: Build GPUI probe and verifier
+        shell: pwsh
+        run: |
+          cargo build -p figma-generated-gpui-fixture --features capture-real-window --bin windows-platform-probe
+          cargo build -p figma-rust-cli
+      - name: Capture render, input, font, and DPI evidence
+        shell: pwsh
+        run: |
+          $out = "$env:RUNNER_TEMP/windows-${{ matrix.dpi }}"
+          scripts/capture-windows-platform.ps1 -DpiPercent ${{ matrix.dpi }} `
+            -Executable "target/debug/windows-platform-probe.exe" -OutputDirectory $out
+          Copy-Item fixtures/windows-platform/probe.geometry.json "$out/reference.geometry.json"
+          Copy-Item fixtures/windows-platform/probe.geometry.json "$out/actual.geometry.json"
+          @{
+            reference_geometry = 'reference.geometry.json'
+            actual_geometry = 'actual.geometry.json'
+            reference_image = 'run-1.png'
+            actual_image = 'run-2.png'
+            thresholds = @{
+              geometry_absolute_px = 0.0; geometry_relative = 0.0
+              mean_absolute_pixel_error = 0.0; changed_pixel_ratio = 0.0
+              edge_error = 0.0; minimum_ssim = 1.0
+            }
+          } | ConvertTo-Json -Depth 4 | Set-Content -Encoding utf8 "$out/verify.json"
+          target/debug/figma-rust verify "$out/verify.json" --json | Set-Content -Encoding utf8 "$out/verify.report.json"
+          if (-not ((Get-Content "$out/verify.report.json" | ConvertFrom-Json).passed)) { throw 'Windows verifier failed' }
+          Copy-Item "$env:RUNNER_TEMP/dpi-profile.json" "$out/"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: windows-platform-${{ matrix.dpi }}
+          path: ${{ runner.temp }}/windows-${{ matrix.dpi }}
+          if-no-files-found: error
+          retention-days: 14
+      - name: Restore 100 percent scale
+        if: always()
+        shell: pwsh
+        run: if (Test-Path target/windows-dpi-profile.exe) { target/windows-dpi-profile.exe 100 }
