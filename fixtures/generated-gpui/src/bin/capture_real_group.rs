@@ -73,6 +73,11 @@ enum CaptureCommand {
     Headless {
         output: PathBuf,
     },
+    ScaleReference {
+        input: PathBuf,
+        output: PathBuf,
+        scale: u32,
+    },
     Display {
         backdrop: Backdrop,
     },
@@ -353,6 +358,15 @@ fn parse_command(args: impl IntoIterator<Item = OsString>) -> Result<CaptureComm
         Some("--headless") => CaptureCommand::Headless {
             output: required_arg(&mut args, "--headless requires OUTPUT")?.into(),
         },
+        Some("--scale-reference") => CaptureCommand::ScaleReference {
+            input: required_arg(&mut args, "--scale-reference requires INPUT OUTPUT SCALE")?.into(),
+            output: required_arg(&mut args, "--scale-reference requires INPUT OUTPUT SCALE")?
+                .into(),
+            scale: parse_headless_scale(&required_arg(
+                &mut args,
+                "--scale-reference requires INPUT OUTPUT SCALE",
+            )?)?,
+        },
         Some("--ingest-data-url") => CaptureCommand::IngestDataUrl {
             output: required_arg(&mut args, "--ingest-data-url requires OUTPUT")?.into(),
         },
@@ -421,6 +435,19 @@ fn required_arg(
     message: &str,
 ) -> Result<OsString, String> {
     args.next().ok_or_else(|| message.to_owned())
+}
+
+fn parse_headless_scale(value: &OsString) -> Result<u32, String> {
+    let scale = value
+        .to_str()
+        .ok_or_else(|| "headless scale must be valid UTF-8".to_owned())?
+        .parse::<u32>()
+        .map_err(|error| format!("invalid headless scale: {error}"))?;
+    if matches!(scale, 1 | 2) {
+        Ok(scale)
+    } else {
+        Err(format!("headless scale must be 1 or 2, got {scale}"))
+    }
 }
 
 fn ingest_data_url_from_stdin(output: &Path) -> Result<(), String> {
@@ -1078,6 +1105,14 @@ fn main() -> ExitCode {
             run_headless_capture(&output),
             "failed to capture headless GPUI image",
         ),
+        CaptureCommand::ScaleReference {
+            input,
+            output,
+            scale,
+        } => finish_command(
+            scale_headless_reference(&input, &output, scale),
+            "failed to scale headless reference image",
+        ),
         CaptureCommand::Display { backdrop } => run_window_capture(None, Some(backdrop)),
         CaptureCommand::IngestDataUrl { output } => finish_command(
             ingest_data_url_from_stdin(&output),
@@ -1135,13 +1170,7 @@ fn run_headless_capture(output: &Path) -> Result<(), String> {
     let image = context
         .capture_screenshot(window.into())
         .map_err(|error| format!("headless renderer is unavailable: {error}"))?;
-    if image.width() != WIDTH || image.height() != HEIGHT {
-        return Err(format!(
-            "headless GPUI capture returned {}x{} instead of {WIDTH}x{HEIGHT}",
-            image.width(),
-            image.height()
-        ));
-    }
+    let scale = headless_capture_scale(image.width(), image.height())?;
 
     let temporary = temporary_output_path(output);
     write_temporary_image(&image, &temporary)?;
@@ -1157,9 +1186,52 @@ fn run_headless_capture(output: &Path) -> Result<(), String> {
         "output": output,
         "width": image.width(),
         "height": image.height(),
-        "scale": 1,
+        "scale": scale,
         "gpui_revision": GPUI_REVISION,
         "renderer": "gpui-platform-headless",
+        "sha256": sha256_hex(&bytes),
+    });
+    println!("{event}");
+    Ok(())
+}
+
+fn headless_capture_scale(width: u32, height: u32) -> Result<u32, String> {
+    for scale in [1, 2] {
+        if width == WIDTH * scale && height == HEIGHT * scale {
+            return Ok(scale);
+        }
+    }
+    Err(format!(
+        "headless GPUI capture returned {width}x{height}; expected {WIDTH}x{HEIGHT} at supported scale 1 or 2"
+    ))
+}
+
+fn scale_headless_reference(input: &Path, output: &Path, scale: u32) -> Result<(), String> {
+    let scale = parse_headless_scale(&OsString::from(scale.to_string()))?;
+    let image = read_capture_image(input)?;
+    if image.dimensions() != (WIDTH, HEIGHT) {
+        return Err(format!(
+            "headless reference must be {WIDTH}x{HEIGHT}, got {:?}",
+            image.dimensions()
+        ));
+    }
+    let scaled = image::imageops::resize(
+        &image,
+        WIDTH * scale,
+        HEIGHT * scale,
+        image::imageops::FilterType::Nearest,
+    );
+    let bytes = encode_capture_png(&scaled)?;
+    publish_bytes(output, &bytes)?;
+    let event = serde_json::json!({
+        "schema_version": 1,
+        "event": "headless-reference-scaled",
+        "input": input,
+        "output": output,
+        "width": scaled.width(),
+        "height": scaled.height(),
+        "scale": scale,
+        "filter": "nearest",
         "sha256": sha256_hex(&bytes),
     });
     println!("{event}");
@@ -1260,6 +1332,22 @@ mod tests {
         temporary_output_path, temporary_output_prefix, validate_metadata_path,
         validate_reconstruction_paths, verification_inputs, window_capture_exit_code,
     };
+
+    #[test]
+    fn headless_capture_accepts_supported_device_scales() {
+        assert_eq!(
+            super::headless_capture_scale(super::WIDTH, super::HEIGHT),
+            Ok(1)
+        );
+        assert_eq!(
+            super::headless_capture_scale(super::WIDTH * 2, super::HEIGHT * 2),
+            Ok(2)
+        );
+        assert!(
+            super::headless_capture_scale(super::WIDTH * 2, super::HEIGHT)
+                .is_err_and(|error| error.contains("supported scale 1 or 2"))
+        );
+    }
 
     fn test_output(name: &str) -> std::path::PathBuf {
         let directory =

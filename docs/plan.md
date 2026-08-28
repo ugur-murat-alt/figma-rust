@@ -150,7 +150,10 @@ service; Codegen callback performs no Cargo/render work and respects the deadlin
 - [x] Add compositor-backed Linux capture harness, including a repository-owned
   GNOME Wayland adapter and a fail-closed Computer Use portal fallback.
 - [x] Add macOS headless capture job with two-run image, verifier, renderer,
-  scale, OS, architecture, and toolchain evidence.
+  scale, OS, architecture, and toolchain evidence. The pinned GPUI test window
+  fixes device scale at 2, so the no-text canonical 100x60 fixture is verified as
+  a raw 200x120 Metal image against an integer nearest-scaled reference; scale 1
+  remains explicitly unclaimed.
 - [ ] Build fixtures for horizontal, vertical, nested, HUG/FILL/FIXED, simple and
   mixed grid, absolute, min/max, text/multiline/mixed text, border/radius,
   opacity/shadow/gradient, clipping/transform, SVG/image, components/variants,
