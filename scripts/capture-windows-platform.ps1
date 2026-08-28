@@ -16,6 +16,7 @@ public static class NativeWindow {
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
   [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
   [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr hwnd);
+  [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
   [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)]
   public static extern bool GetClientRect(IntPtr hwnd, out RECT rect);
   [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)]
@@ -28,7 +29,13 @@ public static class NativeWindow {
 function Wait-ForLine([string]$Path, [int]$LineCount) {
     for ($attempt = 0; $attempt -lt 300; $attempt++) {
         if ((Test-Path $Path) -and @((Get-Content $Path)).Count -ge $LineCount) {
-            return @((Get-Content $Path))
+            $lines = @((Get-Content $Path))
+            try {
+                $null = $lines[$LineCount - 1] | ConvertFrom-Json
+                return $lines
+            } catch {
+                # Redirected stdout can be observed before the complete JSON line is flushed.
+            }
         }
         Start-Sleep -Milliseconds 100
     }
@@ -102,6 +109,8 @@ if ($hash1 -ne $hash2) { throw 'Two Windows captures are not byte-identical' }
 $font = "$env:WINDIR\Fonts\segoeui.ttf"
 if (-not (Test-Path $font)) { throw "Segoe UI font file is missing: $font" }
 $video = @(Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name)
+$displayWidth = [NativeWindow]::GetSystemMetrics(0)
+$displayHeight = [NativeWindow]::GetSystemMetrics(1)
 $evidence = [ordered]@{
     schema_version = 1
     platform = 'windows'
@@ -109,6 +118,7 @@ $evidence = [ordered]@{
     window_dpi = $run1.dpi
     logical_size = [ordered]@{ width = 160; height = 80 }
     physical_size = [ordered]@{ width = $run1.width; height = $run1.height }
+    display_size = [ordered]@{ width = $displayWidth; height = $displayHeight }
     gpui_revision = '5631830c564afa89b3aba679f45d9c3345f9460f'
     font = [ordered]@{ family = 'Segoe UI'; path = $font; sha256 = (Get-FileHash $font -Algorithm SHA256).Hash.ToLowerInvariant() }
     gpu = $video

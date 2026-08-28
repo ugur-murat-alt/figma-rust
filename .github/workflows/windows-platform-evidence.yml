@@ -31,6 +31,11 @@ jobs:
       - name: Build DPI helper
         shell: cmd
         run: if not exist target mkdir target && cl /nologo /std:c++20 /EHsc /W4 /WX scripts\windows-dpi-profile.cpp /Fe:target\windows-dpi-profile.exe /link user32.lib
+      - name: Configure qualification display
+        shell: pwsh
+        run: |
+          Set-DisplayResolution -Width 1920 -Height 1080 -Force
+          Start-Sleep -Seconds 2
       - name: Apply and verify display scale
         shell: pwsh
         run: target/windows-dpi-profile.exe ${{ matrix.dpi }} | Set-Content "$env:RUNNER_TEMP/dpi-profile.json"
