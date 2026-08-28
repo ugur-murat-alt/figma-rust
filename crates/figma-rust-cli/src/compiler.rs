@@ -4,6 +4,7 @@ use std::{
     fs::{self, OpenOptions},
     io::Write as _,
     path::{Component, Path, PathBuf},
+    sync::atomic::{AtomicU64, Ordering},
 };
 
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
@@ -13,6 +14,7 @@ use figma_rust_core::{
     extraction_fingerprint, normalize_bundle, parse_bundle, schema_compatibility,
 };
 use serde::{Deserialize, Serialize};
+use sha2::{Digest as _, Sha256};
 use thiserror::Error;
 
 const GENERATED_RUST: &str = "generated.rs";
@@ -29,6 +31,12 @@ const ARTIFACT_NAMES: [&str; 5] = [
 ];
 const ARTIFACT_LOCK: &str = ".figma-rust.lock";
 const DIAGNOSTIC_SAMPLE_LIMIT: usize = 3;
+const ROOT_STATUS_JSON: &str = "root-status.json";
+const ROOT_OUTPUTS_DIRECTORY: &str = "roots";
+const MAX_ROOT_SCOPED_ROOTS: usize = 10_000;
+const MAX_ROOT_DIRECTORY_ENTRIES: usize = MAX_ROOT_SCOPED_ROOTS * 2 + 1;
+const MAX_ROOT_OUTPUT_ENTRIES: usize = 50_000;
+static ROOT_TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Debug, Error)]
 pub enum CliError {
@@ -69,7 +77,7 @@ pub enum CliError {
     Server(String),
 }
 
-#[derive(Clone, Copy, Debug, Default, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
 pub struct DiagnosticSummary {
     pub info: usize,
     pub warnings: usize,
@@ -242,6 +250,62 @@ pub struct CompileResult {
     pub error: Option<String>,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RootCompileStatus {
+    Success,
+    NormalizationFailed,
+    UnsupportedRuntimeRoute,
+    CodegenFailed,
+}
+
+impl RootCompileStatus {
+    #[must_use]
+    pub const fn succeeded(self) -> bool {
+        matches!(self, Self::Success)
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct RootCompileOutcome {
+    pub index: usize,
+    pub root_id: String,
+    pub root_name: String,
+    pub root_fingerprint: ExtractionFingerprint,
+    pub status: RootCompileStatus,
+    pub diagnostic_summary: DiagnosticSummary,
+    pub diagnostics: Vec<Diagnostic>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub artifact_directory: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub generation_id: Option<String>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct RootCompileSummary {
+    pub total: usize,
+    pub succeeded: usize,
+    pub failed: usize,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct RootCompileReport {
+    pub schema_version: u32,
+    pub mode: String,
+    pub input_fingerprint: ExtractionFingerprint,
+    pub summary: RootCompileSummary,
+    pub roots: Vec<RootCompileOutcome>,
+}
+
+impl RootCompileReport {
+    #[must_use]
+    pub const fn failed(&self) -> bool {
+        self.summary.failed > 0
+    }
+}
+
 #[derive(Debug, Serialize)]
 pub struct CompilerResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -306,7 +370,14 @@ fn lint_bundle(bundle: &figma_rust_core::raw::ExtractionBundle) -> LintReport {
 
 pub fn compile_file(path: &Path, output_directory: &Path) -> Result<CompileResult, CliError> {
     let bundle = read_bundle(path)?;
-    let normalization = normalize_bundle(&bundle);
+    compile_bundle(&bundle, output_directory)
+}
+
+fn compile_bundle(
+    bundle: &figma_rust_core::raw::ExtractionBundle,
+    output_directory: &Path,
+) -> Result<CompileResult, CliError> {
+    let normalization = normalize_bundle(bundle);
     if normalization.has_errors() {
         invalidate_outputs(output_directory)?;
         return Ok(CompileResult {
@@ -334,6 +405,403 @@ pub fn compile_file(path: &Path, output_directory: &Path) -> Result<CompileResul
             })
         }
     }
+}
+
+pub fn compile_file_root_scoped(
+    path: &Path,
+    output_directory: &Path,
+) -> Result<RootCompileReport, CliError> {
+    let bundle = read_bundle(path)?;
+    if bundle.roots.len() > MAX_ROOT_SCOPED_ROOTS {
+        return Err(CliError::UnsafeOutput {
+            path: output_directory.display().to_string(),
+            reason: format!(
+                "root-scoped compile has {} roots, exceeding {MAX_ROOT_SCOPED_ROOTS}",
+                bundle.roots.len()
+            ),
+        });
+    }
+    let mut root_ids = BTreeSet::new();
+    for root in &bundle.roots {
+        if !root_ids.insert(root.id.as_str()) {
+            return Err(CliError::UnsafeOutput {
+                path: output_directory.display().to_string(),
+                reason: format!(
+                    "root-scoped compile requires unique root IDs; repeated {}",
+                    root.id
+                ),
+            });
+        }
+    }
+    let input_fingerprint =
+        extraction_fingerprint(&bundle).map_err(|source| CliError::Serialize {
+            label: "root-scoped input fingerprint",
+            source,
+        })?;
+    let created_directory = ensure_output_directory(output_directory)?;
+    let result = with_artifact_lock(output_directory, || {
+        recover_generation(output_directory)?;
+        let roots_directory = output_directory.join(ROOT_OUTPUTS_DIRECTORY);
+        ensure_output_directory(&roots_directory)?;
+        cleanup_root_temporary_directories(&roots_directory)?;
+
+        let mut outcomes = Vec::with_capacity(bundle.roots.len());
+        let mut successful_directories = BTreeSet::new();
+        for (index, root) in bundle.roots.iter().enumerate() {
+            let (outcome, successful_directory) =
+                compile_root_outcome(&bundle, root, index, &roots_directory)?;
+            successful_directories.extend(successful_directory);
+            outcomes.push(outcome);
+        }
+
+        let succeeded = outcomes
+            .iter()
+            .filter(|outcome| outcome.status.succeeded())
+            .count();
+        let report = RootCompileReport {
+            schema_version: 1,
+            mode: "ROOT_SCOPED".to_owned(),
+            input_fingerprint,
+            summary: RootCompileSummary {
+                total: outcomes.len(),
+                succeeded,
+                failed: outcomes.len() - succeeded,
+            },
+            roots: outcomes,
+        };
+        let outputs = [OutputArtifact {
+            name: ROOT_STATUS_JSON.to_owned(),
+            content: serialize_json("root-scoped compile report", &report)?.into_bytes(),
+            cache_key: None,
+        }];
+        commit_artifact_set_locked(output_directory, &outputs)?;
+        cleanup_root_directories_except(&roots_directory, &successful_directories)?;
+        Ok(report)
+    });
+    finish_output_directory(result, output_directory, created_directory)
+}
+
+fn compile_root_outcome(
+    bundle: &figma_rust_core::raw::ExtractionBundle,
+    root: &figma_rust_core::raw::RawNode,
+    index: usize,
+    roots_directory: &Path,
+) -> Result<(RootCompileOutcome, Option<PathBuf>), CliError> {
+    let root_bundle = root_bundle(bundle, root);
+    let root_fingerprint =
+        extraction_fingerprint(&root_bundle).map_err(|source| CliError::Serialize {
+            label: "root-scoped root fingerprint",
+            source,
+        })?;
+    let identity_hash = root_identity_hash(&root.id);
+    let temporary_output = roots_directory.join(format!(
+        ".tmp-root-{identity_hash}-{}-{}",
+        std::process::id(),
+        ROOT_TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+    ));
+    let result = compile_bundle(&root_bundle, &temporary_output)?;
+    let status = root_compile_status(&result);
+    let (artifact_directory, generation_id, successful_directory) = if status.succeeded() {
+        let generation_id = crate::generation::current_generation_id(&temporary_output)
+            .map_err(|error| transaction_error(error, &[]))?;
+        let directory_name =
+            root_directory_name(&identity_hash, &root_fingerprint.value, &generation_id);
+        let relative_directory = format!("{ROOT_OUTPUTS_DIRECTORY}/{directory_name}");
+        let root_output = roots_directory.join(directory_name);
+        publish_root_output(
+            &temporary_output,
+            &root_output,
+            &generation_id,
+            roots_directory,
+        )?;
+        (
+            Some(relative_directory),
+            Some(generation_id),
+            Some(root_output),
+        )
+    } else {
+        cleanup_inactive_root_output(&temporary_output)?;
+        (None, None, None)
+    };
+    Ok((
+        RootCompileOutcome {
+            index,
+            root_id: root.id.clone(),
+            root_name: root.name.clone(),
+            root_fingerprint,
+            status,
+            diagnostic_summary: DiagnosticSummary::from_diagnostics(&result.diagnostics),
+            diagnostics: result.diagnostics,
+            error: result.error,
+            artifact_directory,
+            generation_id,
+        },
+        successful_directory,
+    ))
+}
+
+fn publish_root_output(
+    temporary_output: &Path,
+    root_output: &Path,
+    generation_id: &str,
+    roots_directory: &Path,
+) -> Result<(), CliError> {
+    if validate_existing_output_directory(root_output)? {
+        with_artifact_lock(root_output, || recover_generation(root_output))?;
+        let existing_id = crate::generation::current_generation_id(root_output)
+            .map_err(|error| transaction_error(error, &[]))?;
+        if existing_id != generation_id {
+            return Err(CliError::UnsafeOutput {
+                path: root_output.display().to_string(),
+                reason: "root output directory generation does not match its name".to_owned(),
+            });
+        }
+        cleanup_inactive_root_output(temporary_output)
+    } else {
+        fs::rename(temporary_output, root_output).map_err(|source| CliError::Write {
+            path: root_output.display().to_string(),
+            source,
+        })?;
+        sync_directory(roots_directory)
+    }
+}
+
+fn root_bundle(
+    bundle: &figma_rust_core::raw::ExtractionBundle,
+    root: &figma_rust_core::raw::RawNode,
+) -> figma_rust_core::raw::ExtractionBundle {
+    let mut node_ids = BTreeSet::new();
+    collect_node_ids(root, &mut node_ids);
+    let mut scoped = bundle.clone();
+    scoped.source.selected_node_ids = vec![root.id.clone()];
+    scoped.roots = vec![root.clone()];
+    scoped
+        .assets
+        .retain(|asset| node_ids.contains(asset.source_node_id.as_str()));
+    scoped.extraction_diagnostics.retain(|diagnostic| {
+        diagnostic
+            .node_id
+            .as_deref()
+            .is_none_or(|node_id| node_ids.contains(node_id))
+    });
+    scoped.extraction_manifest = None;
+    scoped
+}
+
+fn collect_node_ids<'a>(node: &'a figma_rust_core::raw::RawNode, ids: &mut BTreeSet<&'a str>) {
+    ids.insert(&node.id);
+    for child in &node.children {
+        collect_node_ids(child, ids);
+    }
+}
+
+fn root_compile_status(result: &CompileResult) -> RootCompileStatus {
+    if result.error.is_none() {
+        RootCompileStatus::Success
+    } else if result
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code == figma_rust_core::diagnostic::codes::RUNTIME_FALLBACK)
+    {
+        RootCompileStatus::UnsupportedRuntimeRoute
+    } else if result
+        .diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic.code.starts_with("FR-CODEGEN-"))
+    {
+        RootCompileStatus::CodegenFailed
+    } else {
+        RootCompileStatus::NormalizationFailed
+    }
+}
+
+fn root_identity_hash(root_id: &str) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(b"figma-rust-root-directory-v1\0");
+    hasher.update(root_id.as_bytes());
+    let digest = hasher.finalize();
+    let mut identity = String::with_capacity(64);
+    for byte in digest {
+        write!(identity, "{byte:02x}").expect("writing a SHA-256 digest to String cannot fail");
+    }
+    identity
+}
+
+fn root_directory_name(identity_hash: &str, root_fingerprint: &str, generation_id: &str) -> String {
+    format!("root-{identity_hash}-{root_fingerprint}-{generation_id}")
+}
+
+fn cleanup_inactive_root_output(output_directory: &Path) -> Result<(), CliError> {
+    if !validate_existing_output_directory(output_directory)? {
+        return Ok(());
+    }
+    invalidate_outputs(output_directory)?;
+    with_artifact_lock(output_directory, || recover_generation(output_directory))?;
+    remove_compiler_owned_tree(output_directory)
+}
+
+fn cleanup_root_directories_except(
+    roots_directory: &Path,
+    retained: &BTreeSet<PathBuf>,
+) -> Result<(), CliError> {
+    if !validate_existing_output_directory(roots_directory)? {
+        return Ok(());
+    }
+    let entries = fs::read_dir(roots_directory).map_err(|source| CliError::Read {
+        path: roots_directory.display().to_string(),
+        source,
+    })?;
+    let mut seen = 0_usize;
+    for entry in entries {
+        seen += 1;
+        if seen > MAX_ROOT_DIRECTORY_ENTRIES {
+            return Err(CliError::UnsafeOutput {
+                path: roots_directory.display().to_string(),
+                reason: format!(
+                    "root output directory exceeds {MAX_ROOT_DIRECTORY_ENTRIES} entries"
+                ),
+            });
+        }
+        let entry = entry.map_err(|source| CliError::Read {
+            path: roots_directory.display().to_string(),
+            source,
+        })?;
+        let name = entry
+            .file_name()
+            .into_string()
+            .map_err(|_| CliError::UnsafeOutput {
+                path: entry.path().display().to_string(),
+                reason: "root output directory name is not UTF-8".to_owned(),
+            })?;
+        if name.starts_with(".tmp-root-") {
+            remove_compiler_owned_tree(&entry.path())?;
+            continue;
+        }
+        if !valid_root_directory_name(&name) {
+            return Err(CliError::UnsafeOutput {
+                path: entry.path().display().to_string(),
+                reason: "unexpected path in compiler-owned roots directory".to_owned(),
+            });
+        }
+        if !retained.contains(&entry.path()) {
+            remove_compiler_owned_tree(&entry.path())?;
+        }
+    }
+    if retained.is_empty() {
+        fs::remove_dir(roots_directory).map_err(|source| CliError::Write {
+            path: roots_directory.display().to_string(),
+            source,
+        })?;
+    }
+    Ok(())
+}
+
+fn cleanup_root_temporary_directories(roots_directory: &Path) -> Result<(), CliError> {
+    let entries = fs::read_dir(roots_directory).map_err(|source| CliError::Read {
+        path: roots_directory.display().to_string(),
+        source,
+    })?;
+    for (index, entry) in entries.enumerate() {
+        if index >= MAX_ROOT_DIRECTORY_ENTRIES {
+            return Err(CliError::UnsafeOutput {
+                path: roots_directory.display().to_string(),
+                reason: format!(
+                    "root output directory exceeds {MAX_ROOT_DIRECTORY_ENTRIES} entries"
+                ),
+            });
+        }
+        let entry = entry.map_err(|source| CliError::Read {
+            path: roots_directory.display().to_string(),
+            source,
+        })?;
+        let name = entry
+            .file_name()
+            .into_string()
+            .map_err(|_| CliError::UnsafeOutput {
+                path: entry.path().display().to_string(),
+                reason: "root output directory name is not UTF-8".to_owned(),
+            })?;
+        if name.starts_with(".tmp-root-") {
+            remove_compiler_owned_tree(&entry.path())?;
+        } else if !valid_root_directory_name(&name) {
+            return Err(CliError::UnsafeOutput {
+                path: entry.path().display().to_string(),
+                reason: "unexpected path in compiler-owned roots directory".to_owned(),
+            });
+        }
+    }
+    Ok(())
+}
+
+fn valid_root_directory_name(name: &str) -> bool {
+    let hashes = name
+        .strip_prefix("root-")
+        .unwrap_or_default()
+        .split('-')
+        .collect::<Vec<_>>();
+    hashes.len() == 3
+        && hashes.iter().all(|hash| {
+            hash.len() == 64
+                && hash
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        })
+}
+
+fn sync_directory(path: &Path) -> Result<(), CliError> {
+    fs::File::open(path)
+        .and_then(|directory| directory.sync_all())
+        .map_err(|source| CliError::Write {
+            path: path.display().to_string(),
+            source,
+        })
+}
+
+fn remove_compiler_owned_tree(path: &Path) -> Result<(), CliError> {
+    let mut entries = 0_usize;
+    validate_compiler_owned_tree(path, &mut entries)?;
+    fs::remove_dir_all(path).map_err(|source| CliError::Write {
+        path: path.display().to_string(),
+        source,
+    })
+}
+
+fn validate_compiler_owned_tree(path: &Path, entries: &mut usize) -> Result<(), CliError> {
+    let metadata = fs::symlink_metadata(path).map_err(|source| CliError::Read {
+        path: path.display().to_string(),
+        source,
+    })?;
+    if metadata.file_type().is_symlink() {
+        return Err(CliError::UnsafeOutput {
+            path: path.display().to_string(),
+            reason: "compiler-owned root output contains a symbolic link".to_owned(),
+        });
+    }
+    *entries += 1;
+    if *entries > MAX_ROOT_OUTPUT_ENTRIES {
+        return Err(CliError::UnsafeOutput {
+            path: path.display().to_string(),
+            reason: format!("compiler-owned root output exceeds {MAX_ROOT_OUTPUT_ENTRIES} entries"),
+        });
+    }
+    if metadata.is_dir() {
+        for entry in fs::read_dir(path).map_err(|source| CliError::Read {
+            path: path.display().to_string(),
+            source,
+        })? {
+            let entry = entry.map_err(|source| CliError::Read {
+                path: path.display().to_string(),
+                source,
+            })?;
+            validate_compiler_owned_tree(&entry.path(), entries)?;
+        }
+    } else if !metadata.is_file() {
+        return Err(CliError::UnsafeOutput {
+            path: path.display().to_string(),
+            reason: "compiler-owned root output contains a non-file entry".to_owned(),
+        });
+    }
+    Ok(())
 }
 
 pub fn lint_source(input: &str) -> Result<CompilerResponse, String> {
@@ -592,21 +1060,32 @@ fn write_outputs(
     let created_directory = ensure_output_directory(output_directory)?;
     let result = with_artifact_lock(output_directory, || {
         recover_generation(output_directory)?;
-        let prepared = crate::generation::prepare(output_directory, &outputs)
-            .map_err(|error| transaction_error(error, &[]))?;
-        if let Err(error) = project_outputs(output_directory, &outputs) {
-            let recovery_error = recover_generation(output_directory).err();
-            return Err(match recovery_error {
-                Some(recovery_error) => {
-                    transaction_error(error.to_string(), &[recovery_error.to_string()])
-                }
-                None => error,
-            });
-        }
-        crate::generation::commit(output_directory, &prepared)
-            .map_err(|error| transaction_error(error, &[]))
+        commit_artifact_set_locked(output_directory, &outputs)?;
+        cleanup_root_directories_except(
+            &output_directory.join(ROOT_OUTPUTS_DIRECTORY),
+            &BTreeSet::new(),
+        )
     });
     finish_output_directory(result, output_directory, created_directory)
+}
+
+fn commit_artifact_set_locked(
+    output_directory: &Path,
+    outputs: &[OutputArtifact],
+) -> Result<(), CliError> {
+    let prepared = crate::generation::prepare(output_directory, outputs)
+        .map_err(|error| transaction_error(error, &[]))?;
+    if let Err(error) = project_outputs(output_directory, outputs) {
+        let recovery_error = recover_generation(output_directory).err();
+        return Err(match recovery_error {
+            Some(recovery_error) => {
+                transaction_error(error.to_string(), &[recovery_error.to_string()])
+            }
+            None => error,
+        });
+    }
+    crate::generation::commit(output_directory, &prepared)
+        .map_err(|error| transaction_error(error, &[]))
 }
 
 fn recover_generation(output_directory: &Path) -> Result<(), CliError> {
@@ -921,7 +1400,11 @@ fn invalidate_outputs(output_directory: &Path) -> Result<(), CliError> {
         return Ok(());
     }
     with_artifact_lock(output_directory, || {
-        invalidate_outputs_locked(output_directory)
+        invalidate_outputs_locked(output_directory)?;
+        cleanup_root_directories_except(
+            &output_directory.join(ROOT_OUTPUTS_DIRECTORY),
+            &BTreeSet::new(),
+        )
     })
 }
 
@@ -1067,6 +1550,10 @@ fn existing_owned_artifact_names(output_directory: &Path) -> Result<BTreeSet<Str
         .iter()
         .map(|name| (*name).to_owned())
         .collect::<BTreeSet<_>>();
+    names.extend(
+        crate::generation::owned_artifact_names(output_directory)
+            .map_err(|error| transaction_error(error, &[]))?,
+    );
     let manifest_path = output_directory.join(ASSET_MANIFEST_JSON);
     let manifest_exists = validate_regular_or_missing(&manifest_path, "asset manifest")?;
     if !manifest_exists {
@@ -1271,9 +1758,10 @@ mod tests {
     use figma_rust_core::normalize_bundle;
 
     use super::{
-        ARTIFACT_NAMES, ASSET_MANIFEST_JSON, ArtifactLock, GENERATED_RUST, compile_file,
-        compile_source, inspect_bundle, lint_source, output_artifacts, parse_bundle,
-        prepare_publish, publish_outputs_with, stage_outputs, work_path,
+        ARTIFACT_NAMES, ASSET_MANIFEST_JSON, ArtifactLock, GENERATED_RUST, ROOT_STATUS_JSON,
+        RootCompileStatus, compile_file, compile_file_root_scoped, compile_source, inspect_bundle,
+        lint_source, output_artifacts, parse_bundle, prepare_publish, publish_outputs_with,
+        stage_outputs, work_path,
     };
 
     const BASIC: &str = include_str!("../../figma-rust-core/tests/fixtures/basic.raw.json");
@@ -1430,6 +1918,88 @@ mod tests {
             fs::read_dir(out.join(crate::generation::GENERATION_STORE))?.count(),
             1
         );
+        fs::remove_dir_all(base)?;
+        Ok(())
+    }
+
+    #[test]
+    fn root_scoped_compile_isolates_success_and_retains_each_failure()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let base = unique_test_path("root-scoped");
+        fs::create_dir_all(&base)?;
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/root-scoped/extraction.json");
+        let strict_out = base.join("strict");
+        let strict = compile_file(&fixture, &strict_out)?;
+        assert_eq!(strict.error.as_deref(), Some("normalization failed"));
+        assert!(!strict_out.exists());
+
+        let out = base.join("scoped");
+        let first = compile_file_root_scoped(&fixture, &out)?;
+        assert_eq!(first.summary.total, 3);
+        assert_eq!(first.summary.succeeded, 1);
+        assert_eq!(first.summary.failed, 2);
+        assert_eq!(first.roots[0].status, RootCompileStatus::Success);
+        assert_eq!(
+            first.roots[1].status,
+            RootCompileStatus::NormalizationFailed
+        );
+        assert_eq!(
+            first.roots[2].status,
+            RootCompileStatus::UnsupportedRuntimeRoute
+        );
+        assert!(first.roots[1].diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "FR-LAYOUT-004"
+                && diagnostic.node_id.as_deref() == Some("28:invalid")
+                && diagnostic.property_path.as_deref() == Some("layout.child_counter_alignment")
+        }));
+        assert!(first.roots[2].diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "FR-ASSET-001"
+                && diagnostic.node_id.as_deref() == Some("28:runtime")
+                && diagnostic.property_path.as_deref() == Some("asset_decision.route")
+        }));
+        let artifact_directory = first.roots[0]
+            .artifact_directory
+            .as_deref()
+            .ok_or("successful root has no artifact directory")?;
+        let root_output = out.join(artifact_directory);
+        assert!(root_output.join(GENERATED_RUST).is_file());
+        assert!(root_output.join(ASSET_MANIFEST_JSON).is_file());
+        assert_eq!(
+            fs::read_dir(out.join(super::ROOT_OUTPUTS_DIRECTORY))?.count(),
+            1
+        );
+        let first_status = fs::read(out.join(ROOT_STATUS_JSON))?;
+        let first_pointer = fs::read(out.join(crate::generation::CURRENT_GENERATION))?;
+
+        let second = compile_file_root_scoped(&fixture, &out)?;
+        assert_eq!(second.summary.succeeded, 1);
+        assert_eq!(fs::read(out.join(ROOT_STATUS_JSON))?, first_status);
+        assert_eq!(
+            fs::read(out.join(crate::generation::CURRENT_GENERATION))?,
+            first_pointer
+        );
+
+        let strict_failure = compile_file(&fixture, &out)?;
+        assert_eq!(
+            strict_failure.error.as_deref(),
+            Some("normalization failed")
+        );
+        assert!(!out.join(ROOT_STATUS_JSON).exists());
+        assert!(!out.join(super::ROOT_OUTPUTS_DIRECTORY).exists());
+
+        let strict_raw = base.join("basic.json");
+        fs::write(&strict_raw, BASIC)?;
+        assert!(compile_file(&strict_raw, &out)?.error.is_none());
+        assert!(out.join(GENERATED_RUST).is_file());
+        assert!(!out.join(ROOT_STATUS_JSON).exists());
+        assert!(!out.join(super::ROOT_OUTPUTS_DIRECTORY).exists());
+
+        let third = compile_file_root_scoped(&fixture, &out)?;
+        assert_eq!(third.summary.succeeded, 1);
+        assert_eq!(fs::read(out.join(ROOT_STATUS_JSON))?, first_status);
+        assert!(!out.join(GENERATED_RUST).exists());
+
         fs::remove_dir_all(base)?;
         Ok(())
     }

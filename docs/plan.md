@@ -183,6 +183,11 @@ name the differing Figma node. Compile-only success is insufficient.
   mutate linked cache content. The sanitized `fixtures/asset-cache` pair proves
   duplicate IDs, one changed payload, repeat-run determinism, and fail-closed
   cache tamper handling.
+- [x] Add explicit root-scoped compilation without weakening strict default
+  behavior. The sanitized `fixtures/root-scoped` bundle proves one isolated
+  success, one node-scoped normalization failure, one unsupported Runtime route,
+  shared token/asset dependencies, deterministic status/generation IDs, and safe
+  strict/root-scoped mode transitions.
 - [ ] Add REST importer with lower-fidelity diagnostics.
 - [ ] Add optional Code Connect template adapter without making it mandatory.
 - [ ] Add license inventory and release packaging.

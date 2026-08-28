@@ -159,6 +159,23 @@ On success the compiler owns exactly:
 - `asset-manifest.json`
 - zero or more deterministic flat asset files named by that manifest
 
+Strict all-or-nothing compilation remains the default. For a multi-root bundle
+whose roots must be qualified independently, opt in explicitly:
+
+```sh
+"${CARGO:-cargo}" run -p figma-rust-cli -- \
+  compile path/to/extraction.json --out "$output" --root-scoped
+```
+
+This writes a deterministic `root-status.json` plus one isolated
+`roots/root-<identity-hash>-<root-fingerprint>-<generation-id>/` artifact set for
+each successful root. Every selected root retains its full diagnostics and one of
+`SUCCESS`, `NORMALIZATION_FAILED`,
+`UNSUPPORTED_RUNTIME_ROUTE`, or `CODEGEN_FAILED`; failed roots publish no flat
+artifacts. The command exits `1` when any root fails even though successful roots
+remain usable. Root-scoped mode is CLI-only; the loopback bridge remains strict.
+Do not mix handwritten files into the compiler-owned `roots/` directory.
+
 Treat the fixed files, manifest, and listed asset files as one compiler-owned,
 lock-protected artifact set. Each file is staged, synced, and published with a
 same-directory rename; handled failures attempt to restore the previous set.

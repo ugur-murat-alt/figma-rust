@@ -257,6 +257,16 @@ flat compatibility projection remains a separate copy. Recovery validates cache
 and generation bytes before reuse, retains blobs reachable from current/pending
 generation manifests, and removes only bounded unreachable compiler-owned blobs.
 
+Strict compile remains the default for a full bundle. Explicit root-scoped compile
+derives one bundle per selected root, preserving shared variables while filtering
+node diagnostics and assets to that root subtree. Successful roots own isolated
+`roots/root-<identity-hash>-<root-fingerprint>-<generation-id>/` generation sets.
+`root-status.json` records the original bundle fingerprint, per-root fingerprint,
+status, full diagnostics, output path, and generation ID for every root.
+Unsupported Runtime routes remain distinct from other normalization and codegen
+failures; any failed root makes the command exit 1 without suppressing successful
+siblings. The loopback server remains strict.
+
 ## Behavior boundary
 
 IR preserves reactions. Generated views may emit a generated action enum or call

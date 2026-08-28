@@ -129,6 +129,21 @@ pub(crate) fn invalidate(output_directory: &Path) -> Vec<String> {
     errors
 }
 
+pub(crate) fn owned_artifact_names(output_directory: &Path) -> Result<BTreeSet<String>, String> {
+    let mut names = BTreeSet::new();
+    for pointer in [CURRENT_GENERATION, PENDING_GENERATION] {
+        let path = output_directory.join(pointer);
+        if path.exists() {
+            names.extend(manifest_names(&read_manifest(&path)?));
+        }
+    }
+    Ok(names)
+}
+
+pub(crate) fn current_generation_id(output_directory: &Path) -> Result<String, String> {
+    Ok(read_manifest(&output_directory.join(CURRENT_GENERATION))?.generation_id)
+}
+
 pub(crate) fn asset_cache_key(
     content: &[u8],
     media_type: &str,

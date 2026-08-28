@@ -3,7 +3,10 @@ mod generation;
 mod server;
 mod verify;
 
-use std::{path::PathBuf, process::ExitCode};
+use std::{
+    path::{Path, PathBuf},
+    process::ExitCode,
+};
 
 use clap::{Parser, Subcommand, ValueEnum};
 
@@ -69,6 +72,9 @@ enum Command {
         /// Output directory. Only fixed artifact names are written.
         #[arg(long)]
         out: PathBuf,
+        /// Compile each selected root independently and publish root-status.json.
+        #[arg(long)]
+        root_scoped: bool,
     },
     /// Run the loopback-only compiler bridge used by the Figma plugin.
     Serve {
@@ -143,19 +149,11 @@ fn run(cli: Cli) -> Result<ExitCode, compiler::CliError> {
                 ExitCode::SUCCESS
             })
         }
-        Command::Compile { raw, out } => {
-            let result = compiler::compile_file(&raw, &out)?;
-            for diagnostic in &result.diagnostics {
-                eprintln!("{}", compiler::format_diagnostic(diagnostic));
-            }
-            if let Some(error) = result.error {
-                eprintln!("compile failed: {error}");
-                Ok(ExitCode::from(1))
-            } else {
-                println!("wrote deterministic artifacts to {}", out.display());
-                Ok(ExitCode::SUCCESS)
-            }
-        }
+        Command::Compile {
+            raw,
+            out,
+            root_scoped,
+        } => run_compile(&raw, &out, root_scoped),
         Command::Serve {
             port,
             export,
@@ -185,6 +183,43 @@ fn run(cli: Cli) -> Result<ExitCode, compiler::CliError> {
                 Ok(ExitCode::from(2))
             }
         },
+    }
+}
+
+fn run_compile(raw: &Path, out: &Path, root_scoped: bool) -> Result<ExitCode, compiler::CliError> {
+    if root_scoped {
+        let report = compiler::compile_file_root_scoped(raw, out)?;
+        for outcome in &report.roots {
+            for diagnostic in &outcome.diagnostics {
+                eprintln!(
+                    "root {}: {}",
+                    outcome.root_id,
+                    compiler::format_diagnostic(diagnostic)
+                );
+            }
+        }
+        println!(
+            "wrote root-scoped status for {} root(s) to {}",
+            report.summary.total,
+            out.display()
+        );
+        Ok(if report.failed() {
+            ExitCode::from(1)
+        } else {
+            ExitCode::SUCCESS
+        })
+    } else {
+        let result = compiler::compile_file(raw, out)?;
+        for diagnostic in &result.diagnostics {
+            eprintln!("{}", compiler::format_diagnostic(diagnostic));
+        }
+        if let Some(error) = result.error {
+            eprintln!("compile failed: {error}");
+            Ok(ExitCode::from(1))
+        } else {
+            println!("wrote deterministic artifacts to {}", out.display());
+            Ok(ExitCode::SUCCESS)
+        }
     }
 }
 
