@@ -1161,7 +1161,7 @@ fn run_headless_capture(output: &Path) -> Result<(), String> {
             cx.new(|_| CaptureView {
                 output: None,
                 succeeded: Rc::new(Cell::new(false)),
-                backdrop: None,
+                backdrop: Some(Backdrop::Black),
                 announce_ready: false,
             })
         })
@@ -1215,12 +1215,7 @@ fn scale_headless_reference(input: &Path, output: &Path, scale: u32) -> Result<(
             image.dimensions()
         ));
     }
-    let scaled = image::imageops::resize(
-        &image,
-        WIDTH * scale,
-        HEIGHT * scale,
-        image::imageops::FilterType::Nearest,
-    );
+    let scaled = scale_headless_reference_image(&image, scale);
     let bytes = encode_capture_png(&scaled)?;
     publish_bytes(output, &bytes)?;
     let event = serde_json::json!({
@@ -1232,10 +1227,29 @@ fn scale_headless_reference(input: &Path, output: &Path, scale: u32) -> Result<(
         "height": scaled.height(),
         "scale": scale,
         "filter": "nearest",
+        "background": "black",
         "sha256": sha256_hex(&bytes),
     });
     println!("{event}");
     Ok(())
+}
+
+fn scale_headless_reference_image(image: &image::RgbaImage, scale: u32) -> image::RgbaImage {
+    let mut opaque = image.clone();
+    for pixel in opaque.pixels_mut() {
+        let alpha = u16::from(pixel[3]);
+        for channel in 0..3 {
+            pixel[channel] =
+                u8::try_from((u16::from(pixel[channel]) * alpha + 127) / 255).unwrap_or(u8::MAX);
+        }
+        pixel[3] = u8::MAX;
+    }
+    image::imageops::resize(
+        &opaque,
+        image.width() * scale,
+        image.height() * scale,
+        image::imageops::FilterType::Nearest,
+    )
 }
 
 fn finish_command(result: Result<(), String>, context: &str) -> ExitCode {
@@ -1347,6 +1361,17 @@ mod tests {
             super::headless_capture_scale(super::WIDTH * 2, super::HEIGHT)
                 .is_err_and(|error| error.contains("supported scale 1 or 2"))
         );
+    }
+
+    #[test]
+    fn headless_reference_is_scaled_over_an_opaque_black_backdrop() {
+        let source = image::RgbaImage::from_vec(2, 1, vec![0, 0, 0, 0, 32, 64, 128, 255])
+            .unwrap_or_else(|| panic!("test image dimensions must match its bytes"));
+        let scaled = super::scale_headless_reference_image(&source, 2);
+
+        assert_eq!(scaled.dimensions(), (4, 2));
+        assert_eq!(scaled.get_pixel(0, 0).0, [0, 0, 0, 255]);
+        assert_eq!(scaled.get_pixel(3, 1).0, [32, 64, 128, 255]);
     }
 
     fn test_output(name: &str) -> std::path::PathBuf {

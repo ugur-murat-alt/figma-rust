@@ -58,7 +58,7 @@ jobs:
                 renderer:"gpui-platform-headless",font_profile:"no-text",
                 logical_size:{width:100,height:60},
                 device_size:{width:$device_width,height:$device_height},scale:$scale,
-                reference_scaling:"nearest",reference_sha256:$reference_sha,
+                reference_scaling:"nearest",background:"black",reference_sha256:$reference_sha,
                 image_sha256:$image_sha,verifier_report_sha256:$verify_sha,passed:true}' \
               >"$dir/platform-evidence.json"
           done
