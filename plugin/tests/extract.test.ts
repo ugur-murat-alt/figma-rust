@@ -11,6 +11,7 @@ import {
   classifyBundleBytes,
   includeRestSnapshotForExport,
   summarizeBundle,
+  validateBridgeExportResponse,
 } from "../src/export";
 import {
   cleanupTemporaryTransferNodes,
@@ -646,6 +647,28 @@ function supportsCompactExportAndLargeSelectionFeedback(): void {
   });
 }
 
+function validatesBridgeExportCompletionBeforeTrustingTheFile(): void {
+  const valid = {
+    path: "/tmp/figma-rust-extraction.json",
+    byte_length: 3_145_728,
+    sha256: "a".repeat(64),
+    complete: true,
+    traversal_complete: true,
+  };
+  assert.deepEqual(validateBridgeExportResponse(valid), valid);
+  for (const invalid of [
+    { ...valid, sha256: "short" },
+    { ...valid, complete: false },
+    { ...valid, byte_length: -1 },
+    { ...valid, traversal_complete: "yes" },
+  ]) {
+    assert.throws(
+      () => validateBridgeExportResponse(invalid),
+      /did not prove exact persisted bytes and completion/,
+    );
+  }
+}
+
 function cleansOnlyTemporaryTransferNodesAfterExportVerification(): void {
   const removed: string[] = [];
   const nodes = [
@@ -942,6 +965,7 @@ await keepsAliasCyclesScopedToOneResolution();
 await preservesVariableValuesAcrossConsumerModes();
 await preservesModeledNumericBindings();
 supportsCompactExportAndLargeSelectionFeedback();
+validatesBridgeExportCompletionBeforeTrustingTheFile();
 cleansOnlyTemporaryTransferNodesAfterExportVerification();
 await exportsDeterministicFallbackPayloads();
 await exportsTrackedTextFallbackPayload();

@@ -1,4 +1,9 @@
-import type { ExtractionBundle, ExtractionDiagnostic, RawNode } from "./schema";
+import type {
+  BridgeExportResponse,
+  ExtractionBundle,
+  ExtractionDiagnostic,
+  RawNode,
+} from "./schema";
 
 export const LARGE_BUNDLE_BYTES = 2 * 1024 * 1024;
 export const BRIDGE_MAX_REQUEST_BYTES = 8 * 1024 * 1024;
@@ -44,6 +49,27 @@ export function summarizeBundle(bundle: ExtractionBundle): BundleSummary {
     includes_rest_snapshot: bundle.rest_snapshot !== undefined,
     ...classifyBundleBytes(estimatedBytes),
   };
+}
+
+export function validateBridgeExportResponse(value: unknown): BridgeExportResponse {
+  if (typeof value !== "object" || value === null) {
+    throw new Error("bridge export returned an invalid completion response");
+  }
+  const response = value as Record<string, unknown>;
+  const traversalComplete = response.traversal_complete;
+  if (
+    typeof response.path !== "string"
+    || response.path.length === 0
+    || !Number.isSafeInteger(response.byte_length)
+    || (response.byte_length as number) < 0
+    || typeof response.sha256 !== "string"
+    || !/^[0-9a-f]{64}$/.test(response.sha256)
+    || response.complete !== true
+    || !(traversalComplete === null || typeof traversalComplete === "boolean")
+  ) {
+    throw new Error("bridge export did not prove exact persisted bytes and completion");
+  }
+  return response as unknown as BridgeExportResponse;
 }
 
 function utf8ByteLength(value: string): number {

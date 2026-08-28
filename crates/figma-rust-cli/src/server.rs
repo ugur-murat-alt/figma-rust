@@ -1,12 +1,19 @@
-use std::io::{Cursor, Read};
+use std::{
+    fs::{self, OpenOptions},
+    io::{Cursor, Read, Write as _},
+    path::Path,
+    sync::atomic::{AtomicU64, Ordering},
+};
 
 use serde::Serialize;
+use sha2::Digest as _;
 use tiny_http::{Header, Method, Request, Response, Server, StatusCode};
 
 use crate::compiler::{CliError, CompilerResponse, compile_source, lint_source};
 
 const MAX_BODY_BYTES: usize = 8 * 1024 * 1024;
 const MAX_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
+static EXPORT_TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 #[derive(Serialize)]
 struct ErrorResponse<'a> {
@@ -14,12 +21,68 @@ struct ErrorResponse<'a> {
     diagnostics: [(); 0],
 }
 
-pub fn serve(port: u16) -> Result<(), CliError> {
+#[derive(Serialize)]
+struct ExportResponse {
+    path: String,
+    byte_length: usize,
+    sha256: String,
+    complete: bool,
+    traversal_complete: Option<bool>,
+}
+
+#[derive(Clone, Copy)]
+struct ExportConfig<'a> {
+    path: &'a Path,
+    token: &'a str,
+}
+
+pub fn serve(
+    port: u16,
+    export_path: Option<&Path>,
+    export_token_file: Option<&Path>,
+) -> Result<(), CliError> {
+    let export_token = match (export_path, export_token_file) {
+        (Some(_), Some(path)) => {
+            let token = fs::read_to_string(path).map_err(|error| {
+                CliError::Server(format!(
+                    "reading export token file {}: {error}",
+                    path.display()
+                ))
+            })?;
+            let token = token.trim().to_owned();
+            if !valid_export_token(&token) {
+                return Err(CliError::Server(
+                    "export token must contain at least 32 ASCII letters, digits, hyphens, or underscores"
+                        .to_owned(),
+                ));
+            }
+            Some(token)
+        }
+        (None, None) => None,
+        _ => {
+            return Err(CliError::Server(
+                "--export and --export-token-file must be provided together".to_owned(),
+            ));
+        }
+    };
     let address = format!("127.0.0.1:{port}");
     let server = Server::http(&address).map_err(|error| CliError::Server(error.to_string()))?;
     eprintln!("figma-rust compiler listening on http://{address}");
+    if let Some(path) = &export_path {
+        eprintln!(
+            "download-free extraction export enabled at {}",
+            path.display()
+        );
+    }
     for mut request in server.incoming_requests() {
-        let response = build_response(&mut request);
+        let export = export_path
+            .zip(export_token.as_deref())
+            .map(|(path, token)| ExportConfig { path, token });
+        let response = if export.is_some() {
+            build_response_with_export(&mut request, export)
+        } else {
+            build_response(&mut request)
+        };
         request
             .respond(response)
             .map_err(|error| CliError::Server(error.to_string()))?;
@@ -28,8 +91,15 @@ pub fn serve(port: u16) -> Result<(), CliError> {
 }
 
 fn build_response(request: &mut Request) -> Response<Cursor<Vec<u8>>> {
+    build_response_with_export(request, None)
+}
+
+fn build_response_with_export(
+    request: &mut Request,
+    export: Option<ExportConfig<'_>>,
+) -> Response<Cursor<Vec<u8>>> {
     if request.method() == &Method::Options {
-        return if request.url() == "/lint" || request.url() == "/compile" {
+        return if matches!(request.url(), "/lint" | "/compile" | "/export") {
             json_response(StatusCode(204), Vec::new())
         } else {
             error_response(StatusCode(404), "unknown compiler endpoint")
@@ -38,8 +108,19 @@ fn build_response(request: &mut Request) -> Response<Cursor<Vec<u8>>> {
     if request.method() != &Method::Post {
         return error_response(StatusCode(405), "only POST is supported");
     }
-    if request.url() != "/lint" && request.url() != "/compile" {
+    if !matches!(request.url(), "/lint" | "/compile" | "/export") {
         return error_response(StatusCode(404), "unknown compiler endpoint");
+    }
+    if request.url() == "/export" && export.is_none() {
+        return error_response(
+            StatusCode(409),
+            "export endpoint is disabled; restart serve with --export <path>",
+        );
+    }
+    if request.url() == "/export"
+        && !export.is_some_and(|config| export_token_matches(request, config.token))
+    {
+        return error_response(StatusCode(403), "invalid export token");
     }
     if request
         .body_length()
@@ -61,6 +142,13 @@ fn build_response(request: &mut Request) -> Response<Cursor<Vec<u8>>> {
         }
     };
 
+    if request.url() == "/export" {
+        if let Some(config) = export {
+            return export_response(&body, config.path);
+        }
+        return error_response(StatusCode(409), "export endpoint is disabled");
+    }
+
     let result = if request.url() == "/lint" {
         lint_source(&body)
     } else {
@@ -78,6 +166,144 @@ fn build_response(request: &mut Request) -> Response<Cursor<Vec<u8>>> {
             bounded_json_response(StatusCode(400), &response)
         }
     }
+}
+
+fn valid_export_token(token: &str) -> bool {
+    token.len() >= 32
+        && token
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+}
+
+fn export_token_matches(request: &Request, expected: &str) -> bool {
+    request
+        .headers()
+        .iter()
+        .find(|header| header.field.equiv("X-Figma-Rust-Export-Token"))
+        .is_some_and(|header| {
+            constant_time_eq(header.value.as_str().as_bytes(), expected.as_bytes())
+        })
+}
+
+fn constant_time_eq(actual: &[u8], expected: &[u8]) -> bool {
+    if actual.len() != expected.len() {
+        return false;
+    }
+    actual
+        .iter()
+        .zip(expected)
+        .fold(0_u8, |difference, (left, right)| {
+            difference | (left ^ right)
+        })
+        == 0
+}
+
+fn export_response(body: &str, path: &Path) -> Response<Cursor<Vec<u8>>> {
+    let bundle = match figma_rust_core::parse_bundle(body) {
+        Ok(bundle) => bundle,
+        Err(error) => {
+            return error_response(
+                StatusCode(400),
+                &format!("export body is not a valid extraction bundle: {error}"),
+            );
+        }
+    };
+    if bundle.schema_version != figma_rust_core::normalize::EXTRACTION_SCHEMA_VERSION {
+        return error_response(
+            StatusCode(400),
+            "export body is not a schema-v2 extraction bundle",
+        );
+    }
+
+    match persist_export(path, body.as_bytes()) {
+        Ok(()) => bounded_json_response(
+            StatusCode(200),
+            &ExportResponse {
+                path: path.display().to_string(),
+                byte_length: body.len(),
+                sha256: sha256_hex(body.as_bytes()),
+                complete: true,
+                traversal_complete: bundle
+                    .extraction_manifest
+                    .map(|manifest| manifest.traversal.complete),
+            },
+        ),
+        Err(error) => error_response(StatusCode(500), &error),
+    }
+}
+
+fn persist_export(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let parent = path.parent().unwrap_or_else(|| Path::new("."));
+    if !parent.is_dir() {
+        return Err(format!(
+            "export directory does not exist: {}",
+            parent.display()
+        ));
+    }
+    if let Ok(metadata) = fs::symlink_metadata(path)
+        && (!metadata.file_type().is_file() || metadata.file_type().is_symlink())
+    {
+        return Err(format!(
+            "export target is not a regular file: {}",
+            path.display()
+        ));
+    }
+
+    let file_name = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or_else(|| format!("export target has no UTF-8 file name: {}", path.display()))?;
+    let counter = EXPORT_TEMP_COUNTER.fetch_add(1, Ordering::Relaxed);
+    let temporary = parent.join(format!(
+        ".{file_name}.{}.{}.tmp",
+        std::process::id(),
+        counter
+    ));
+    let result = (|| {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&temporary)
+            .map_err(|error| format!("creating {}: {error}", temporary.display()))?;
+        file.write_all(bytes)
+            .map_err(|error| format!("writing {}: {error}", temporary.display()))?;
+        file.sync_all()
+            .map_err(|error| format!("syncing {}: {error}", temporary.display()))?;
+        drop(file);
+
+        let staged = fs::read(&temporary)
+            .map_err(|error| format!("reading back {}: {error}", temporary.display()))?;
+        if staged != bytes {
+            return Err("staged export did not match the received request bytes".to_owned());
+        }
+        fs::rename(&temporary, path).map_err(|error| {
+            format!(
+                "publishing {} to {}: {error}",
+                temporary.display(),
+                path.display()
+            )
+        })?;
+        let published =
+            fs::read(path).map_err(|error| format!("reading back {}: {error}", path.display()))?;
+        if published != bytes {
+            return Err("published export did not match the received request bytes".to_owned());
+        }
+        Ok(())
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
+    }
+    result
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    let digest = sha2::Sha256::digest(bytes);
+    let mut output = String::with_capacity(digest.len() * 2);
+    for byte in digest {
+        use std::fmt::Write as _;
+        let _ = write!(output, "{byte:02x}");
+    }
+    output
 }
 
 enum BodyError {
@@ -132,7 +358,10 @@ fn json_response(status: StatusCode, body: Vec<u8>) -> Response<Cursor<Vec<u8>>>
         ("Content-Type", "application/json; charset=utf-8"),
         ("Access-Control-Allow-Origin", "*"),
         ("Access-Control-Allow-Methods", "POST, OPTIONS"),
-        ("Access-Control-Allow-Headers", "Content-Type"),
+        (
+            "Access-Control-Allow-Headers",
+            "Content-Type, X-Figma-Rust-Export-Token",
+        ),
     ] {
         if let Ok(header) = Header::from_bytes(name, value) {
             response.add_header(header);
@@ -143,14 +372,137 @@ fn json_response(status: StatusCode, body: Vec<u8>) -> Response<Cursor<Vec<u8>>>
 
 #[cfg(test)]
 mod tests {
-    use std::io::Read as _;
+    use std::{fs, io::Read as _, time::SystemTime};
 
     use tiny_http::{Header, Method, StatusCode, TestRequest};
 
-    use super::{MAX_BODY_BYTES, build_response};
+    use super::{ExportConfig, MAX_BODY_BYTES, build_response, build_response_with_export};
+    use crate::compiler::lint_file;
 
     const BASIC: &str = include_str!("../../figma-rust-core/tests/fixtures/basic.raw.json");
     const BASIC_V1: &str = include_str!("../../figma-rust-core/tests/fixtures/basic.v1.raw.json");
+    const EXPORT_TOKEN: &str = "0123456789abcdef0123456789abcdef";
+
+    #[test]
+    fn export_endpoint_persists_exact_multimegabyte_bytes_and_reports_completion()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let directory = test_directory("export-success")?;
+        let target = directory.join("figma-rust-extraction.json");
+        let mut value: serde_json::Value = serde_json::from_str(BASIC)?;
+        value["synthetic_public_payload"] = serde_json::Value::String("x".repeat(3 * 1024 * 1024));
+        let source = serde_json::to_string(&value)?;
+
+        let first = export_request(&source, &target)?;
+        let second = export_request(&source, &target)?;
+        assert_eq!(first["sha256"], second["sha256"]);
+        assert_eq!(first["byte_length"], source.len());
+        assert_eq!(first["complete"], true);
+        assert_eq!(first["traversal_complete"], serde_json::Value::Null);
+        assert_eq!(fs::read(&target)?, source.as_bytes());
+        assert_eq!(lint_file(&target)?.summary.errors, 0);
+        fs::remove_dir_all(directory)?;
+        Ok(())
+    }
+
+    #[test]
+    fn interrupted_export_never_replaces_the_previous_valid_bundle()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let directory = test_directory("export-interrupted")?;
+        let target = directory.join("figma-rust-extraction.json");
+        fs::write(&target, BASIC)?;
+        let mut request = TestRequest::new()
+            .with_method(Method::Post)
+            .with_path("/export")
+            .with_header(export_token_header()?)
+            .with_body("{")
+            .into();
+        let response = build_response_with_export(
+            &mut request,
+            Some(ExportConfig {
+                path: &target,
+                token: EXPORT_TOKEN,
+            }),
+        );
+        assert_eq!(response.status_code(), StatusCode(400));
+        assert_eq!(fs::read_to_string(&target)?, BASIC);
+        fs::remove_dir_all(directory)?;
+        Ok(())
+    }
+
+    #[test]
+    fn export_endpoint_requires_a_configured_fixed_path() {
+        let mut request = TestRequest::new()
+            .with_method(Method::Post)
+            .with_path("/export")
+            .with_body(BASIC)
+            .into();
+        assert_eq!(build_response(&mut request).status_code(), StatusCode(409));
+    }
+
+    #[test]
+    fn export_endpoint_rejects_missing_token_without_touching_the_target()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let directory = test_directory("export-token")?;
+        let target = directory.join("figma-rust-extraction.json");
+        fs::write(&target, BASIC)?;
+        let mut request = TestRequest::new()
+            .with_method(Method::Post)
+            .with_path("/export")
+            .with_body(BASIC)
+            .into();
+        let response = build_response_with_export(
+            &mut request,
+            Some(ExportConfig {
+                path: &target,
+                token: EXPORT_TOKEN,
+            }),
+        );
+        assert_eq!(response.status_code(), StatusCode(403));
+        assert_eq!(fs::read_to_string(&target)?, BASIC);
+        fs::remove_dir_all(directory)?;
+        Ok(())
+    }
+
+    fn export_request(
+        source: &str,
+        target: &std::path::Path,
+    ) -> Result<serde_json::Value, Box<dyn std::error::Error>> {
+        let body: &'static str = Box::leak(source.to_owned().into_boxed_str());
+        let mut request = TestRequest::new()
+            .with_method(Method::Post)
+            .with_path("/export")
+            .with_header(export_token_header()?)
+            .with_body(body)
+            .into();
+        let response = build_response_with_export(
+            &mut request,
+            Some(ExportConfig {
+                path: target,
+                token: EXPORT_TOKEN,
+            }),
+        );
+        assert_eq!(response.status_code(), StatusCode(200));
+        let mut response_body = String::new();
+        response.into_reader().read_to_string(&mut response_body)?;
+        Ok(serde_json::from_str(&response_body)?)
+    }
+
+    fn export_token_header() -> Result<Header, Box<dyn std::error::Error>> {
+        Header::from_bytes("X-Figma-Rust-Export-Token", EXPORT_TOKEN)
+            .map_err(|()| "invalid export token test header".into())
+    }
+
+    fn test_directory(label: &str) -> Result<std::path::PathBuf, Box<dyn std::error::Error>> {
+        let nonce = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)?
+            .as_nanos();
+        let directory = std::env::temp_dir().join(format!(
+            "figma-rust-server-{label}-{}-{nonce}",
+            std::process::id()
+        ));
+        fs::create_dir(&directory)?;
+        Ok(directory)
+    }
 
     #[test]
     fn compile_response_is_json_and_contains_code() -> Result<(), Box<dyn std::error::Error>> {
@@ -222,7 +574,7 @@ mod tests {
 
     #[test]
     fn cors_preflight_is_allowed_only_for_fixed_endpoints() {
-        for path in ["/lint", "/compile"] {
+        for path in ["/lint", "/compile", "/export"] {
             let mut request = TestRequest::new()
                 .with_method(Method::Options)
                 .with_path(path)
@@ -234,7 +586,7 @@ mod tests {
             }));
             assert!(response.headers().iter().any(|header| {
                 header.field.equiv("Access-Control-Allow-Headers")
-                    && header.value.as_str() == "Content-Type"
+                    && header.value.as_str() == "Content-Type, X-Figma-Rust-Export-Token"
             }));
             assert!(response.headers().iter().any(|header| {
                 header.field.equiv("Access-Control-Allow-Methods")

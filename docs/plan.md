@@ -107,6 +107,8 @@ render fixture; runtime contains no controls or application state.
   publication and handled-failure rollback.
 - [x] Implement `figma-rust verify` for geometry and image reports.
 - [x] Implement loopback-only `figma-rust serve` with bounded JSON requests.
+- [x] Add an opt-in fixed-path loopback export with exact byte/hash/completion
+  reporting and atomic replacement after schema-v2 validation.
 - [x] Create Figma plugin manifest and a TypeScript extractor that preserves
   multi-mode variables plus modeled numeric bindings.
 - [x] Add selection diagnostics UI and JSON export.

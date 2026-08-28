@@ -53,6 +53,12 @@ enum Command {
         /// Loopback TCP port.
         #[arg(long, default_value_t = 38_421)]
         port: u16,
+        /// Persist exact POST /export bytes atomically to this fixed local path.
+        #[arg(long, requires = "export_token_file")]
+        export: Option<PathBuf>,
+        /// File containing a short-lived export token (minimum 32 characters).
+        #[arg(long, requires = "export")]
+        export_token_file: Option<PathBuf>,
     },
     /// Compare node geometry and optional render images.
     Verify {
@@ -119,8 +125,12 @@ fn run(cli: Cli) -> Result<ExitCode, compiler::CliError> {
                 Ok(ExitCode::SUCCESS)
             }
         }
-        Command::Serve { port } => {
-            server::serve(port)?;
+        Command::Serve {
+            port,
+            export,
+            export_token_file,
+        } => {
+            server::serve(port, export.as_deref(), export_token_file.as_deref())?;
             Ok(ExitCode::SUCCESS)
         }
         Command::Verify { manifest, json } => match verify::verify_manifest(&manifest) {

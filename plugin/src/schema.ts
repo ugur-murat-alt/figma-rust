@@ -344,3 +344,11 @@ export interface CompilerResponse {
   diagnostics?: ExtractionDiagnostic[];
   error?: string;
 }
+
+export interface BridgeExportResponse {
+  path: string;
+  byte_length: number;
+  sha256: string;
+  complete: boolean;
+  traversal_complete: boolean | null;
+}

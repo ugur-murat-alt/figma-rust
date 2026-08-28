@@ -166,7 +166,35 @@ Start the loopback-only service:
 
 The development plugin manifest permits only `http://localhost:38421`; the service remains bound to the IPv4 loopback address `127.0.0.1`. The service exposes fixed `POST /lint` and `POST /compile` endpoints, rejects query/command paths, limits requests to 8 MiB, and performs no Cargo/render work.
 
-Use this bridge for quick Figma Dev Mode feedback. Use the CLI for output files, assets, Cargo, render capture, and fidelity verification.
+When desktop browser downloads are unavailable, configure one fixed local export
+target and use **Export compiler JSON to bridge** in the plugin:
+
+```sh
+token_file=$(mktemp "${TMPDIR:-/tmp}/figma-rust-export-token.XXXXXX")
+chmod 600 "$token_file"
+openssl rand -hex 32 > "$token_file"
+"${CARGO:-cargo}" run -p figma-rust-cli -- \
+  serve --port 38421 \
+  --export /absolute/path/to/figma-rust-extraction.json \
+  --export-token-file "$token_file"
+```
+
+Paste the token file's ASCII value into the plugin's **Bridge export token** field,
+perform the export, then remove the token file when the server stops. The token
+is neither written into the bundle nor printed by the server.
+
+The fixed `POST /export` endpoint accepts only a parseable schema-v2 bundle,
+stages and syncs the exact UTF-8 request bytes beside the target, atomically
+renames them, reads the result back, and then reports path, byte length, SHA-256,
+transfer completion, and optional traversal completion. Malformed, truncated,
+oversize, or disabled exports do not replace the previous file. The target parent
+must already exist, and symlink/non-file targets are rejected. The same 8 MiB
+request limit applies. `/export` rejects requests without the configured
+short-lived token before reading or writing a bundle.
+
+Use this bridge for quick Figma Dev Mode feedback and the explicit download-free
+bundle handoff. Use the CLI for compiler output directories, assets, Cargo, render
+capture, and fidelity verification.
 
 ## 6. Verify geometry and pixels
 
