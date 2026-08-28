@@ -178,6 +178,8 @@ name the differing Figma node. Compile-only success is insufficient.
 
 ## M6: Hardening and release readiness
 
+- [x] Add deterministic candidate-GPUI qualification for generated API compile,
+  runtime helpers, geometry, pixels, capture capability, and migration bindings.
 - [x] Add schema compatibility policy and privacy-safe canonical extraction fingerprinting.
 - [x] Add asset cache invalidation and deterministic content addressing. Decoded
   bytes, media type, and sorted export settings form the cache key; exact assets
