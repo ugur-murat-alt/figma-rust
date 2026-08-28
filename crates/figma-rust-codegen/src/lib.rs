@@ -364,7 +364,7 @@ fn lower_node(
     element = lower_text_style(element, node)?;
 
     if let Some(text) = &node.text {
-        if matches!(node.size.horizontal.sizing, AxisSizing::Hug) {
+        if matches!(&node.size.horizontal.sizing, AxisSizing::Hug) {
             element = quote! { #element.whitespace_nowrap() };
         }
         let characters = &text.characters;
@@ -792,10 +792,10 @@ fn lower_size(
     element = lower_axis_size(element, node, &node.size.horizontal, true)?;
     element = lower_axis_size(element, node, &node.size.vertical, false)?;
     let fills_main_axis = matches!(
-        (parent_stack_axis, node.size.horizontal.sizing),
+        (parent_stack_axis, &node.size.horizontal.sizing),
         (Some(Axis::Horizontal), AxisSizing::Fill)
     ) || matches!(
-        (parent_stack_axis, node.size.vertical.sizing),
+        (parent_stack_axis, &node.size.vertical.sizing),
         (Some(Axis::Vertical), AxisSizing::Fill)
     );
     if fills_main_axis {
@@ -819,15 +819,15 @@ fn lower_axis_size(
     axis: &AxisSize,
     horizontal: bool,
 ) -> Result<TokenStream, CodegenError> {
-    match axis.sizing {
+    match &axis.sizing {
         AxisSizing::Hug => {
-            if let Some(value) = axis.measured {
+            if let Some(value) = axis.measured.as_ref() {
                 let property = if horizontal {
-                    "size.horizontal.measured"
+                    "size.width"
                 } else {
-                    "size.vertical.measured"
+                    "size.height"
                 };
-                let value = checked_f32(node, property, value, true)?;
+                let value = number_tokens(node, property, value)?;
                 element = if horizontal {
                     quote! { #element.w(gpui::px(#value)) }
                 } else {
@@ -839,11 +839,11 @@ fn lower_axis_size(
         AxisSizing::Fill => element = quote! { #element.h_full() },
         AxisSizing::Fixed(value) => {
             let property = if horizontal {
-                "size.horizontal"
+                "size.width"
             } else {
-                "size.vertical"
+                "size.height"
             };
-            let value = checked_f32(node, property, value, true)?;
+            let value = number_tokens(node, property, value)?;
             element = if horizontal {
                 quote! { #element.w(gpui::px(#value)) }
             } else {
@@ -851,26 +851,26 @@ fn lower_axis_size(
             };
         }
     }
-    if let Some(minimum) = axis.min {
+    if let Some(minimum) = axis.min.as_ref() {
         let property = if horizontal {
-            "size.horizontal.min"
+            "size.min_width"
         } else {
-            "size.vertical.min"
+            "size.min_height"
         };
-        let minimum = checked_f32(node, property, minimum, true)?;
+        let minimum = number_tokens(node, property, minimum)?;
         element = if horizontal {
             quote! { #element.min_w(gpui::px(#minimum)) }
         } else {
             quote! { #element.min_h(gpui::px(#minimum)) }
         };
     }
-    if let Some(maximum) = axis.max {
+    if let Some(maximum) = axis.max.as_ref() {
         let property = if horizontal {
-            "size.horizontal.max"
+            "size.max_width"
         } else {
-            "size.vertical.max"
+            "size.max_height"
         };
-        let maximum = checked_f32(node, property, maximum, true)?;
+        let maximum = number_tokens(node, property, maximum)?;
         element = if horizontal {
             quote! { #element.max_w(gpui::px(#maximum)) }
         } else {
@@ -1320,7 +1320,7 @@ mod tests {
     use figma_rust_core::ir::{
         AssetRoute, Axis, AxisSize, AxisSizing, BoundValue, Color, ComponentResolution,
         DesignDocument, Edges, Effect, Layout, Paint, Positioning, Radii, Scroll, Size, Style,
-        Text, TextRun, TextStyle,
+        Text, TextRun, TextStyle, TokenRef,
     };
     use figma_rust_core::raw::{
         RawAction, RawAlignment, RawAsset, RawBlendMode, RawConstraint, RawNodeKind, RawReaction,
@@ -1334,6 +1334,22 @@ mod tests {
         BoundValue {
             token: None,
             mode_context: BTreeMap::new(),
+            fallback: value,
+        }
+    }
+
+    fn bound_number(id: &str, value: f64) -> BoundValue<f64> {
+        BoundValue {
+            token: Some(TokenRef {
+                id: id.to_owned(),
+                name: Some(id.to_owned()),
+                collection_id: Some("collection.dimensions".to_owned()),
+                mode_id: Some("mode.compact".to_owned()),
+            }),
+            mode_context: BTreeMap::from([(
+                "collection.dimensions".to_owned(),
+                "mode.compact".to_owned(),
+            )]),
             fallback: value,
         }
     }
@@ -1514,11 +1530,44 @@ mod tests {
         assert!(output.rust.contains(".rounded_br("));
         assert!(output.rust.contains(".rounded_bl("));
         assert!(output.rust.contains("gpui::rgba(0x2040_80ff)"));
-        assert!(output.rust.contains(".min_w(gpui::px(80f32))"));
-        assert!(output.rust.contains(".max_w(gpui::px(240f32))"));
+        assert!(output.rust.contains("dimension.min-width"));
+        assert!(output.rust.contains("dimension.max-width"));
+        assert!(output.rust.contains("dimension.min-height"));
+        assert!(output.rust.contains("dimension.max-height"));
         let mapped = output.source_map.nodes.get("1:1");
         assert_eq!(mapped.map(|entry| entry.symbol.as_str()), Some("node_0000"));
         assert!(mapped.is_some_and(|entry| entry.start_line <= entry.end_line));
+    }
+
+    #[test]
+    fn lowers_bound_dimensions_through_context_aware_number_resolution() {
+        let mut document = basic_document();
+        let size = &mut document.roots[0].size;
+        size.horizontal.sizing = AxisSizing::Fixed(bound_number("dimension.width", 120.0));
+        size.vertical.sizing = AxisSizing::Fixed(bound_number("dimension.height", 40.0));
+        size.horizontal.min = Some(bound_number("dimension.min-width", 80.0));
+        size.horizontal.max = Some(bound_number("dimension.max-width", 240.0));
+        size.vertical.min = Some(bound_number("dimension.min-height", 24.0));
+        size.vertical.max = Some(bound_number("dimension.max-height", 96.0));
+
+        let first = generate(&document).expect("bound dimensions must generate");
+        let second = generate(&document).expect("bound dimensions must generate deterministically");
+        assert_eq!(first.rust, second.rust);
+        assert_eq!(first.source_map, second.source_map);
+        for token_id in [
+            "dimension.width",
+            "dimension.height",
+            "dimension.min-width",
+            "dimension.max-width",
+            "dimension.min-height",
+            "dimension.max-height",
+        ] {
+            assert!(first.rust.contains(token_id), "missing token {token_id}");
+        }
+        for method in [".w(", ".h(", ".min_w(", ".max_w(", ".min_h(", ".max_h("] {
+            assert!(first.rust.contains(method), "missing size method {method}");
+        }
+        assert!(first.rust.contains("TokenResolver::number_with_context"));
     }
 
     #[test]

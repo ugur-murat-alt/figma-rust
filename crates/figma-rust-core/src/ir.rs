@@ -53,19 +53,19 @@ pub struct Size {
 pub struct AxisSize {
     pub sizing: AxisSizing,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub measured: Option<f64>,
+    pub measured: Option<BoundValue<f64>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub min: Option<f64>,
+    pub min: Option<BoundValue<f64>>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub max: Option<f64>,
+    pub max: Option<BoundValue<f64>>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "value", rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum AxisSizing {
     Hug,
     Fill,
-    Fixed(f64),
+    Fixed(BoundValue<f64>),
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

@@ -20,15 +20,83 @@
           "horizontal": {
             "sizing": {
               "kind": "FIXED",
-              "value": 120.0
+              "value": {
+                "token": {
+                  "id": "dimension.width",
+                  "name": "Dimension/Width",
+                  "collection_id": "collection.theme",
+                  "mode_id": "mode.light"
+                },
+                "mode_context": {
+                  "collection.theme": "mode.light"
+                },
+                "fallback": 120.0
+              }
             },
-            "min": 80.0,
-            "max": 240.0
+            "min": {
+              "token": {
+                "id": "dimension.min-width",
+                "name": "Dimension/Min Width",
+                "collection_id": "collection.theme",
+                "mode_id": "mode.light"
+              },
+              "mode_context": {
+                "collection.theme": "mode.light"
+              },
+              "fallback": 80.0
+            },
+            "max": {
+              "token": {
+                "id": "dimension.max-width",
+                "name": "Dimension/Max Width",
+                "collection_id": "collection.theme",
+                "mode_id": "mode.light"
+              },
+              "mode_context": {
+                "collection.theme": "mode.light"
+              },
+              "fallback": 240.0
+            }
           },
           "vertical": {
             "sizing": {
               "kind": "FIXED",
-              "value": 48.0
+              "value": {
+                "token": {
+                  "id": "dimension.height",
+                  "name": "Dimension/Height",
+                  "collection_id": "collection.theme",
+                  "mode_id": "mode.light"
+                },
+                "mode_context": {
+                  "collection.theme": "mode.light"
+                },
+                "fallback": 48.0
+              }
+            },
+            "min": {
+              "token": {
+                "id": "dimension.min-height",
+                "name": "Dimension/Min Height",
+                "collection_id": "collection.theme",
+                "mode_id": "mode.light"
+              },
+              "mode_context": {
+                "collection.theme": "mode.light"
+              },
+              "fallback": 32.0
+            },
+            "max": {
+              "token": {
+                "id": "dimension.max-height",
+                "name": "Dimension/Max Height",
+                "collection_id": "collection.theme",
+                "mode_id": "mode.light"
+              },
+              "mode_context": {
+                "collection.theme": "mode.light"
+              },
+              "fallback": 96.0
             }
           }
         },
@@ -297,6 +365,96 @@
             "b": 0.5,
             "a": 1.0
           }
+        }
+      },
+      {
+        "token": {
+          "id": "dimension.height",
+          "name": "Dimension/Height",
+          "collection_id": "collection.theme",
+          "mode_id": "mode.light"
+        },
+        "mode_context": {
+          "collection.theme": "mode.light"
+        },
+        "value": {
+          "kind": "NUMBER",
+          "value": 48.0
+        }
+      },
+      {
+        "token": {
+          "id": "dimension.max-height",
+          "name": "Dimension/Max Height",
+          "collection_id": "collection.theme",
+          "mode_id": "mode.light"
+        },
+        "mode_context": {
+          "collection.theme": "mode.light"
+        },
+        "value": {
+          "kind": "NUMBER",
+          "value": 96.0
+        }
+      },
+      {
+        "token": {
+          "id": "dimension.max-width",
+          "name": "Dimension/Max Width",
+          "collection_id": "collection.theme",
+          "mode_id": "mode.light"
+        },
+        "mode_context": {
+          "collection.theme": "mode.light"
+        },
+        "value": {
+          "kind": "NUMBER",
+          "value": 240.0
+        }
+      },
+      {
+        "token": {
+          "id": "dimension.min-height",
+          "name": "Dimension/Min Height",
+          "collection_id": "collection.theme",
+          "mode_id": "mode.light"
+        },
+        "mode_context": {
+          "collection.theme": "mode.light"
+        },
+        "value": {
+          "kind": "NUMBER",
+          "value": 32.0
+        }
+      },
+      {
+        "token": {
+          "id": "dimension.min-width",
+          "name": "Dimension/Min Width",
+          "collection_id": "collection.theme",
+          "mode_id": "mode.light"
+        },
+        "mode_context": {
+          "collection.theme": "mode.light"
+        },
+        "value": {
+          "kind": "NUMBER",
+          "value": 80.0
+        }
+      },
+      {
+        "token": {
+          "id": "dimension.width",
+          "name": "Dimension/Width",
+          "collection_id": "collection.theme",
+          "mode_id": "mode.light"
+        },
+        "mode_context": {
+          "collection.theme": "mode.light"
+        },
+        "value": {
+          "kind": "NUMBER",
+          "value": 120.0
         }
       },
       {

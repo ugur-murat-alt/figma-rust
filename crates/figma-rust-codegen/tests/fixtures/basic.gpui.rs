@@ -47,10 +47,90 @@ where
                 ),
             ),
         )
-        .w(gpui::px(120f32))
-        .min_w(gpui::px(80f32))
-        .max_w(gpui::px(240f32))
-        .h(gpui::px(48f32))
+        .w(
+            gpui::px(
+                figma_gpui_runtime::TokenResolver::number_with_context(
+                    tokens,
+                    figma_gpui_runtime::TokenContext {
+                        id: "dimension.width",
+                        collection_id: Some("collection.theme"),
+                        mode_id: Some("mode.light"),
+                        modes: &[("collection.theme", "mode.light")],
+                    },
+                    120f32,
+                ),
+            ),
+        )
+        .min_w(
+            gpui::px(
+                figma_gpui_runtime::TokenResolver::number_with_context(
+                    tokens,
+                    figma_gpui_runtime::TokenContext {
+                        id: "dimension.min-width",
+                        collection_id: Some("collection.theme"),
+                        mode_id: Some("mode.light"),
+                        modes: &[("collection.theme", "mode.light")],
+                    },
+                    80f32,
+                ),
+            ),
+        )
+        .max_w(
+            gpui::px(
+                figma_gpui_runtime::TokenResolver::number_with_context(
+                    tokens,
+                    figma_gpui_runtime::TokenContext {
+                        id: "dimension.max-width",
+                        collection_id: Some("collection.theme"),
+                        mode_id: Some("mode.light"),
+                        modes: &[("collection.theme", "mode.light")],
+                    },
+                    240f32,
+                ),
+            ),
+        )
+        .h(
+            gpui::px(
+                figma_gpui_runtime::TokenResolver::number_with_context(
+                    tokens,
+                    figma_gpui_runtime::TokenContext {
+                        id: "dimension.height",
+                        collection_id: Some("collection.theme"),
+                        mode_id: Some("mode.light"),
+                        modes: &[("collection.theme", "mode.light")],
+                    },
+                    48f32,
+                ),
+            ),
+        )
+        .min_h(
+            gpui::px(
+                figma_gpui_runtime::TokenResolver::number_with_context(
+                    tokens,
+                    figma_gpui_runtime::TokenContext {
+                        id: "dimension.min-height",
+                        collection_id: Some("collection.theme"),
+                        mode_id: Some("mode.light"),
+                        modes: &[("collection.theme", "mode.light")],
+                    },
+                    32f32,
+                ),
+            ),
+        )
+        .max_h(
+            gpui::px(
+                figma_gpui_runtime::TokenResolver::number_with_context(
+                    tokens,
+                    figma_gpui_runtime::TokenContext {
+                        id: "dimension.max-height",
+                        collection_id: Some("collection.theme"),
+                        mode_id: Some("mode.light"),
+                        modes: &[("collection.theme", "mode.light")],
+                    },
+                    96f32,
+                ),
+            ),
+        )
         .flex_none()
         .bg(
             figma_gpui_runtime::TokenResolver::color_with_context(

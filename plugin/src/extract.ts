@@ -754,14 +754,26 @@ function extractSize(record: UnknownRecord, nodeId: string, context: ExtractionC
   }
 
   return {
-    ...(width === undefined ? {} : { width }),
-    ...(height === undefined ? {} : { height }),
+    ...(width === undefined
+      ? {}
+      : { width: boundNumberFromRecord(record, "width", width, nodeId, "size.width", context) }),
+    ...(height === undefined
+      ? {}
+      : { height: boundNumberFromRecord(record, "height", height, nodeId, "size.height", context) }),
     ...(horizontal === undefined ? {} : { horizontal }),
     ...(vertical === undefined ? {} : { vertical }),
-    ...(minWidth === undefined ? {} : { min_width: minWidth }),
-    ...(maxWidth === undefined ? {} : { max_width: maxWidth }),
-    ...(minHeight === undefined ? {} : { min_height: minHeight }),
-    ...(maxHeight === undefined ? {} : { max_height: maxHeight }),
+    ...(minWidth === undefined
+      ? {}
+      : { min_width: boundNumberFromRecord(record, "minWidth", minWidth, nodeId, "size.min_width", context) }),
+    ...(maxWidth === undefined
+      ? {}
+      : { max_width: boundNumberFromRecord(record, "maxWidth", maxWidth, nodeId, "size.max_width", context) }),
+    ...(minHeight === undefined
+      ? {}
+      : { min_height: boundNumberFromRecord(record, "minHeight", minHeight, nodeId, "size.min_height", context) }),
+    ...(maxHeight === undefined
+      ? {}
+      : { max_height: boundNumberFromRecord(record, "maxHeight", maxHeight, nodeId, "size.max_height", context) }),
     ...(aspectRatio === undefined ? {} : { aspect_ratio: aspectRatio }),
   };
 }
@@ -1694,6 +1706,12 @@ function diagnoseNodeVariableBindings(record: UnknownRecord, node: SceneNode, co
     "strokeRightWeight",
     "strokeBottomWeight",
     "strokeLeftWeight",
+    "width",
+    "height",
+    "minWidth",
+    "maxWidth",
+    "minHeight",
+    "maxHeight",
   ]);
   for (const [fieldName, value] of Object.entries(bindings)) {
     const aliases = collectAliasPaths(value, `bound_variables.${fieldName}`);

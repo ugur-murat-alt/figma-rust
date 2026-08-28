@@ -81,7 +81,10 @@ image asset is available. The UI reports the UTF-8 JSON size and warns at 2 MiB
 and above or when the 8 MiB loopback limit is exceeded.
 
 Schema v2 is required for multi-mode and modeled numeric bindings. A token-bound
-value carries its literal fallback and consumer collection/mode context. V1
+value carries its literal fallback and consumer collection/mode context. Modeled
+numeric paths include width, height, min/max dimensions, gap, padding, corner
+radii, per-edge stroke widths, and text size. Older schema-v2 bundles with scalar
+dimensions remain readable and normalize to unbound fallbacks. V1
 bundles remain readable only so lint/compile can emit `FR-SCHEMA-001`; re-extract
 or explicitly migrate them instead of relabeling them.
 

@@ -5,7 +5,7 @@ use figma_rust_core::ir::{
     AssetRoute, AxisSizing, ComponentResolution, Layout, Paint, Positioning,
 };
 use figma_rust_core::raw::{
-    RawAsset, RawColor, RawComponent, RawConstraint, RawLiteral, RawVariable,
+    RawAsset, RawBoundValue, RawColor, RawComponent, RawConstraint, RawLiteral, RawVariable,
 };
 use figma_rust_core::{
     ComponentMapping, ComponentRegistry, normalize_bundle, normalize_bundle_with_registry,
@@ -258,11 +258,11 @@ fn hug_axes_retain_the_figma_measured_dimensions() {
 
     assert_eq!(
         document["roots"][0]["size"]["horizontal"]["measured"],
-        json!(120.5)
+        json!({"fallback": 120.5})
     );
     assert_eq!(
         document["roots"][0]["size"]["vertical"]["measured"],
-        json!(48.25)
+        json!({"fallback": 48.25})
     );
     assert!(matches!(
         output.document.roots[0].size.horizontal.sizing,
@@ -683,6 +683,97 @@ fn modeled_numeric_bindings_preserve_tokens_and_fallbacks() {
 }
 
 #[test]
+fn bound_dimensions_preserve_tokens_modes_and_literal_fallbacks() {
+    let mut bundle = bundle_with_roots(&json!([fixed_node("5:9", "FRAME")]));
+    let collection_id = "collection.dimensions";
+    let mode_id = "mode.compact";
+    let context = mode_context(collection_id, mode_id);
+    let dimensions = [
+        ("dimension.width", 120.0),
+        ("dimension.height", 40.0),
+        ("dimension.min-width", 80.0),
+        ("dimension.max-width", 240.0),
+        ("dimension.min-height", 24.0),
+        ("dimension.max-height", 96.0),
+    ];
+    bundle.variables = dimensions
+        .iter()
+        .map(|(id, value)| RawVariable {
+            id: (*id).to_owned(),
+            name: (*id).to_owned(),
+            collection_id: collection_id.to_owned(),
+            mode_id: mode_id.to_owned(),
+            mode_context: context.clone(),
+            source_node_id: Some("5:9".to_owned()),
+            value: RawLiteral::Number(*value),
+        })
+        .collect();
+    let bound = |id: &str, literal: f64| RawBoundValue {
+        literal,
+        token_id: Some(id.to_owned()),
+        mode_context: context.clone(),
+    };
+    let size = &mut bundle.roots[0].size;
+    size.width = Some(bound("dimension.width", 120.0));
+    size.height = Some(bound("dimension.height", 40.0));
+    size.min_width = Some(bound("dimension.min-width", 80.0));
+    size.max_width = Some(bound("dimension.max-width", 240.0));
+    size.min_height = Some(bound("dimension.min-height", 24.0));
+    size.max_height = Some(bound("dimension.max-height", 96.0));
+
+    let first = normalize_bundle(&bundle);
+    let second = normalize_bundle(&bundle);
+    assert_eq!(
+        serde_json::to_vec(&first).expect("serialize first"),
+        serde_json::to_vec(&second).expect("serialize second")
+    );
+    let size = &first.document.roots[0].size;
+    let AxisSizing::Fixed(width) = &size.horizontal.sizing else {
+        panic!("width must stay fixed");
+    };
+    let AxisSizing::Fixed(height) = &size.vertical.sizing else {
+        panic!("height must stay fixed");
+    };
+    for (value, id, fallback) in [
+        (width, "dimension.width", 120.0),
+        (height, "dimension.height", 40.0),
+        (
+            size.horizontal.min.as_ref().expect("minimum width"),
+            "dimension.min-width",
+            80.0,
+        ),
+        (
+            size.horizontal.max.as_ref().expect("maximum width"),
+            "dimension.max-width",
+            240.0,
+        ),
+        (
+            size.vertical.min.as_ref().expect("minimum height"),
+            "dimension.min-height",
+            24.0,
+        ),
+        (
+            size.vertical.max.as_ref().expect("maximum height"),
+            "dimension.max-height",
+            96.0,
+        ),
+    ] {
+        assert_eq!(
+            value.token.as_ref().map(|token| token.id.as_str()),
+            Some(id)
+        );
+        assert_eq!(value.mode_context, context);
+        assert!((value.fallback - fallback).abs() < f64::EPSILON);
+    }
+    assert!(
+        !first
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == codes::UNRESOLVED_TOKEN)
+    );
+}
+
+#[test]
 fn schema_one_is_rejected_after_the_explicit_v2_change() {
     let output = parse_and_normalize(include_str!("fixtures/basic.v1.raw.json"))
         .expect("the exact v1 fixture must remain readable for an explicit version diagnostic");
@@ -727,13 +818,16 @@ fn schema_two_rejects_duplicate_known_fields() {
 #[test]
 fn negative_zero_is_canonicalized_in_node_numbers() {
     let mut bundle = bundle_with_roots(&json!([fixed_node("6:1", "RECTANGLE")]));
-    bundle.roots[0].size.width = Some(-0.0);
+    bundle.roots[0].size.width = Some(RawBoundValue {
+        literal: -0.0,
+        ..RawBoundValue::default()
+    });
     bundle.roots[0].position.transform.matrix[4] = -0.0;
     let output = normalize_bundle(&bundle);
-    let AxisSizing::Fixed(width) = output.document.roots[0].size.horizontal.sizing else {
+    let AxisSizing::Fixed(width) = &output.document.roots[0].size.horizontal.sizing else {
         panic!("fixture width must stay fixed");
     };
-    assert_eq!(width.to_bits(), 0.0_f64.to_bits());
+    assert_eq!(width.fallback.to_bits(), 0.0_f64.to_bits());
     let Positioning::Auto { transform, .. } = output.document.roots[0].positioning else {
         panic!("root must remain auto-positioned");
     };

@@ -14,12 +14,50 @@
       "name": "Card",
       "kind": "RECTANGLE",
       "size": {
-        "width": 120.0,
-        "height": 48.0,
+        "width": {
+          "literal": 120.0,
+          "token_id": "dimension.width",
+          "mode_context": {
+            "collection.theme": "mode.light"
+          }
+        },
+        "height": {
+          "literal": 48.0,
+          "token_id": "dimension.height",
+          "mode_context": {
+            "collection.theme": "mode.light"
+          }
+        },
         "horizontal": "FIXED",
         "vertical": "FIXED",
-        "min_width": 80.0,
-        "max_width": 240.0
+        "min_width": {
+          "literal": 80.0,
+          "token_id": "dimension.min-width",
+          "mode_context": {
+            "collection.theme": "mode.light"
+          }
+        },
+        "max_width": {
+          "literal": 240.0,
+          "token_id": "dimension.max-width",
+          "mode_context": {
+            "collection.theme": "mode.light"
+          }
+        },
+        "min_height": {
+          "literal": 32.0,
+          "token_id": "dimension.min-height",
+          "mode_context": {
+            "collection.theme": "mode.light"
+          }
+        },
+        "max_height": {
+          "literal": 96.0,
+          "token_id": "dimension.max-height",
+          "mode_context": {
+            "collection.theme": "mode.light"
+          }
+        }
       },
       "layout": {
         "mode": "HORIZONTAL",
@@ -187,6 +225,84 @@
       "value": {
         "kind": "NUMBER",
         "value": 8.0
+      },
+      "mode_context": {
+        "collection.theme": "mode.light"
+      }
+    },
+    {
+      "id": "dimension.width",
+      "name": "Dimension/Width",
+      "collection_id": "collection.theme",
+      "mode_id": "mode.light",
+      "value": {
+        "kind": "NUMBER",
+        "value": 120.0
+      },
+      "mode_context": {
+        "collection.theme": "mode.light"
+      }
+    },
+    {
+      "id": "dimension.height",
+      "name": "Dimension/Height",
+      "collection_id": "collection.theme",
+      "mode_id": "mode.light",
+      "value": {
+        "kind": "NUMBER",
+        "value": 48.0
+      },
+      "mode_context": {
+        "collection.theme": "mode.light"
+      }
+    },
+    {
+      "id": "dimension.min-width",
+      "name": "Dimension/Min Width",
+      "collection_id": "collection.theme",
+      "mode_id": "mode.light",
+      "value": {
+        "kind": "NUMBER",
+        "value": 80.0
+      },
+      "mode_context": {
+        "collection.theme": "mode.light"
+      }
+    },
+    {
+      "id": "dimension.max-width",
+      "name": "Dimension/Max Width",
+      "collection_id": "collection.theme",
+      "mode_id": "mode.light",
+      "value": {
+        "kind": "NUMBER",
+        "value": 240.0
+      },
+      "mode_context": {
+        "collection.theme": "mode.light"
+      }
+    },
+    {
+      "id": "dimension.min-height",
+      "name": "Dimension/Min Height",
+      "collection_id": "collection.theme",
+      "mode_id": "mode.light",
+      "value": {
+        "kind": "NUMBER",
+        "value": 32.0
+      },
+      "mode_context": {
+        "collection.theme": "mode.light"
+      }
+    },
+    {
+      "id": "dimension.max-height",
+      "name": "Dimension/Max Height",
+      "collection_id": "collection.theme",
+      "mode_id": "mode.light",
+      "value": {
+        "kind": "NUMBER",
+        "value": 96.0
       },
       "mode_context": {
         "collection.theme": "mode.light"

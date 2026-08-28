@@ -71,7 +71,8 @@ node-scoped diagnostics.
 - [ ] Lower simple grids to verified GPUI APIs.
 - [x] Generate stable per-node functions and required imports.
 - [x] Generate context-aware color and number token access with literal fallback;
-  modeled number paths are gap, padding, radii, stroke widths, and text size.
+  modeled number paths are dimensions/min-max, gap, padding, radii, stroke widths,
+  and text size.
 - [ ] Generate component call/fallback forms.
 - [ ] Generate action contracts without application behavior.
 - [x] Generate Figma ID -> Rust symbol/line sidecar map.

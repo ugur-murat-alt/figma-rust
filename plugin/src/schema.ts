@@ -86,14 +86,14 @@ export interface RawLayout {
 }
 
 export interface RawSize {
-  width?: number;
-  height?: number;
+  width?: RawBoundValue<number>;
+  height?: RawBoundValue<number>;
   horizontal?: RawAxisSizing;
   vertical?: RawAxisSizing;
-  min_width?: number;
-  max_width?: number;
-  min_height?: number;
-  max_height?: number;
+  min_width?: RawBoundValue<number>;
+  max_width?: RawBoundValue<number>;
+  min_height?: RawBoundValue<number>;
+  max_height?: RawBoundValue<number>;
   aspect_ratio?: number;
 }
 

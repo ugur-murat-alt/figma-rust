@@ -598,6 +598,89 @@ async function preservesModeledNumericBindings(): Promise<void> {
   testCollections.clear();
 }
 
+async function preservesBoundDimensionsAcrossConsumerModes(): Promise<void> {
+  const collectionId = "VariableCollectionId:test:dimensions";
+  const lightMode = "mode-light";
+  const darkMode = "mode-dark";
+  testCollections.set(collectionId, {
+    id: collectionId,
+    defaultModeId: lightMode,
+    modes: [
+      { modeId: lightMode, name: "Light" },
+      { modeId: darkMode, name: "Dark" },
+    ],
+  });
+  const dimensions = [
+    ["width", 120],
+    ["height", 40],
+    ["minWidth", 80],
+    ["maxWidth", 240],
+    ["minHeight", 24],
+    ["maxHeight", 96],
+  ] as const;
+  for (const [fieldName, lightValue] of dimensions) {
+    const id = `VariableID:test:${fieldName}`;
+    testVariables.set(id, {
+      id,
+      name: `size/${fieldName}`,
+      variableCollectionId: collectionId,
+      valuesByMode: {
+        [lightMode]: lightValue,
+        [darkMode]: lightValue + 100,
+      },
+      resolveForConsumer: (consumer: TestNode) => ({
+        value: consumer.resolvedVariableModes?.[collectionId] === darkMode
+          ? lightValue + 100
+          : lightValue,
+        resolvedType: "FLOAT",
+      }),
+    });
+  }
+  const makeNode = (id: string, modeId: string, offset: number) => {
+    const node = rectangle(id, [[1, 0, 0], [0, 1, 0]]) as TestNode & Record<string, unknown>;
+    Object.assign(node, {
+      resolvedVariableModes: { [collectionId]: modeId },
+      layoutSizingHorizontal: "FIXED",
+      layoutSizingVertical: "FIXED",
+      boundVariables: Object.fromEntries(dimensions.map(([fieldName]) => [
+        fieldName,
+        { type: "VARIABLE_ALIAS", id: `VariableID:test:${fieldName}` },
+      ])),
+    });
+    for (const [fieldName, value] of dimensions) node[fieldName] = value + offset;
+    return node;
+  };
+  const light = makeNode("8:2", lightMode, 0);
+  const dark = makeNode("8:3", darkMode, 100);
+
+  const bundle = await extractNodes([
+    light as unknown as SceneNode,
+    dark as unknown as SceneNode,
+  ]);
+  const expectedContext = (modeId: string) => ({ [collectionId]: modeId });
+  for (const [root, modeId, offset] of [
+    [bundle.roots[0], lightMode, 0],
+    [bundle.roots[1], darkMode, 100],
+  ] as const) {
+    for (const [fieldName, value] of dimensions) {
+      const rawName = fieldName.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`) as keyof typeof root.size;
+      assert.deepEqual(root.size[rawName], {
+        literal: value + offset,
+        token_id: `VariableID:test:${fieldName}`,
+        mode_context: expectedContext(modeId),
+      });
+    }
+  }
+  assert.equal(bundle.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.code === "FR-TOKEN-LOSS-003"
+    && /bound_variables\.(?:width|height|minWidth|maxWidth|minHeight|maxHeight)/.test(
+      diagnostic.property_path ?? "",
+    )
+  ), false);
+  testVariables.clear();
+  testCollections.clear();
+}
+
 function supportsCompactExportAndLargeSelectionFeedback(): void {
   assert.equal(includeRestSnapshotForExport("COMPILER"), false);
   assert.equal(includeRestSnapshotForExport("EVIDENCE"), true);
@@ -964,6 +1047,7 @@ await preservesAndValidatesGridPlacements();
 await keepsAliasCyclesScopedToOneResolution();
 await preservesVariableValuesAcrossConsumerModes();
 await preservesModeledNumericBindings();
+await preservesBoundDimensionsAcrossConsumerModes();
 supportsCompactExportAndLargeSelectionFeedback();
 validatesBridgeExportCompletionBeforeTrustingTheFile();
 cleansOnlyTemporaryTransferNodesAfterExportVerification();

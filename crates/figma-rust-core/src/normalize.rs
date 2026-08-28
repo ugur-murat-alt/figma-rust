@@ -19,6 +19,14 @@ use crate::raw::{
 
 pub const EXTRACTION_SCHEMA_VERSION: u32 = 2;
 
+fn unbound_number(fallback: f64) -> BoundValue<f64> {
+    BoundValue {
+        token: None,
+        mode_context: BTreeMap::new(),
+        fallback,
+    }
+}
+
 #[derive(Debug, Error)]
 #[error("extraction bundle is not valid JSON: {0}")]
 pub struct ParseError(#[from] serde_json::Error);
@@ -312,10 +320,10 @@ impl Context<'_> {
             RawLayoutMode::Grid => ParentLayout::Grid,
             RawLayoutMode::None => ParentLayout::Absolute {
                 fixed_width: (raw.size.horizontal == Some(RawAxisSizing::Fixed))
-                    .then_some(raw.size.width)
+                    .then(|| raw.size.width.as_ref().map(|value| value.literal))
                     .flatten(),
                 fixed_height: (raw.size.vertical == Some(RawAxisSizing::Fixed))
-                    .then_some(raw.size.height)
+                    .then(|| raw.size.height.as_ref().map(|value| value.literal))
                     .flatten(),
             },
         };
@@ -368,21 +376,27 @@ impl Context<'_> {
         parent: Option<ParentLayout>,
         is_absolute: bool,
     ) -> AxisSize {
-        let (source_sizing, fixed, min, max, path) = if horizontal {
+        let (source_sizing, fixed, min, max, path, value_path, min_path, max_path) = if horizontal {
             (
                 raw.size.horizontal,
-                raw.size.width,
-                raw.size.min_width,
-                raw.size.max_width,
+                raw.size.width.as_ref(),
+                raw.size.min_width.as_ref(),
+                raw.size.max_width.as_ref(),
                 "size.horizontal",
+                "size.width",
+                "size.min_width",
+                "size.max_width",
             )
         } else {
             (
                 raw.size.vertical,
-                raw.size.height,
-                raw.size.min_height,
-                raw.size.max_height,
+                raw.size.height.as_ref(),
+                raw.size.min_height.as_ref(),
+                raw.size.max_height.as_ref(),
                 "size.vertical",
+                "size.height",
+                "size.min_height",
+                "size.max_height",
             )
         };
 
@@ -403,7 +417,7 @@ impl Context<'_> {
                 AxisSizing::Fill
             }
             Some(RawAxisSizing::Fixed) => AxisSizing::Fixed(if let Some(value) = fixed {
-                self.finite_non_negative(raw, value, path)
+                self.normalize_non_negative_number_bound(raw, value, value_path)
             } else {
                 self.diagnostics.push(Diagnostic::node(
                     Severity::Error,
@@ -412,7 +426,7 @@ impl Context<'_> {
                     &raw.id,
                     Some(path),
                 ));
-                0.0
+                unbound_number(0.0)
             }),
             None => {
                 self.diagnostics.push(Diagnostic::node(
@@ -422,17 +436,21 @@ impl Context<'_> {
                     &raw.id,
                     Some(path),
                 ));
-                AxisSizing::Fixed(
-                    fixed.map_or(0.0, |value| self.finite_non_negative(raw, value, path)),
-                )
+                AxisSizing::Fixed(fixed.map_or_else(
+                    || unbound_number(0.0),
+                    |value| self.normalize_non_negative_number_bound(raw, value, value_path),
+                ))
             }
         };
 
-        let normalized_min = min.map(|value| self.finite_non_negative(raw, value, path));
-        let normalized_max = max.map(|value| self.finite_non_negative(raw, value, path));
+        let normalized_min =
+            min.map(|value| self.normalize_non_negative_number_bound(raw, value, min_path));
+        let normalized_max =
+            max.map(|value| self.normalize_non_negative_number_bound(raw, value, max_path));
         if normalized_min
-            .zip(normalized_max)
-            .is_some_and(|(minimum, maximum)| minimum > maximum)
+            .as_ref()
+            .zip(normalized_max.as_ref())
+            .is_some_and(|(minimum, maximum)| minimum.fallback > maximum.fallback)
         {
             self.diagnostics.push(Diagnostic::node(
                 Severity::Error,
@@ -446,7 +464,11 @@ impl Context<'_> {
         AxisSize {
             sizing,
             measured: (source_sizing == Some(RawAxisSizing::Hug))
-                .then(|| fixed.map(|value| self.finite_non_negative(raw, value, path)))
+                .then(|| {
+                    fixed.map(|value| {
+                        self.normalize_non_negative_number_bound(raw, value, value_path)
+                    })
+                })
                 .flatten(),
             min: normalized_min,
             max: normalized_max,

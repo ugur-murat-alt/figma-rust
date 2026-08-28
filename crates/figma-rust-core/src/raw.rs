@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, fmt::Write as _};
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
 use serde_json::Value;
 
 use crate::Diagnostic;
@@ -197,24 +197,73 @@ pub struct RawEdges {
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct RawSize {
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub width: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub height: Option<f64>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_bound_number",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub width: Option<RawBoundValue<f64>>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_bound_number",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub height: Option<RawBoundValue<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub horizontal: Option<RawAxisSizing>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub vertical: Option<RawAxisSizing>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub min_width: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_width: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub min_height: Option<f64>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub max_height: Option<f64>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_bound_number",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub min_width: Option<RawBoundValue<f64>>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_bound_number",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub max_width: Option<RawBoundValue<f64>>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_bound_number",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub min_height: Option<RawBoundValue<f64>>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_optional_bound_number",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub max_height: Option<RawBoundValue<f64>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub aspect_ratio: Option<f64>,
+}
+
+fn deserialize_optional_bound_number<'de, D>(
+    deserializer: D,
+) -> Result<Option<RawBoundValue<f64>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum BoundNumberCompatibility {
+        Bound(RawBoundValue<f64>),
+        Legacy(f64),
+    }
+
+    Option::<BoundNumberCompatibility>::deserialize(deserializer).map(|value| {
+        value.map(|value| match value {
+            BoundNumberCompatibility::Bound(value) => value,
+            BoundNumberCompatibility::Legacy(literal) => RawBoundValue {
+                literal,
+                token_id: None,
+                mode_context: BTreeMap::new(),
+            },
+        })
+    })
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

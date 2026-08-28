@@ -82,7 +82,7 @@ diagnostic whenever it leaves the first route.
 | OpenType feature overrides | GPUI native, figma-rust runtime | Pass supported features; diagnose unavailable ones. |
 | Leading trim/text wrap styles | figma-rust runtime | Text helper plus geometry fixture; unsupported variants warn. |
 | Missing font | unsupported/ambiguous | Error in fidelity mode; configured substitution only with diagnostic. |
-| Variable-bound color and modeled numbers | figma-rust runtime | Colors, text size, Auto Layout gap/padding, corner radii, and per-edge stroke widths retain `TokenRef`, full mode context, and literal fallback. Other numeric paths remain diagnostic until modeled. |
+| Variable-bound color and modeled numbers | figma-rust runtime | Colors, width/height/min/max dimensions, text size, Auto Layout gap/padding, corner radii, and per-edge stroke widths retain `TokenRef`, full mode context, and literal fallback. Other numeric paths remain diagnostic until modeled. |
 | Variable-bound string/boolean | figma-rust runtime | Raw variable values and runtime resolver methods exist; no generated property consumer is claimed yet. |
 | Variable modes/collections | figma-rust runtime | Extraction schema v2 preserves each `(variable, mode context)` value for standard collections and cross-collection aliases; generated resolvers receive the applicable collection/mode map. Extended collection overrides are not yet proven. |
 | Component set and variants | figma-rust runtime | Semantic registry resolves Figma key and variant properties. |
