@@ -901,6 +901,11 @@ async function exportsTrackedTextFallbackPayload(): Promise<void> {
     textAlignVertical: "TOP",
     textTruncation: "DISABLED",
     maxLines: null,
+    leadingTrim: "CAP_HEIGHT_TO_BASELINE",
+    paragraphIndent: 4,
+    paragraphSpacing: 8,
+    textWrapStyle: "BALANCE",
+    listSpacing: 6,
     getStyledTextSegments: () => [{
       start: 0,
       end: 6,
@@ -918,7 +923,62 @@ async function exportsTrackedTextFallbackPayload(): Promise<void> {
   } as unknown as SceneNode;
 
   const bundle = await extractNodes([trackedText]);
+  assert.deepEqual(bundle.roots[0].text, {
+    characters: "Symbol",
+    auto_resize: "WIDTH_AND_HEIGHT",
+    horizontal_alignment: "LEFT",
+    vertical_alignment: "TOP",
+    truncation: "DISABLED",
+    runs: [bundle.roots[0].text?.runs[0]],
+  });
   assert.equal(bundle.roots[0].text?.runs[0].style.letter_spacing, 0.4);
+  assert.deepEqual(
+    bundle.extraction_diagnostics
+      .filter((diagnostic) => diagnostic.code === "FR-EXTRACT-LOSS-001")
+      .map((diagnostic) => diagnostic.property_path)
+      .filter((path) => path?.startsWith("text.")),
+    [
+      "text.leading_trim",
+      "text.list_spacing",
+      "text.paragraph_indent",
+      "text.paragraph_spacing",
+      "text.wrap_style",
+    ],
+  );
+  assert.equal(bundle.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.property_path === "text"
+  ), false);
+
+  const truncated = await extractNodes([{
+    ...trackedText,
+    id: "9:6",
+    textAutoResize: "HEIGHT",
+    textAlignHorizontal: "JUSTIFIED",
+    textAlignVertical: "BOTTOM",
+    textTruncation: "ENDING",
+    maxLines: 3,
+  } as unknown as SceneNode]);
+  assert.deepEqual(truncated.roots[0].text, {
+    characters: "Symbol",
+    auto_resize: "HEIGHT",
+    horizontal_alignment: "JUSTIFIED",
+    vertical_alignment: "BOTTOM",
+    truncation: "ENDING",
+    max_lines: 3,
+    runs: [truncated.roots[0].text?.runs[0]],
+  });
+  const invalidMaxLines = await extractNodes([{
+    ...trackedText,
+    id: "9:7",
+    textTruncation: "ENDING",
+    maxLines: 0,
+  } as unknown as SceneNode]);
+  assert.equal(invalidMaxLines.roots[0].text?.max_lines, undefined);
+  assert.equal(invalidMaxLines.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.code === "FR-TEXT-EXTRACT-004"
+    && diagnostic.node_id === "9:7"
+    && diagnostic.property_path === "text.max_lines"
+  ), true);
   assert.deepEqual(bundle.assets, [{
     id: "node:9:5:svg",
     source_node_id: "9:5",

@@ -867,6 +867,15 @@ impl Context<'_> {
     }
 
     fn normalize_text(&mut self, raw: &RawNode, text: &RawText) -> Text {
+        if text.max_lines == Some(0) {
+            self.diagnostics.push(Diagnostic::node(
+                Severity::Error,
+                codes::INVALID_TEXT_LAYOUT,
+                "Text max lines must be a positive integer when present",
+                &raw.id,
+                Some("text.max_lines"),
+            ));
+        }
         let runs = text
             .runs
             .iter()
@@ -897,6 +906,11 @@ impl Context<'_> {
             .collect();
         Text {
             characters: text.characters.clone(),
+            auto_resize: text.auto_resize,
+            horizontal_alignment: text.horizontal_alignment,
+            vertical_alignment: text.vertical_alignment,
+            truncation: text.truncation,
+            max_lines: text.max_lines,
             runs,
         }
     }

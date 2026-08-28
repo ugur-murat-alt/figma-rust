@@ -941,6 +941,49 @@ fn text_runs_use_utf16_offsets_without_splitting_unicode() {
 }
 
 #[test]
+fn text_layout_metadata_is_typed_and_normalized() {
+    let mut node = fixed_node("1:2", "TEXT");
+    node["text"] = json!({
+        "characters": "Line one\nLine two",
+        "auto_resize": "HEIGHT",
+        "horizontal_alignment": "JUSTIFIED",
+        "vertical_alignment": "BOTTOM",
+        "truncation": "ENDING",
+        "max_lines": 2,
+        "runs": []
+    });
+    let output = normalize_bundle(&bundle_with_roots(&json!([node])));
+    let text = output.document.roots[0].text.as_ref().expect("text IR");
+    let text_json = serde_json::to_value(text).expect("serialize text IR");
+
+    assert_eq!(text_json["auto_resize"], "HEIGHT");
+    assert_eq!(text_json["horizontal_alignment"], "JUSTIFIED");
+    assert_eq!(text_json["vertical_alignment"], "BOTTOM");
+    assert_eq!(text_json["truncation"], "ENDING");
+    assert_eq!(text_json["max_lines"], 2);
+    assert!(!output.has_errors());
+}
+
+#[test]
+fn text_max_lines_must_be_positive() {
+    let mut node = fixed_node("1:3", "TEXT");
+    node["text"] = json!({
+        "characters": "Truncated",
+        "truncation": "ENDING",
+        "max_lines": 0,
+        "runs": []
+    });
+    let output = normalize_bundle(&bundle_with_roots(&json!([node])));
+
+    assert!(output.diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == codes::INVALID_TEXT_LAYOUT
+            && diagnostic.node_id.as_deref() == Some("1:3")
+            && diagnostic.property_path.as_deref() == Some("text.max_lines")
+    }));
+    assert!(output.has_errors());
+}
+
+#[test]
 fn inert_leaf_and_opaque_container_pass_through_stay_native() {
     let mut opaque = fixed_node("11:1", "GROUP");
     opaque["style"] = json!({"blend_mode": "PASS_THROUGH"});

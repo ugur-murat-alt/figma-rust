@@ -5,7 +5,9 @@ use serde::{Deserialize, Serialize};
 use crate::raw::{
     RawAction, RawAlignment, RawAsset, RawBlendMode, RawChildAlignment, RawComponent,
     RawComponentRole, RawComponentValue, RawConstraint, RawGradientKind, RawImageScaleMode,
-    RawLiteral, RawNodeKind, RawOverride, RawReaction, RawSource, RawStrokeAlign, RawTrigger,
+    RawLiteral, RawNodeKind, RawOverride, RawReaction, RawSource, RawStrokeAlign,
+    RawTextAutoResize, RawTextHorizontalAlignment, RawTextTruncation, RawTextVerticalAlignment,
+    RawTrigger,
 };
 
 pub const DESIGN_IR_VERSION: u32 = 2;
@@ -251,9 +253,19 @@ pub struct Radii {
     pub smoothing: f64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct Text {
     pub characters: String,
+    #[serde(default, skip_serializing_if = "crate::raw::is_default")]
+    pub auto_resize: RawTextAutoResize,
+    #[serde(default, skip_serializing_if = "crate::raw::is_default")]
+    pub horizontal_alignment: RawTextHorizontalAlignment,
+    #[serde(default, skip_serializing_if = "crate::raw::is_default")]
+    pub vertical_alignment: RawTextVerticalAlignment,
+    #[serde(default, skip_serializing_if = "crate::raw::is_default")]
+    pub truncation: RawTextTruncation,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_lines: Option<u32>,
     pub runs: Vec<TextRun>,
 }
 

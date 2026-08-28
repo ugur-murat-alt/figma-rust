@@ -5,6 +5,10 @@ use serde_json::Value;
 
 use crate::Diagnostic;
 
+pub(crate) fn is_default<T: Default + PartialEq>(value: &T) -> bool {
+    *value == T::default()
+}
+
 /// Versioned extraction payload shared by the plugin and future REST importer.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ExtractionBundle {
@@ -547,11 +551,58 @@ pub struct RawRadii {
     pub smoothing: f64,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
 pub struct RawText {
     pub characters: String,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub auto_resize: RawTextAutoResize,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub horizontal_alignment: RawTextHorizontalAlignment,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub vertical_alignment: RawTextVerticalAlignment,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub truncation: RawTextTruncation,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_lines: Option<u32>,
     #[serde(default)]
     pub runs: Vec<RawTextRun>,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RawTextAutoResize {
+    #[default]
+    None,
+    WidthAndHeight,
+    Height,
+    Truncate,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RawTextHorizontalAlignment {
+    #[default]
+    Left,
+    Center,
+    Right,
+    Justified,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RawTextVerticalAlignment {
+    #[default]
+    Top,
+    Center,
+    Bottom,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RawTextTruncation {
+    #[default]
+    Disabled,
+    Ending,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

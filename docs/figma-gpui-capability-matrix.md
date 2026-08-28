@@ -75,13 +75,13 @@ diagnostic whenever it leaves the first route.
 | Glass effect | raster fallback | Explicit diagnostic. |
 | Shader effect | raster fallback | Explicit diagnostic. |
 | Plain text | GPUI native | Platform text shaping and wrapping. |
-| Multiline text | GPUI native | Fixed/hug dimensions and wrapping must be normalized together. |
+| Multiline text | GPUI native | Fixed/hug dimensions plus typed auto-resize, alignment, truncation, and max-line metadata are normalized together; GPUI lowering still requires a property-specific proof before claiming non-default alignment or truncation. |
 | Mixed font/size/weight/color runs | figma-rust runtime | Build explicit GPUI text runs; never collapse to one style. |
 | Line height | GPUI native | Unit conversion and font fixture required. |
 | Letter spacing | asset/SVG | Pinned GPUI exposes no proven styled letter-spacing API; nonzero spacing exports the text node as SVG instead of dropping the value. |
-| Paragraph/list indentation and spacing | figma-rust runtime | Explicit paragraph layout helper. |
+| Paragraph/list indentation and spacing | figma-rust runtime | Retained as source metadata with property-scoped warnings; explicit paragraph layout helper remains pending. |
 | OpenType feature overrides | GPUI native, figma-rust runtime | Pass supported features; diagnose unavailable ones. |
-| Leading trim/text wrap styles | figma-rust runtime | Text helper plus geometry fixture; unsupported variants warn. |
+| Leading trim/text wrap styles | figma-rust runtime | Retained as source metadata with property-scoped warnings; text helper plus geometry fixture remains pending. |
 | Missing font | unsupported/ambiguous | Error in fidelity mode; configured substitution only with diagnostic. |
 | Variable-bound color and modeled numbers | figma-rust runtime | Colors, width/height/min/max dimensions, text size, Auto Layout gap/padding, corner radii, and per-edge stroke widths retain `TokenRef`, full mode context, and literal fallback. Other numeric paths remain diagnostic until modeled. |
 | Variable-bound string/boolean | figma-rust runtime | Raw variable values and runtime resolver methods exist; no generated property consumer is claimed yet. |

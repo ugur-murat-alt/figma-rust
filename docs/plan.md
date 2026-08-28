@@ -49,6 +49,8 @@ do not hide current Linux screenshot or advanced-effect limitations.
 - [x] Implement schema-v2 variable/token binding with full consumer mode context,
   multi-mode values, and literal fallback resolution.
 - [x] Implement UTF-16-safe mixed text normalization.
+- [x] Type text auto-resize, alignment, truncation, and max-line metadata; retain
+  unsupported paragraph/list/leading-trim/wrap properties with property-scoped diagnostics.
 - [x] Implement parent-aware HUG/FILL/FIXED, min/max, and per-child counter-axis
   alignment normalization.
 - [x] Implement stack, grid, absolute, constraints, clipping, and scroll passes.

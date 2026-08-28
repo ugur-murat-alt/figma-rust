@@ -197,8 +197,18 @@ export interface RawStyle {
 
 export interface RawText {
   characters: string;
+  auto_resize?: RawTextAutoResize;
+  horizontal_alignment?: RawTextHorizontalAlignment;
+  vertical_alignment?: RawTextVerticalAlignment;
+  truncation?: RawTextTruncation;
+  max_lines?: number;
   runs: RawTextRun[];
 }
+
+export type RawTextAutoResize = "NONE" | "WIDTH_AND_HEIGHT" | "HEIGHT" | "TRUNCATE";
+export type RawTextHorizontalAlignment = "LEFT" | "CENTER" | "RIGHT" | "JUSTIFIED";
+export type RawTextVerticalAlignment = "TOP" | "CENTER" | "BOTTOM";
+export type RawTextTruncation = "DISABLED" | "ENDING";
 
 export interface RawTextRun {
   start_utf16: number;

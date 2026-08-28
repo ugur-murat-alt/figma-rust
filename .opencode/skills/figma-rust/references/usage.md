@@ -95,6 +95,11 @@ auto-positioned stack child fail with node/property-scoped `FR-LAYOUT-004`.
 Generated `STRETCH` suppresses the child's fixed cross-axis dimension before
 using GPUI `self_stretch`.
 
+Text extraction types auto-resize, horizontal/vertical alignment, truncation,
+and optional positive max-line values. Paragraph/list spacing and indentation,
+leading trim, and wrap style remain source metadata with separate
+`FR-EXTRACT-LOSS-001` property paths until their runtime layout is proven.
+
 Do not merge roots from different Figma pages into one bundle. Extract them separately so `source.page_id` stays truthful.
 
 ## 3. Inspect and lint an extraction

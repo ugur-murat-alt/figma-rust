@@ -1273,15 +1273,72 @@ function extractEffects(
 
 function extractText(node: TextNode, context: ExtractionContext, extensions: RawExtensions): RawText {
   const characters = node.characters;
-  const textMetadata = {
-    has_missing_font: node.hasMissingFont,
-    text_auto_resize: node.textAutoResize,
-    text_align_horizontal: node.textAlignHorizontal,
-    text_align_vertical: node.textAlignVertical,
-    text_truncation: node.textTruncation,
-    max_lines: node.maxLines,
-  };
-  addLossDiagnostic(context, node.id, "text", "Text layout metadata outside characters and styled runs is retained only as a source extension.", extensions, "figma_text_metadata", toJson(textMetadata));
+  const autoResize = enumValue(
+    node.textAutoResize,
+    ["NONE", "WIDTH_AND_HEIGHT", "HEIGHT", "TRUNCATE"],
+    "NONE",
+    node.id,
+    "text.auto_resize",
+    context,
+  );
+  const horizontalAlignment = enumValue(
+    node.textAlignHorizontal,
+    ["LEFT", "CENTER", "RIGHT", "JUSTIFIED"],
+    "LEFT",
+    node.id,
+    "text.horizontal_alignment",
+    context,
+  );
+  const verticalAlignment = enumValue(
+    node.textAlignVertical,
+    ["TOP", "CENTER", "BOTTOM"],
+    "TOP",
+    node.id,
+    "text.vertical_alignment",
+    context,
+  );
+  const truncation = enumValue(
+    node.textTruncation,
+    ["DISABLED", "ENDING"],
+    "DISABLED",
+    node.id,
+    "text.truncation",
+    context,
+  );
+  const maxLines = optionalUnsignedInteger(
+    node.maxLines,
+    4_294_967_295,
+    node.id,
+    "text.max_lines",
+    context,
+  );
+  if (maxLines === 0) {
+    addDiagnostic(
+      context,
+      "ERROR",
+      "FR-TEXT-EXTRACT-004",
+      "Text max lines must be a positive integer when present.",
+      node.id,
+      "text.max_lines",
+    );
+  }
+  for (const [propertyPath, sourceValue] of [
+    ["text.leading_trim", node.leadingTrim],
+    ["text.list_spacing", node.listSpacing],
+    ["text.paragraph_indent", node.paragraphIndent],
+    ["text.paragraph_spacing", node.paragraphSpacing],
+    ["text.wrap_style", node.textWrapStyle],
+  ] as const) {
+    addLossDiagnostic(
+      context,
+      node.id,
+      propertyPath,
+      `${propertyPath} is retained only as source metadata until its runtime layout is proven.`,
+      extensions,
+      "figma_unsupported_text_metadata",
+      { property_path: propertyPath, value: toJson(sourceValue) },
+    );
+  }
   if (node.hasMissingFont) {
     addDiagnostic(context, "ERROR", "FR-TEXT-FONT-001", "The text node uses a font unavailable to Figma.", node.id, "text.fontName");
   }
@@ -1309,7 +1366,15 @@ function extractText(node: TextNode, context: ExtractionContext, extensions: Raw
     });
   }
 
-  return { characters, runs };
+  return {
+    characters,
+    auto_resize: autoResize,
+    horizontal_alignment: horizontalAlignment,
+    vertical_alignment: verticalAlignment,
+    truncation,
+    ...(maxLines === undefined || maxLines === 0 ? {} : { max_lines: maxLines }),
+    runs,
+  };
 }
 
 function extractTextStyle(

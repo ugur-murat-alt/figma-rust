@@ -596,6 +596,33 @@ fn validate_text(node: &Node) -> Result<(), CodegenError> {
     if node.kind != RawNodeKind::Text {
         return unsupported(node, "text", "text payload on a non-text node");
     }
+    if text.auto_resize == figma_rust_core::raw::RawTextAutoResize::Truncate {
+        return unsupported(
+            node,
+            "text.auto_resize",
+            "deprecated TRUNCATE auto-resize mode",
+        );
+    }
+    if text.horizontal_alignment != figma_rust_core::raw::RawTextHorizontalAlignment::Left {
+        return unsupported(
+            node,
+            "text.horizontal_alignment",
+            "non-left horizontal text alignment",
+        );
+    }
+    if text.vertical_alignment != figma_rust_core::raw::RawTextVerticalAlignment::Top {
+        return unsupported(
+            node,
+            "text.vertical_alignment",
+            "non-top vertical text alignment",
+        );
+    }
+    if text.truncation != figma_rust_core::raw::RawTextTruncation::Disabled {
+        return unsupported(node, "text.truncation", "ending text truncation");
+    }
+    if text.max_lines.is_some() {
+        return unsupported(node, "text.max_lines", "maximum text lines");
+    }
     if text.runs.len() > 1 {
         return unsupported(node, "text.runs", "mixed rich-text runs");
     }
@@ -1352,7 +1379,8 @@ mod tests {
     };
     use figma_rust_core::raw::{
         RawAction, RawAlignment, RawAsset, RawBlendMode, RawChildAlignment, RawConstraint,
-        RawNodeKind, RawReaction, RawStrokeAlign, RawTrigger,
+        RawNodeKind, RawReaction, RawStrokeAlign, RawTextAutoResize, RawTextHorizontalAlignment,
+        RawTextTruncation, RawTextVerticalAlignment, RawTrigger,
     };
     use serde::Deserialize;
 
@@ -1588,6 +1616,7 @@ mod tests {
         node.text = Some(Text {
             characters: "Generated from Figma".to_owned(),
             runs: Vec::new(),
+            ..Text::default()
         });
         node.children.clear();
         node
@@ -1741,6 +1770,39 @@ mod tests {
     }
 
     #[test]
+    fn rejects_text_layout_metadata_without_proven_gpui_lowering() {
+        type TextMutation = fn(&mut Text);
+        let cases: [(&str, TextMutation); 5] = [
+            ("text.auto_resize", |text| {
+                text.auto_resize = RawTextAutoResize::Truncate;
+            }),
+            ("text.horizontal_alignment", |text| {
+                text.horizontal_alignment = RawTextHorizontalAlignment::Justified;
+            }),
+            ("text.vertical_alignment", |text| {
+                text.vertical_alignment = RawTextVerticalAlignment::Bottom;
+            }),
+            ("text.truncation", |text| {
+                text.truncation = RawTextTruncation::Ending;
+            }),
+            ("text.max_lines", |text| text.max_lines = Some(2)),
+        ];
+
+        for (property, mutate) in cases {
+            let mut document = supported_document();
+            let text = document.roots[0].children[1]
+                .text
+                .as_mut()
+                .expect("supported fixture text");
+            mutate(text);
+            assert!(matches!(
+                generate(&document),
+                Err(CodegenError::Unsupported { location, .. }) if location.property == property
+            ));
+        }
+    }
+
+    #[test]
     fn lowers_figma_weight_style_names_without_losing_posture() {
         let mut document = supported_document();
         document.roots[0].children[1].text = Some(Text {
@@ -1756,6 +1818,7 @@ mod tests {
                     ..TextStyle::default()
                 },
             }],
+            ..Text::default()
         });
 
         let output = match generate(&document) {
