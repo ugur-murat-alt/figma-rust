@@ -250,6 +250,13 @@ are listed in a manifest. Raster output always includes diagnostic code,
 property/effect reason, scale, and color profile. Re-generation cannot overwrite
 handwritten assets outside the generated asset directory.
 
+The CLI derives an asset cache key from decoded bytes, media type, and sorted
+export settings. Exact matches share one verified blob under
+`.figma-rust-asset-cache/`; immutable generations hard-link that blob while the
+flat compatibility projection remains a separate copy. Recovery validates cache
+and generation bytes before reuse, retains blobs reachable from current/pending
+generation manifests, and removes only bounded unreachable compiler-owned blobs.
+
 ## Behavior boundary
 
 IR preserves reactions. Generated views may emit a generated action enum or call

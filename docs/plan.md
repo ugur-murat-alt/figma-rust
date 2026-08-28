@@ -176,7 +176,13 @@ name the differing Figma node. Compile-only success is insufficient.
 ## M6: Hardening and release readiness
 
 - [x] Add schema compatibility policy and privacy-safe canonical extraction fingerprinting.
-- [ ] Add asset cache invalidation and deterministic content addressing.
+- [x] Add asset cache invalidation and deterministic content addressing. Decoded
+  bytes, media type, and sorted export settings form the cache key; exact assets
+  share verified blobs across immutable generations, stale unreachable blobs are
+  collected with bounded compiler-owned cleanup, and flat projections cannot
+  mutate linked cache content. The sanitized `fixtures/asset-cache` pair proves
+  duplicate IDs, one changed payload, repeat-run determinism, and fail-closed
+  cache tamper handling.
 - [ ] Add REST importer with lower-fidelity diagnostics.
 - [ ] Add optional Code Connect template adapter without making it mandatory.
 - [ ] Add license inventory and release packaging.

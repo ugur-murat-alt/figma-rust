@@ -1,0 +1,21 @@
+{
+  "schema_version": 2,
+  "source": {
+    "page_id": "fixture:asset-cache",
+    "selected_node_ids": ["20:1", "20:2", "20:3"],
+    "plugin_api_version": "1.135.0"
+  },
+  "roots": [
+    {"id": "20:1", "name": "Shared A", "kind": "VECTOR", "size": {"width": 16.0, "height": 16.0, "horizontal": "FIXED", "vertical": "FIXED"}},
+    {"id": "20:2", "name": "Shared B", "kind": "VECTOR", "size": {"width": 16.0, "height": 16.0, "horizontal": "FIXED", "vertical": "FIXED"}},
+    {"id": "20:3", "name": "Changing", "kind": "VECTOR", "size": {"width": 16.0, "height": 16.0, "horizontal": "FIXED", "vertical": "FIXED"}}
+  ],
+  "variables": [],
+  "components": [],
+  "assets": [
+    {"id": "node:20:1:svg", "source_node_id": "20:1", "media_type": "image/svg+xml", "export_settings": {"format": "SVG"}, "payload_base64": "PHN2Zy8+"},
+    {"id": "node:20:2:svg", "source_node_id": "20:2", "media_type": "image/svg+xml", "export_settings": {"format": "SVG"}, "payload_base64": "PHN2Zy8+"},
+    {"id": "node:20:3:svg", "source_node_id": "20:3", "media_type": "image/svg+xml", "export_settings": {"format": "SVG"}, "payload_base64": "PHN2Zz5uZXc8L3N2Zz4="}
+  ],
+  "extraction_diagnostics": []
+}

@@ -14,9 +14,11 @@ use crate::compiler::OutputArtifact;
 pub(crate) const CURRENT_GENERATION: &str = "current-generation.json";
 const PENDING_GENERATION: &str = ".figma-rust-current.pending";
 pub(crate) const GENERATION_STORE: &str = ".figma-rust-generations";
+pub(crate) const ASSET_CACHE: &str = ".figma-rust-asset-cache";
 const GENERATION_MANIFEST: &str = "generation.json";
 const MAX_RECOVERY_ENTRIES: usize = 32;
 const MAX_GENERATION_ARTIFACTS: usize = 10_000;
+const MAX_CACHE_SCAN_ENTRIES: usize = MAX_GENERATION_ARTIFACTS * 2 + MAX_RECOVERY_ENTRIES;
 const MAX_GENERATION_BYTES: u64 = 512 * 1024 * 1024;
 static TEMP_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
@@ -32,6 +34,8 @@ struct GenerationArtifact {
     name: String,
     bytes: u64,
     sha256: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cache_key: Option<String>,
 }
 
 pub(crate) struct PreparedGeneration {
@@ -60,6 +64,7 @@ pub(crate) fn recover(
         let mut checkpoint = |_: &'static str| Ok::<(), String>(());
         commit_pending(output_directory, &mut checkpoint)?;
         cleanup_orphan_generations(output_directory)?;
+        cleanup_asset_cache(output_directory)?;
         return Ok(());
     }
     if current_path.exists() {
@@ -68,9 +73,9 @@ pub(crate) fn recover(
         if !projection_matches(output_directory, &outputs)? {
             project(&outputs, &manifest_names(&current))?;
         }
-        cleanup_orphan_generations(output_directory)?;
     }
-    Ok(())
+    cleanup_orphan_generations(output_directory)?;
+    cleanup_asset_cache(output_directory)
 }
 
 pub(crate) fn prepare(
@@ -88,6 +93,7 @@ pub(crate) fn prepare_with_checkpoint(
 ) -> Result<PreparedGeneration, String> {
     let manifest = build_manifest(outputs)?;
     ensure_generation_store(output_directory, checkpoint)?;
+    ensure_asset_cache(output_directory, checkpoint)?;
     stage_generation(output_directory, outputs, &manifest, checkpoint)?;
     write_pending(output_directory, &manifest, checkpoint)?;
     Ok(PreparedGeneration { manifest })
@@ -108,14 +114,52 @@ pub(crate) fn commit_with_checkpoint(
         return Err("pending generation changed before commit".to_owned());
     }
     commit_pending(output_directory, checkpoint)?;
-    cleanup_orphan_generations(output_directory)
+    cleanup_orphan_generations(output_directory)?;
+    cleanup_asset_cache(output_directory)
 }
 
 pub(crate) fn invalidate(output_directory: &Path) -> Vec<String> {
-    [CURRENT_GENERATION, PENDING_GENERATION]
+    let mut errors = [CURRENT_GENERATION, PENDING_GENERATION]
         .iter()
         .filter_map(|name| remove_regular_if_exists(&output_directory.join(name)).err())
-        .collect()
+        .collect::<Vec<_>>();
+    if let Err(error) = cleanup_asset_cache(output_directory) {
+        errors.push(error);
+    }
+    errors
+}
+
+pub(crate) fn asset_cache_key(
+    content: &[u8],
+    media_type: &str,
+    export_settings: &std::collections::BTreeMap<String, String>,
+) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(b"figma-rust-asset-cache-v1\0");
+    update_length_prefixed(&mut hasher, media_type.as_bytes());
+    for (key, value) in export_settings {
+        update_length_prefixed(&mut hasher, key.as_bytes());
+        update_length_prefixed(&mut hasher, value.as_bytes());
+    }
+    update_length_prefixed(&mut hasher, content);
+    hex_digest(hasher.finalize().as_slice())
+}
+
+pub(crate) fn stage_projection_artifact(
+    destination: &Path,
+    output: &OutputArtifact,
+) -> Result<(), String> {
+    if let Some(cache_key) = &output.cache_key {
+        let output_directory = destination
+            .parent()
+            .ok_or_else(|| format!("projection path {} has no parent", destination.display()))?;
+        let blob = output_directory.join(ASSET_CACHE).join(cache_key);
+        validate_cached_blob(&blob, cache_key, &output.content)?;
+        // Flat projections are compatibility copies, not immutable cache members.
+        // Keeping a distinct inode prevents a consumer edit from corrupting the
+        // cache blob and every generation that reuses it through hard links.
+    }
+    write_synced_file(destination, &output.content)
 }
 
 fn build_manifest(outputs: &[OutputArtifact]) -> Result<GenerationManifest, String> {
@@ -140,6 +184,7 @@ fn build_manifest(outputs: &[OutputArtifact]) -> Result<GenerationManifest, Stri
             name: output.name.clone(),
             bytes,
             sha256: sha256_hex(&output.content),
+            cache_key: output.cache_key.clone(),
         });
     }
     if total_bytes > MAX_GENERATION_BYTES {
@@ -199,6 +244,79 @@ fn ensure_generation_store(
     }
 }
 
+fn ensure_asset_cache(
+    output_directory: &Path,
+    checkpoint: &mut dyn FnMut(&'static str) -> Result<(), String>,
+) -> Result<(), String> {
+    let cache = output_directory.join(ASSET_CACHE);
+    match fs::symlink_metadata(&cache) {
+        Ok(metadata) if metadata.is_dir() && !metadata.file_type().is_symlink() => Ok(()),
+        Ok(_) => Err(format!(
+            "asset cache {} is not a real directory",
+            cache.display()
+        )),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+            fs::create_dir(&cache)
+                .map_err(|error| format!("creating asset cache {}: {error}", cache.display()))?;
+            sync_directory(output_directory)?;
+            checkpoint("sync-output-after-cache-create")
+        }
+        Err(error) => Err(format!(
+            "inspecting asset cache {}: {error}",
+            cache.display()
+        )),
+    }
+}
+
+fn ensure_asset_blob(
+    output_directory: &Path,
+    output: &OutputArtifact,
+    cache_key: &str,
+    checkpoint: &mut dyn FnMut(&'static str) -> Result<(), String>,
+) -> Result<PathBuf, String> {
+    let cache = output_directory.join(ASSET_CACHE);
+    let blob = cache.join(cache_key);
+    if blob.exists() {
+        validate_cached_blob(&blob, cache_key, &output.content)?;
+        return Ok(blob);
+    }
+    let temporary = cache.join(format!(
+        ".tmp-{cache_key}-{}-{}",
+        std::process::id(),
+        TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed)
+    ));
+    write_synced_file(&temporary, &output.content)?;
+    checkpoint("sync-asset-cache-blob")?;
+    fs::rename(&temporary, &blob).map_err(|error| {
+        format!(
+            "publishing asset cache blob {} to {}: {error}",
+            temporary.display(),
+            blob.display()
+        )
+    })?;
+    checkpoint("rename-asset-cache-blob")?;
+    sync_directory(&cache)?;
+    checkpoint("sync-asset-cache")?;
+    Ok(blob)
+}
+
+fn validate_cached_blob(path: &Path, cache_key: &str, expected: &[u8]) -> Result<(), String> {
+    if cache_key.len() != 64 || !cache_key.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+        return Err(format!("invalid asset cache key {cache_key}"));
+    }
+    validate_regular_file(path, "asset cache blob")?;
+    let actual = fs::read(path)
+        .map_err(|error| format!("reading asset cache blob {}: {error}", path.display()))?;
+    if actual == expected {
+        Ok(())
+    } else {
+        Err(format!(
+            "asset cache blob {} does not match the verified artifact bytes",
+            path.display()
+        ))
+    }
+}
+
 fn stage_generation(
     output_directory: &Path,
     outputs: &[OutputArtifact],
@@ -219,7 +337,17 @@ fn stage_generation(
     fs::create_dir(&temporary)
         .map_err(|error| format!("creating generation {}: {error}", temporary.display()))?;
     for output in outputs {
-        write_synced_file(&temporary.join(&output.name), &output.content)?;
+        if let Some(cache_key) = &output.cache_key {
+            let blob = ensure_asset_blob(output_directory, output, cache_key, checkpoint)?;
+            fs::hard_link(&blob, temporary.join(&output.name)).map_err(|error| {
+                format!(
+                    "linking cached asset {} into generation: {error}",
+                    blob.display()
+                )
+            })?;
+        } else {
+            write_synced_file(&temporary.join(&output.name), &output.content)?;
+        }
         checkpoint("sync-generation-artifact")?;
     }
     let manifest_bytes = manifest_bytes(manifest)?;
@@ -300,6 +428,7 @@ fn read_generation(
                 .map(|content| OutputArtifact {
                     name: artifact.name.clone(),
                     content,
+                    cache_key: artifact.cache_key.clone(),
                 })
                 .map_err(|error| format!("reading generation artifact {}: {error}", artifact.name))
         })
@@ -366,9 +495,17 @@ fn validate_generation(
                 path.display()
             ));
         }
+        if let Some(cache_key) = &artifact.cache_key {
+            validate_cached_blob(
+                &output_directory.join(ASSET_CACHE).join(cache_key),
+                cache_key,
+                &bytes,
+            )?;
+        }
         validated_outputs.push(OutputArtifact {
             name: artifact.name.clone(),
             content: bytes,
+            cache_key: artifact.cache_key.clone(),
         });
     }
     if generation_id(&validated_outputs)? != expected.generation_id {
@@ -409,6 +546,14 @@ fn validate_manifest(manifest: &GenerationManifest) -> Result<(), String> {
             || !artifact.sha256.bytes().all(|byte| byte.is_ascii_hexdigit())
         {
             return Err(format!("artifact {} has an invalid SHA-256", artifact.name));
+        }
+        if artifact.cache_key.as_ref().is_some_and(|cache_key| {
+            cache_key.len() != 64 || !cache_key.bytes().all(|byte| byte.is_ascii_hexdigit())
+        }) {
+            return Err(format!(
+                "artifact {} has an invalid cache key",
+                artifact.name
+            ));
         }
         total = total.saturating_add(artifact.bytes);
         previous = Some(&artifact.name);
@@ -479,11 +624,22 @@ fn cleanup_temporary_paths(output_directory: &Path) -> Result<(), String> {
     if store.exists() {
         let entries = fs::read_dir(&store)
             .map_err(|error| format!("reading generation store {}: {error}", store.display()))?;
-        for entry in entries.take(MAX_RECOVERY_ENTRIES) {
+        for entry in entries.take(MAX_CACHE_SCAN_ENTRIES) {
             let entry = entry.map_err(|error| format!("reading generation entry: {error}"))?;
             let name = entry.file_name();
             if name.to_string_lossy().starts_with(".tmp-") {
                 remove_generation_directory(&entry.path())?;
+            }
+        }
+    }
+    let cache = output_directory.join(ASSET_CACHE);
+    if cache.exists() {
+        let entries = fs::read_dir(&cache)
+            .map_err(|error| format!("reading asset cache {}: {error}", cache.display()))?;
+        for entry in entries.take(MAX_RECOVERY_ENTRIES) {
+            let entry = entry.map_err(|error| format!("reading asset cache entry: {error}"))?;
+            if entry.file_name().to_string_lossy().starts_with(".tmp-") {
+                remove_regular_if_exists(&entry.path())?;
             }
         }
     }
@@ -494,7 +650,7 @@ fn cleanup_temporary_paths(output_directory: &Path) -> Result<(), String> {
                 output_directory.display()
             )
         })?
-        .take(MAX_RECOVERY_ENTRIES)
+        .take(MAX_CACHE_SCAN_ENTRIES)
     {
         let entry = entry.map_err(|error| format!("reading output entry: {error}"))?;
         if entry
@@ -537,6 +693,43 @@ fn cleanup_orphan_generations(output_directory: &Path) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+fn cleanup_asset_cache(output_directory: &Path) -> Result<(), String> {
+    let cache = output_directory.join(ASSET_CACHE);
+    if !cache.exists() {
+        return Ok(());
+    }
+    validate_real_directory(&cache, "asset cache")?;
+    let mut retained = BTreeSet::new();
+    for name in [CURRENT_GENERATION, PENDING_GENERATION] {
+        let path = output_directory.join(name);
+        if path.exists() {
+            retained.extend(
+                read_manifest(&path)?
+                    .artifacts
+                    .into_iter()
+                    .filter_map(|artifact| artifact.cache_key),
+            );
+        }
+    }
+    let mut removed = 0;
+    for entry in fs::read_dir(&cache)
+        .map_err(|error| format!("reading asset cache {}: {error}", cache.display()))?
+        .take(MAX_RECOVERY_ENTRIES)
+    {
+        let entry = entry.map_err(|error| format!("reading asset cache entry: {error}"))?;
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name.len() == 64
+            && name.bytes().all(|byte| byte.is_ascii_hexdigit())
+            && !retained.contains(&name)
+            && removed < MAX_RECOVERY_ENTRIES
+        {
+            remove_regular_if_exists(&entry.path())?;
+            removed += 1;
+        }
+    }
+    sync_directory(&cache)
 }
 
 fn remove_generation_directory(path: &Path) -> Result<(), String> {
@@ -631,6 +824,12 @@ fn sha256_hex(bytes: &[u8]) -> String {
     hex_digest(Sha256::digest(bytes).as_slice())
 }
 
+fn update_length_prefixed(hasher: &mut Sha256, bytes: &[u8]) {
+    let length = u64::try_from(bytes.len()).unwrap_or(u64::MAX);
+    hasher.update(length.to_be_bytes());
+    hasher.update(bytes);
+}
+
 fn hex_digest(bytes: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
     let mut output = String::with_capacity(bytes.len() * 2);
@@ -643,11 +842,15 @@ fn hex_digest(bytes: &[u8]) -> String {
 
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeSet, fs, path::Path};
+    use std::{
+        collections::{BTreeMap, BTreeSet},
+        fs,
+        path::Path,
+    };
 
     use super::{
-        CURRENT_GENERATION, GENERATION_STORE, commit, commit_with_checkpoint, prepare,
-        prepare_with_checkpoint, recover,
+        ASSET_CACHE, CURRENT_GENERATION, GENERATION_STORE, asset_cache_key, commit,
+        commit_with_checkpoint, prepare, prepare_with_checkpoint, recover,
     };
     use crate::compiler::OutputArtifact;
 
@@ -682,6 +885,88 @@ mod tests {
             assert_no_recovery_work_files(&base)?;
             fs::remove_dir_all(base)?;
         }
+        Ok(())
+    }
+
+    #[test]
+    fn asset_cache_key_includes_bytes_media_type_and_export_semantics() {
+        let svg = b"<svg/>";
+        let authored = BTreeMap::from([
+            ("color_policy".to_owned(), "authored".to_owned()),
+            ("format".to_owned(), "SVG".to_owned()),
+        ]);
+        let outlined = BTreeMap::from([
+            ("color_policy".to_owned(), "outlined".to_owned()),
+            ("format".to_owned(), "SVG".to_owned()),
+        ]);
+
+        let first = asset_cache_key(svg, "image/svg+xml", &authored);
+        assert_eq!(first, asset_cache_key(svg, "image/svg+xml", &authored));
+        assert_ne!(
+            first,
+            asset_cache_key(b"<svg>changed</svg>", "image/svg+xml", &authored)
+        );
+        assert_ne!(first, asset_cache_key(svg, "image/png", &authored));
+        assert_ne!(first, asset_cache_key(svg, "image/svg+xml", &outlined));
+    }
+
+    #[test]
+    fn exact_assets_share_one_blob_and_unreachable_blobs_are_collected()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let base = unique_test_path("asset-cache");
+        fs::create_dir_all(&base)?;
+        let first = cached_artifacts(b"shared");
+        seed_generation(&base, &first)?;
+        let first_key = first[1]
+            .cache_key
+            .as_deref()
+            .ok_or("missing first cache key")?;
+        assert_eq!(fs::read_dir(base.join(ASSET_CACHE))?.count(), 1);
+        assert_eq!(fs::read(base.join(ASSET_CACHE).join(first_key))?, b"shared");
+
+        let changed = cached_artifacts(b"changed");
+        let changed_key = changed[1]
+            .cache_key
+            .as_deref()
+            .ok_or("missing changed cache key")?;
+        let prepared = prepare(&base, &changed).map_err(std::io::Error::other)?;
+        let mut owned = artifact_names(&first);
+        owned.extend(artifact_names(&changed));
+        project(&base, &changed, &owned).map_err(std::io::Error::other)?;
+        commit(&base, &prepared).map_err(std::io::Error::other)?;
+
+        assert!(!base.join(ASSET_CACHE).join(first_key).exists());
+        assert_eq!(
+            fs::read(base.join(ASSET_CACHE).join(changed_key))?,
+            b"changed"
+        );
+        assert_eq!(fs::read_dir(base.join(ASSET_CACHE))?.count(), 1);
+        fs::remove_dir_all(base)?;
+        Ok(())
+    }
+
+    #[test]
+    fn first_compile_failure_before_the_pointer_collects_orphan_cache_and_generation()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let base = unique_test_path("first-cache-failure");
+        fs::create_dir_all(&base)?;
+        let outputs = cached_artifacts(b"orphan");
+        let mut inject = |checkpoint: &'static str| {
+            if checkpoint == "sync-pending-pointer" {
+                Err("injected failure before pending publication".to_owned())
+            } else {
+                Ok(())
+            }
+        };
+        assert!(prepare_with_checkpoint(&base, &outputs, &mut inject).is_err());
+
+        recover(&base, |outputs, names| project(&base, outputs, names))?;
+        assert_eq!(fs::read_dir(base.join(ASSET_CACHE))?.count(), 0);
+        assert_eq!(fs::read_dir(base.join(GENERATION_STORE))?.count(), 0);
+        assert!(!base.join(CURRENT_GENERATION).exists());
+        assert_no_recovery_work_files(&base)?;
+
+        fs::remove_dir_all(base)?;
         Ok(())
     }
 
@@ -723,8 +1008,7 @@ mod tests {
             }
         }
         for output in outputs {
-            fs::write(output_directory.join(&output.name), &output.content)
-                .map_err(|error| format!("writing projection {}: {error}", output.name))?;
+            super::stage_projection_artifact(&output_directory.join(&output.name), output)?;
         }
         Ok(())
     }
@@ -776,7 +1060,7 @@ mod tests {
         {
             let entry = entry.map_err(|error| format!("reading output entry: {error}"))?;
             let name = entry.file_name().to_string_lossy().into_owned();
-            if name.starts_with(".figma-rust-") && name != GENERATION_STORE {
+            if name.starts_with(".figma-rust-") && name != GENERATION_STORE && name != ASSET_CACHE {
                 return Err(format!("recovery work file remains: {name}"));
             }
         }
@@ -796,10 +1080,34 @@ mod tests {
             OutputArtifact {
                 name: "asset-manifest.json".to_owned(),
                 content: [value, b"-manifest\n"].concat(),
+                cache_key: None,
             },
             OutputArtifact {
                 name: "generated.rs".to_owned(),
                 content: [value, b"-generated\n"].concat(),
+                cache_key: None,
+            },
+        ]
+    }
+
+    fn cached_artifacts(value: &[u8]) -> Vec<OutputArtifact> {
+        let settings = BTreeMap::from([("format".to_owned(), "SVG".to_owned())]);
+        let cache_key = asset_cache_key(value, "image/svg+xml", &settings);
+        vec![
+            OutputArtifact {
+                name: "asset-manifest.json".to_owned(),
+                content: b"manifest\n".to_vec(),
+                cache_key: None,
+            },
+            OutputArtifact {
+                name: "asset-a.svg".to_owned(),
+                content: value.to_vec(),
+                cache_key: Some(cache_key.clone()),
+            },
+            OutputArtifact {
+                name: "asset-b.svg".to_owned(),
+                content: value.to_vec(),
+                cache_key: Some(cache_key),
             },
         ]
     }

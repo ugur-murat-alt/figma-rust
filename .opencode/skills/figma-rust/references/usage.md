@@ -163,6 +163,12 @@ Treat the fixed files, manifest, and listed asset files as one compiler-owned,
 lock-protected artifact set. Each file is staged, synced, and published with a
 same-directory rename; handled failures attempt to restore the previous set.
 Readers that do not take the directory lock can still observe rename transitions.
+Decoded SVG/PNG payloads are also addressed by bytes, media type, and sorted export
+settings under `.figma-rust-asset-cache/`. Exact matches are reused across
+immutable generations; recovery validates cache bytes and removes only bounded
+blobs unreachable from current or pending generation manifests. Flat asset files
+remain separate compatibility copies, so consumer edits cannot corrupt cache
+content. Do not edit or clean the hidden cache/generation stores manually.
 Do not add handwritten behavior to `generated.rs`. Integrate by calling generated
 view functions from application-owned code and handling actions/state outside
 generated directories. A view with fallback assets also accepts an

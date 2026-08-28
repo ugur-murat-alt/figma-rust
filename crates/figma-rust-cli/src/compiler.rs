@@ -680,18 +680,22 @@ fn output_artifacts(
         OutputArtifact {
             name: GENERATED_RUST.to_owned(),
             content: generated.rust.as_bytes().to_vec(),
+            cache_key: None,
         },
         OutputArtifact {
             name: SOURCE_MAP_JSON.to_owned(),
             content: serialize_json("source map", &generated.source_map)?.into_bytes(),
+            cache_key: None,
         },
         OutputArtifact {
             name: IR_JSON.to_owned(),
             content: serialize_json("normalized IR", &document_without_payloads)?.into_bytes(),
+            cache_key: None,
         },
         OutputArtifact {
             name: DIAGNOSTICS_JSON.to_owned(),
             content: serialize_json("diagnostics", &normalization.diagnostics)?.into_bytes(),
+            cache_key: None,
         },
     ];
     for asset in &normalization.document.assets {
@@ -699,6 +703,26 @@ fn output_artifacts(
             .payload_base64
             .as_ref()
             .and_then(|_| asset.file_name());
+        let mut cache_key = None;
+        if let (Some(payload), Some(file_name)) = (&asset.payload_base64, file_name.clone()) {
+            let content = BASE64
+                .decode(payload)
+                .map_err(|source| CliError::DecodeAsset {
+                    id: asset.id.clone(),
+                    source,
+                })?;
+            let key = crate::generation::asset_cache_key(
+                &content,
+                &asset.media_type,
+                &asset.export_settings,
+            );
+            outputs.push(OutputArtifact {
+                name: file_name,
+                cache_key: Some(key.clone()),
+                content,
+            });
+            cache_key = Some(key);
+        }
         manifest.assets.push(AssetManifestEntry {
             id: asset.id.clone(),
             source_node_id: asset.source_node_id.clone(),
@@ -706,24 +730,14 @@ fn output_artifacts(
             content_hash: asset.content_hash.clone(),
             export_settings: asset.export_settings.clone(),
             file_name: file_name.clone(),
+            cache_key,
             payload_available: asset.payload_base64.is_some(),
         });
-        if let (Some(payload), Some(file_name)) = (&asset.payload_base64, file_name) {
-            let content = BASE64
-                .decode(payload)
-                .map_err(|source| CliError::DecodeAsset {
-                    id: asset.id.clone(),
-                    source,
-                })?;
-            outputs.push(OutputArtifact {
-                name: file_name,
-                content,
-            });
-        }
     }
     outputs.push(OutputArtifact {
         name: ASSET_MANIFEST_JSON.to_owned(),
         content: serialize_json("asset manifest", &manifest)?.into_bytes(),
+        cache_key: None,
     });
     outputs.sort_by(|left, right| left.name.cmp(&right.name));
     Ok(outputs)
@@ -746,6 +760,8 @@ struct AssetManifestEntry {
     export_settings: std::collections::BTreeMap<String, String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     file_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cache_key: Option<String>,
     #[serde(default)]
     payload_available: bool,
 }
@@ -753,6 +769,7 @@ struct AssetManifestEntry {
 pub(crate) struct OutputArtifact {
     pub(crate) name: String,
     pub(crate) content: Vec<u8>,
+    pub(crate) cache_key: Option<String>,
 }
 
 struct ArtifactPaths {
@@ -814,15 +831,7 @@ fn stage_outputs(paths: &[ArtifactPaths], outputs: &[OutputArtifact]) -> Result<
             .iter()
             .find(|path| path.name == output.name)
             .ok_or_else(|| format!("missing publication path for {}", output.name))?;
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&path.temp_path)
-            .map_err(|error| format!("creating {}: {error}", path.temp_path.display()))?;
-        file.write_all(&output.content)
-            .map_err(|error| format!("writing {}: {error}", path.temp_path.display()))?;
-        file.sync_all()
-            .map_err(|error| format!("syncing {}: {error}", path.temp_path.display()))?;
+        crate::generation::stage_projection_artifact(&path.temp_path, output)?;
     }
     Ok(())
 }
@@ -1394,6 +1403,7 @@ mod tests {
         assert_eq!(
             names,
             [
+                ".figma-rust-asset-cache",
                 ".figma-rust-generations",
                 "asset-manifest.json",
                 "current-generation.json",
@@ -1409,6 +1419,7 @@ mod tests {
         }
         assert!(fs::read(out.join(crate::generation::CURRENT_GENERATION))?.ends_with(b"\n"));
         assert!(out.join(crate::generation::GENERATION_STORE).is_dir());
+        assert!(out.join(crate::generation::ASSET_CACHE).is_dir());
         let first_pointer = fs::read(out.join(crate::generation::CURRENT_GENERATION))?;
         assert!(compile_file(&raw, &out)?.error.is_none());
         assert_eq!(
@@ -1479,7 +1490,90 @@ mod tests {
         let manifest = fs::read_to_string(out.join("asset-manifest.json"))?;
         assert!(manifest.ends_with('\n'));
         assert!(manifest.contains(&format!("\"file_name\": \"{asset_name}\"")));
+        assert!(manifest.contains("\"cache_key\":"));
         assert!(!manifest.contains("payload_base64"));
+
+        fs::remove_dir_all(base)?;
+        Ok(())
+    }
+
+    #[test]
+    fn asset_cache_fixture_reuses_exact_blobs_collects_stale_content_and_is_deterministic()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let base = unique_test_path("asset-cache-fixture");
+        fs::create_dir_all(&base)?;
+        let out = base.join("out");
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/asset-cache/extraction.v1.json");
+        let changed = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/asset-cache/extraction.v2.json");
+
+        assert!(compile_file(&fixture, &out)?.error.is_none());
+        let first_pointer = fs::read(out.join(crate::generation::CURRENT_GENERATION))?;
+        let first_cache = sorted_file_names(&out.join(crate::generation::ASSET_CACHE))?;
+        assert_eq!(
+            first_cache.len(),
+            2,
+            "three assets should use two exact blobs"
+        );
+        assert!(compile_file(&fixture, &out)?.error.is_none());
+        assert_eq!(
+            fs::read(out.join(crate::generation::CURRENT_GENERATION))?,
+            first_pointer
+        );
+        assert_eq!(
+            sorted_file_names(&out.join(crate::generation::ASSET_CACHE))?,
+            first_cache
+        );
+
+        assert!(compile_file(&changed, &out)?.error.is_none());
+        let second_pointer = fs::read(out.join(crate::generation::CURRENT_GENERATION))?;
+        let second_cache = sorted_file_names(&out.join(crate::generation::ASSET_CACHE))?;
+        assert_ne!(second_pointer, first_pointer);
+        assert_eq!(second_cache.len(), 2);
+        assert_eq!(
+            first_cache
+                .iter()
+                .filter(|name| second_cache.contains(name))
+                .count(),
+            1,
+            "only the shared exact blob should remain reachable"
+        );
+        assert!(compile_file(&changed, &out)?.error.is_none());
+        assert_eq!(
+            fs::read(out.join(crate::generation::CURRENT_GENERATION))?,
+            second_pointer
+        );
+        assert_eq!(
+            sorted_file_names(&out.join(crate::generation::ASSET_CACHE))?,
+            second_cache
+        );
+
+        fs::remove_dir_all(base)?;
+        Ok(())
+    }
+
+    #[test]
+    fn tampered_asset_cache_fails_closed_without_mutating_the_flat_projection()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let base = unique_test_path("tampered-asset-cache");
+        fs::create_dir_all(&base)?;
+        let out = base.join("out");
+        let fixture = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../fixtures/asset-cache/extraction.v1.json");
+        assert!(compile_file(&fixture, &out)?.error.is_none());
+        let projection = artifact_contents(&out)?;
+        let projected_assets = flat_asset_contents(&out)?;
+        let cache_entry = fs::read_dir(out.join(crate::generation::ASSET_CACHE))?
+            .next()
+            .ok_or("missing cache entry")??
+            .path();
+        fs::write(cache_entry, b"tampered")?;
+
+        let error = compile_file(&fixture, &out).expect_err("tampered cache must fail");
+        assert!(error.to_string().contains("hash/size validation"));
+        assert_eq!(artifact_contents(&out)?, projection);
+        assert_eq!(flat_asset_contents(&out)?, projected_assets);
 
         fs::remove_dir_all(base)?;
         Ok(())
@@ -1727,10 +1821,56 @@ mod tests {
         Ok(names)
     }
 
+    fn sorted_file_names(directory: &std::path::Path) -> Result<Vec<String>, std::io::Error> {
+        let mut names = fs::read_dir(directory)?
+            .map(|entry| {
+                entry.and_then(|entry| {
+                    entry.file_name().into_string().map_err(|_| {
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidData,
+                            "non-UTF-8 fixture file name",
+                        )
+                    })
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        names.sort();
+        Ok(names)
+    }
+
+    fn flat_asset_contents(
+        output_directory: &std::path::Path,
+    ) -> Result<BTreeMap<String, Vec<u8>>, std::io::Error> {
+        fs::read_dir(output_directory)?
+            .filter_map(|entry| match entry {
+                Ok(entry)
+                    if entry.file_type().is_ok_and(|kind| kind.is_file())
+                        && entry.file_name().to_string_lossy().starts_with("asset-")
+                        && entry.file_name() != ASSET_MANIFEST_JSON =>
+                {
+                    Some(Ok(entry))
+                }
+                Ok(_) => None,
+                Err(error) => Some(Err(error)),
+            })
+            .map(|entry| {
+                let entry = entry?;
+                let name = entry.file_name().into_string().map_err(|_| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "non-UTF-8 fixture file name",
+                    )
+                })?;
+                fs::read(entry.path()).map(|content| (name, content))
+            })
+            .collect()
+    }
+
     fn final_artifact_names() -> Vec<OsString> {
         let mut names = ARTIFACT_NAMES.map(OsString::from).to_vec();
         names.push(OsString::from(crate::generation::CURRENT_GENERATION));
         names.push(OsString::from(crate::generation::GENERATION_STORE));
+        names.push(OsString::from(crate::generation::ASSET_CACHE));
         names.sort();
         names
     }
