@@ -1,0 +1,66 @@
+name: macOS headless capture
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - fixtures/generated-gpui/**
+      - fixtures/real-figma/**
+      - .github/workflows/macos-headless-capture.yml
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.97.1 --profile minimal --component clippy,rustfmt
+      - name: Build capture and verifier
+        run: |
+          cargo build -p figma-generated-gpui-fixture \
+            --features capture-real-window --bin capture-real-group
+          cargo build -p figma-rust-cli
+      - name: Capture and verify twice
+        run: |
+          for run in 1 2; do
+            dir="$RUNNER_TEMP/run-$run"
+            mkdir -p "$dir"
+            cp fixtures/real-figma/reference.geometry.json "$dir/"
+            cp fixtures/real-figma/actual.geometry.json "$dir/"
+            cp fixtures/real-figma/reference.png "$dir/"
+            cp fixtures/real-figma/verify.image.json "$dir/"
+            target/debug/capture-real-group --headless "$dir/actual.png" \
+              >"$dir/capture.json"
+            target/debug/figma-rust verify "$dir/verify.image.json" --json \
+              >"$dir/verify.json"
+            jq -e '.passed == true' "$dir/verify.json"
+            jq -n -S \
+              --arg platform macos \
+              --arg architecture "$(uname -m)" \
+              --arg os_version "$(sw_vers -productVersion)" \
+              --arg rustc "$(rustc --version)" \
+              --arg image_sha "$(shasum -a 256 "$dir/actual.png" | cut -d' ' -f1)" \
+              --arg verify_sha "$(shasum -a 256 "$dir/verify.json" | cut -d' ' -f1)" \
+              '{schema_version:1,platform:$platform,architecture:$architecture,
+                os_version:$os_version,rustc:$rustc,gpui_revision:"5631830c564afa89b3aba679f45d9c3345f9460f",
+                renderer:"gpui-platform-headless",font_profile:"no-text",
+                logical_size:{width:100,height:60},scale:1,
+                image_sha256:$image_sha,verifier_report_sha256:$verify_sha,passed:true}' \
+              >"$dir/platform-evidence.json"
+          done
+          cmp "$RUNNER_TEMP/run-1/actual.png" "$RUNNER_TEMP/run-2/actual.png"
+          cmp "$RUNNER_TEMP/run-1/verify.json" "$RUNNER_TEMP/run-2/verify.json"
+          cmp "$RUNNER_TEMP/run-1/platform-evidence.json" \
+              "$RUNNER_TEMP/run-2/platform-evidence.json"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: macos-headless-capture
+          path: ${{ runner.temp }}/run-*
+          if-no-files-found: error
+          retention-days: 14

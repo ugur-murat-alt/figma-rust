@@ -19,7 +19,7 @@ capture-real-window = [
 base64 = { workspace = true, optional = true }
 figma-gpui-runtime = { path = "../../crates/figma-gpui-runtime" }
 gpui.workspace = true
-gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "5631830c564afa89b3aba679f45d9c3345f9460f", default-features = false, features = ["font-kit", "wayland"], optional = true }
+gpui_platform = { git = "https://github.com/zed-industries/zed", rev = "5631830c564afa89b3aba679f45d9c3345f9460f", default-features = false, features = ["font-kit", "test-support", "wayland"], optional = true }
 image = { workspace = true, optional = true }
 serde_json = { workspace = true, optional = true }
 sha2 = { workspace = true, optional = true }

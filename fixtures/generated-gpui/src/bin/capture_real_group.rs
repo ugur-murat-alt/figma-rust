@@ -7,6 +7,7 @@ use std::{
     path::{Component, Path, PathBuf},
     process::{self, ExitCode},
     rc::Rc,
+    sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
@@ -14,8 +15,9 @@ use base64::Engine as _;
 use figma_generated_gpui_fixture::generated_real_group;
 use figma_gpui_runtime::{FallbackTokens, configure_figma_fidelity};
 use gpui::{
-    App, AppContext, Bounds, Context, IntoElement, ParentElement, Render, Styled, Window,
-    WindowBackgroundAppearance, WindowBounds, WindowOptions, div, point, px, rgba, size,
+    App, AppContext, Bounds, Context, HeadlessAppContext, IntoElement, ParentElement, Render,
+    Styled, Window, WindowBackgroundAppearance, WindowBounds, WindowOptions, div, point, px, rgba,
+    size,
 };
 use sha2::Digest as _;
 
@@ -66,6 +68,9 @@ impl Backdrop {
 
 enum CaptureCommand {
     Native {
+        output: PathBuf,
+    },
+    Headless {
         output: PathBuf,
     },
     Display {
@@ -344,6 +349,9 @@ fn parse_command(args: impl IntoIterator<Item = OsString>) -> Result<CaptureComm
     let parsed = match command.to_str() {
         Some("--display") => CaptureCommand::Display {
             backdrop: Backdrop::parse(&required_arg(&mut args, "--display requires BACKDROP")?)?,
+        },
+        Some("--headless") => CaptureCommand::Headless {
+            output: required_arg(&mut args, "--headless requires OUTPUT")?.into(),
         },
         Some("--ingest-data-url") => CaptureCommand::IngestDataUrl {
             output: required_arg(&mut args, "--ingest-data-url requires OUTPUT")?.into(),
@@ -1066,6 +1074,10 @@ fn main() -> ExitCode {
 
     match command {
         CaptureCommand::Native { output } => run_window_capture(Some(output), None),
+        CaptureCommand::Headless { output } => finish_command(
+            run_headless_capture(&output),
+            "failed to capture headless GPUI image",
+        ),
         CaptureCommand::Display { backdrop } => run_window_capture(None, Some(backdrop)),
         CaptureCommand::IngestDataUrl { output } => finish_command(
             ingest_data_url_from_stdin(&output),
@@ -1098,6 +1110,60 @@ fn main() -> ExitCode {
             "failed to finalize capture provenance",
         ),
     }
+}
+
+fn run_headless_capture(output: &Path) -> Result<(), String> {
+    let _lock = prepare_capture(output).map_err(|error| error.to_string())?;
+    let platform = gpui_platform::current_platform(true);
+    let mut context = HeadlessAppContext::with_platform(
+        platform.text_system(),
+        Arc::new(()),
+        gpui_platform::current_headless_renderer,
+    );
+    context.update(configure_figma_fidelity);
+    let window = context
+        .open_window(size(px(LOGICAL_WIDTH), px(LOGICAL_HEIGHT)), |_, cx| {
+            cx.new(|_| CaptureView {
+                output: None,
+                succeeded: Rc::new(Cell::new(false)),
+                backdrop: None,
+                announce_ready: false,
+            })
+        })
+        .map_err(|error| format!("failed to open headless GPUI window: {error}"))?;
+    context.run_until_parked();
+    let image = context
+        .capture_screenshot(window.into())
+        .map_err(|error| format!("headless renderer is unavailable: {error}"))?;
+    if image.width() != WIDTH || image.height() != HEIGHT {
+        return Err(format!(
+            "headless GPUI capture returned {}x{} instead of {WIDTH}x{HEIGHT}",
+            image.width(),
+            image.height()
+        ));
+    }
+
+    let temporary = temporary_output_path(output);
+    write_temporary_image(&image, &temporary)?;
+    fs::rename(&temporary, output).map_err(|error| {
+        cleanup_temporary_capture(output);
+        format!("failed to publish {}: {error}", output.display())
+    })?;
+    let bytes = fs::read(output)
+        .map_err(|error| format!("failed to read published {}: {error}", output.display()))?;
+    let event = serde_json::json!({
+        "schema_version": 1,
+        "event": "headless-captured",
+        "output": output,
+        "width": image.width(),
+        "height": image.height(),
+        "scale": 1,
+        "gpui_revision": GPUI_REVISION,
+        "renderer": "gpui-platform-headless",
+        "sha256": sha256_hex(&bytes),
+    });
+    println!("{event}");
+    Ok(())
 }
 
 fn finish_command(result: Result<(), String>, context: &str) -> ExitCode {
@@ -1591,6 +1657,10 @@ mod tests {
         let display = parse_command(["--display".into(), "black".into()])
             .unwrap_or_else(|error| panic!("display command must parse: {error}"));
         assert!(matches!(display, CaptureCommand::Display { .. }));
+
+        let headless = parse_command(["--headless".into(), "capture.png".into()])
+            .unwrap_or_else(|error| panic!("headless command must parse: {error}"));
+        assert!(matches!(headless, CaptureCommand::Headless { .. }));
 
         let ingest = parse_command(["--ingest-data-url".into(), "capture.png".into()])
             .unwrap_or_else(|error| panic!("ingest command must parse: {error}"));
