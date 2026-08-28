@@ -21,9 +21,44 @@ pub struct ExtractionBundle {
     #[serde(default)]
     pub extraction_diagnostics: Vec<Diagnostic>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub extraction_manifest: Option<ExtractionManifest>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rest_snapshot: Option<Value>,
     #[serde(default, flatten)]
     pub extensions: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExtractionManifest {
+    pub traversal: ExtractionTraversalManifest,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExtractionTraversalManifest {
+    pub chunk_node_limit: usize,
+    pub node_count: usize,
+    pub complete: bool,
+    #[serde(default)]
+    pub chunks: Vec<ExtractionTraversalChunk>,
+    #[serde(default)]
+    pub roots: Vec<ExtractionTraversalRoot>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExtractionTraversalChunk {
+    pub index: usize,
+    pub start_node_index: usize,
+    pub end_node_index: usize,
+    pub node_count: usize,
+    pub first_node_id: String,
+    pub last_node_id: String,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ExtractionTraversalRoot {
+    pub id: String,
+    pub node_count: usize,
+    pub complete: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]

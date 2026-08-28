@@ -302,6 +302,31 @@ export interface RawNode {
   children: RawNode[];
 }
 
+export interface ExtractionTraversalChunk {
+  index: number;
+  start_node_index: number;
+  end_node_index: number;
+  node_count: number;
+  first_node_id: string;
+  last_node_id: string;
+}
+
+export interface ExtractionTraversalRoot {
+  id: string;
+  node_count: number;
+  complete: boolean;
+}
+
+export interface ExtractionManifest {
+  traversal: {
+    chunk_node_limit: number;
+    node_count: number;
+    complete: boolean;
+    chunks: ExtractionTraversalChunk[];
+    roots: ExtractionTraversalRoot[];
+  };
+}
+
 export interface ExtractionBundle {
   schema_version: number;
   source: RawSource;
@@ -310,6 +335,7 @@ export interface ExtractionBundle {
   components: RawComponent[];
   assets: RawAsset[];
   extraction_diagnostics: ExtractionDiagnostic[];
+  extraction_manifest?: ExtractionManifest;
   rest_snapshot?: JsonValue;
 }
 

@@ -15,6 +15,7 @@ diagnostic whenever it leaves the first route.
 | Figma feature | Classification | Current lowering and limits |
 | --- | --- | --- |
 | Node hierarchy and source ID | GPUI native | Stable generated functions, element IDs, debug selectors, and sidecar source map. |
+| Large selection traversal | figma-rust runtime | Deterministic preorder chunks contain at most 2,000 nodes; the schema-v2 extraction manifest records chunk/root counts and fails completeness closed on omitted subtrees. |
 | Frame/container | GPUI native | `div()` and Taffy layout. |
 | Horizontal Auto Layout | GPUI native | Flex row; parent-aware sizing/alignment pass. |
 | Vertical Auto Layout | GPUI native | Flex column; parent-aware sizing/alignment pass. |

@@ -51,6 +51,7 @@ fn mode_context(collection_id: &str, mode_id: &str) -> BTreeMap<String, String> 
 #[test]
 fn output_is_deterministic_and_unknown_fields_survive_parsing() {
     let bundle = bundle_with_roots(&json!([fixed_node("1:1", "RECTANGLE")]));
+    assert_eq!(bundle.extraction_manifest, None);
     assert_eq!(
         bundle.extensions["future_bundle_field"],
         json!({"kept": true})
@@ -60,6 +61,51 @@ fn output_is_deterministic_and_unknown_fields_survive_parsing() {
     let second =
         serde_json::to_vec_pretty(&normalize_bundle(&bundle)).expect("serialize second IR");
     assert_eq!(first, second);
+}
+
+#[test]
+fn extraction_traversal_manifest_is_typed_and_round_trips() {
+    let value = json!({
+        "schema_version": 2,
+        "source": {
+            "page_id": "0:1",
+            "selected_node_ids": ["1:1"],
+            "plugin_api_version": "1.135.0"
+        },
+        "roots": [fixed_node("1:1", "RECTANGLE")],
+        "extraction_manifest": {
+            "traversal": {
+                "chunk_node_limit": 2000,
+                "node_count": 1,
+                "complete": true,
+                "chunks": [{
+                    "index": 0,
+                    "start_node_index": 0,
+                    "end_node_index": 1,
+                    "node_count": 1,
+                    "first_node_id": "1:1",
+                    "last_node_id": "1:1"
+                }],
+                "roots": [{"id": "1:1", "node_count": 1, "complete": true}]
+            }
+        }
+    });
+
+    let bundle = parse_bundle(&value.to_string()).expect("manifest bundle must parse");
+    let traversal = &bundle
+        .extraction_manifest
+        .as_ref()
+        .expect("manifest must be retained")
+        .traversal;
+    assert_eq!(traversal.chunk_node_limit, 2_000);
+    assert_eq!(traversal.node_count, 1);
+    assert!(traversal.complete);
+    assert_eq!(traversal.chunks[0].first_node_id, "1:1");
+    assert_eq!(traversal.roots[0].id, "1:1");
+    assert_eq!(
+        serde_json::to_value(&bundle).expect("serialize bundle")["extraction_manifest"],
+        value["extraction_manifest"]
+    );
 }
 
 #[test]

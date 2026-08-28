@@ -3,6 +3,8 @@ import {
   SCHEMA_VERSION,
   type ExtractionBundle,
   type ExtractionDiagnostic,
+  type ExtractionTraversalChunk,
+  type ExtractionTraversalRoot,
   type JsonValue,
   type RawAction,
   type RawAlignment,
@@ -88,6 +90,8 @@ interface ExtractionContext {
   assetChecks: Map<string, Promise<void>>;
   nodes: Map<string, SceneNode>;
   nodeCount: number;
+  traversalChunks: ExtractionTraversalChunk[];
+  traversalOmissions: number;
   includeAssetPayloads: boolean;
   deadline?: ExtractionDeadline;
 }
@@ -146,6 +150,8 @@ export async function extractNodes(
     assetChecks: new Map(),
     nodes: new Map(),
     nodeCount: 0,
+    traversalChunks: [],
+    traversalOmissions: 0,
     includeAssetPayloads,
     deadline,
   };
@@ -160,20 +166,17 @@ export async function extractNodes(
   }
 
   const roots: RawNode[] = [];
+  const traversalRoots: ExtractionTraversalRoot[] = [];
   for (const node of selection) {
     assertWithinDeadline(context.deadline);
-    if (context.nodeCount >= MAX_TRAVERSAL_NODES) {
-      addDiagnostic(
-        context,
-        "ERROR",
-        "FR-EXTRACT-LIMIT-001",
-        `Traversal stopped after ${MAX_TRAVERSAL_NODES} nodes.`,
-        node.id,
-        "roots",
-      );
-      continue;
-    }
+    const startNodeCount = context.nodeCount;
+    const startOmissionCount = context.traversalOmissions;
     roots.push(await extractNode(node, 0, context));
+    traversalRoots.push({
+      id: node.id,
+      node_count: context.nodeCount - startNodeCount,
+      complete: context.traversalOmissions === startOmissionCount,
+    });
   }
 
   let restSnapshot: JsonValue | undefined;
@@ -222,6 +225,17 @@ export async function extractNodes(
     components: [...context.components.values()].sort(compareComponents),
     assets: [...context.assets.values()].sort(compareAssets),
     extraction_diagnostics: context.diagnostics,
+    extraction_manifest: {
+      traversal: {
+        chunk_node_limit: MAX_TRAVERSAL_NODES,
+        node_count: context.nodeCount,
+        complete: selection.length > 0
+          && traversalRoots.length === selection.length
+          && traversalRoots.every((root) => root.complete),
+        chunks: context.traversalChunks,
+        roots: traversalRoots,
+      },
+    },
     ...(restSnapshot === undefined ? {} : { rest_snapshot: restSnapshot }),
   };
 }
@@ -234,6 +248,10 @@ async function extractNode(
   capturedByAncestor = false,
 ): Promise<RawNode> {
   assertWithinDeadline(context.deadline);
+  if (context.nodeCount > 0 && context.nodeCount % MAX_TRAVERSAL_NODES === 0) {
+    await yieldTraversalChunk(context.deadline);
+  }
+  recordTraversalNode(node.id, context);
   context.nodeCount += 1;
   context.nodes.set(node.id, node);
 
@@ -449,6 +467,7 @@ async function extractChildren(
     return [];
   }
   if (depth >= MAX_TRAVERSAL_DEPTH && value.length > 0) {
+    context.traversalOmissions += 1;
     addDiagnostic(
       context,
       "ERROR",
@@ -465,19 +484,9 @@ async function extractChildren(
   const childCoordinateParent = isNonContainerGroup(nodeType) ? sourceTransform : undefined;
   for (let index = 0; index < value.length; index += 1) {
     assertWithinDeadline(context.deadline);
-    if (context.nodeCount >= MAX_TRAVERSAL_NODES) {
-      addDiagnostic(
-        context,
-        "ERROR",
-        "FR-EXTRACT-LIMIT-001",
-        `Traversal stopped after ${MAX_TRAVERSAL_NODES} nodes.`,
-        nodeId,
-        `children[${index}]`,
-      );
-      break;
-    }
     const child = value[index];
     if (!isRecord(child) || typeof field(child, "id") !== "string") {
+      context.traversalOmissions += 1;
       addDiagnostic(
         context,
         "ERROR",
@@ -499,6 +508,32 @@ async function extractChildren(
     );
   }
   return children;
+}
+
+function recordTraversalNode(nodeId: string, context: ExtractionContext): void {
+  const index = Math.floor(context.nodeCount / MAX_TRAVERSAL_NODES);
+  const existing = context.traversalChunks[index];
+  if (existing === undefined) {
+    context.traversalChunks.push({
+      index,
+      start_node_index: context.nodeCount,
+      end_node_index: context.nodeCount + 1,
+      node_count: 1,
+      first_node_id: nodeId,
+      last_node_id: nodeId,
+    });
+    return;
+  }
+
+  existing.end_node_index = context.nodeCount + 1;
+  existing.node_count += 1;
+  existing.last_node_id = nodeId;
+}
+
+async function yieldTraversalChunk(deadline?: ExtractionDeadline): Promise<void> {
+  const resume = new Promise<void>((resolve) => setTimeout(resolve, 0));
+  await awaitWithOptionalDeadline(resume, deadline);
+  assertWithinDeadline(deadline);
 }
 
 function extractLayout(

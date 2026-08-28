@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 
-import { extractNodes, fallbackExportFormat } from "../src/extract";
+import {
+  createExtractionDeadline,
+  extractNodes,
+  fallbackExportFormat,
+} from "../src/extract";
 import {
   BRIDGE_MAX_REQUEST_BYTES,
   LARGE_BUNDLE_BYTES,
@@ -846,6 +850,88 @@ async function exportsFoundationScaleFallbackAssets(): Promise<void> {
   );
 }
 
+async function extractsMoreThanTwoThousandNodesDeterministically(): Promise<void> {
+  const roots = Array.from({ length: 4 }, (_, rootIndex) => {
+    const root = rectangle(`20:${rootIndex + 1}`, [[1, 0, 0], [0, 1, 0]]);
+    root.children = Array.from({ length: 525 }, (_, childIndex) =>
+      rectangle(
+        `20:${rootIndex + 1}:${childIndex + 1}`,
+        [[1, 0, childIndex], [0, 1, rootIndex]],
+      )
+    );
+    return root;
+  });
+
+  const first = await extractNodes(
+    roots as unknown as SceneNode[],
+    false,
+    createExtractionDeadline(10_000),
+    false,
+  );
+  const second = await extractNodes(
+    roots as unknown as SceneNode[],
+    false,
+    createExtractionDeadline(10_000),
+    false,
+  );
+
+  assert.equal(first.extraction_manifest.traversal.node_count, 2_104);
+  assert.equal(first.extraction_manifest.traversal.chunk_node_limit, 2_000);
+  assert.equal(first.extraction_manifest.traversal.complete, true);
+  assert.equal(first.extraction_manifest.traversal.chunks.length, 2);
+  assert.deepEqual(first.extraction_manifest.traversal.chunks, [
+    {
+      index: 0,
+      start_node_index: 0,
+      end_node_index: 2_000,
+      node_count: 2_000,
+      first_node_id: "20:1",
+      last_node_id: "20:4:421",
+    },
+    {
+      index: 1,
+      start_node_index: 2_000,
+      end_node_index: 2_104,
+      node_count: 104,
+      first_node_id: "20:4:422",
+      last_node_id: "20:4:525",
+    },
+  ]);
+  assert.deepEqual(
+    first.extraction_manifest.traversal.roots.map((root) => [root.id, root.node_count, root.complete]),
+    [["20:1", 526, true], ["20:2", 526, true], ["20:3", 526, true], ["20:4", 526, true]],
+  );
+  assert.equal(
+    first.extraction_diagnostics.some((diagnostic) => diagnostic.code === "FR-EXTRACT-LIMIT-001"),
+    false,
+  );
+  assert.equal(JSON.stringify(first), JSON.stringify(second));
+}
+
+async function marksDepthLimitedSubtreesIncomplete(): Promise<void> {
+  const root = rectangle("21:0", [[1, 0, 0], [0, 1, 0]]);
+  let parent = root;
+  for (let depth = 1; depth <= 65; depth += 1) {
+    const child = rectangle(`21:${depth}`, [[1, 0, 0], [0, 1, depth]]);
+    parent.children = [child];
+    parent = child;
+  }
+
+  const bundle = await extractNodes([root as unknown as SceneNode], false, undefined, false);
+  assert.equal(bundle.extraction_manifest.traversal.node_count, 65);
+  assert.equal(bundle.extraction_manifest.traversal.complete, false);
+  assert.deepEqual(bundle.extraction_manifest.traversal.roots, [{
+    id: "21:0",
+    node_count: 65,
+    complete: false,
+  }]);
+  assert.ok(bundle.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.code === "FR-EXTRACT-LIMIT-002"
+    && diagnostic.node_id === "21:64"
+    && diagnostic.property_path === "children"
+  ));
+}
+
 await extractsGroupLocalCoordinates();
 await extractsNestedGroupLocalCoordinates();
 await extractsRotatedGroupLocalCoordinates();
@@ -861,4 +947,6 @@ await exportsDeterministicFallbackPayloads();
 await exportsTrackedTextFallbackPayload();
 checkedInDataTableExtractionCarriesRequiredFallbackPayloads();
 await exportsFoundationScaleFallbackAssets();
+await extractsMoreThanTwoThousandNodesDeterministically();
+await marksDepthLimitedSubtreesIncomplete();
 console.log("extraction tests passed");

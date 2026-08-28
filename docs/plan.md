@@ -42,6 +42,8 @@ do not hide current Linux screenshot or advanced-effect limitations.
 
 - [x] Create the Cargo workspace and `figma-rust-core` crate.
 - [x] Define versioned raw extraction types with extension/unknown-field retention.
+- [x] Traverse selections beyond 2,000 nodes in deterministic bounded chunks and
+  retain root/subtree completeness in the extraction manifest.
 - [x] Define target-neutral Design IR and stable JSON serialization.
 - [x] Implement schema/hierarchy validation and finite-number checks.
 - [x] Implement schema-v2 variable/token binding with full consumer mode context,

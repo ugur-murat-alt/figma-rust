@@ -61,12 +61,19 @@ The bundle contract contains:
 schema_version (currently 2)
 source { file_key?, page_id, selected_node_ids, plugin_api_version }
 roots
+extraction_manifest { traversal { chunk_node_limit, node_count, complete, chunks, roots } }
 variables
 components
 assets
 extraction_diagnostics
 rest_snapshot?
 ```
+
+Traversal is processed in deterministic preorder chunks of at most 2,000 nodes.
+Selections larger than one chunk remain in one schema-v2 bundle; the manifest
+records every chunk and selected root, including node counts and explicit
+completeness. Depth-limit or malformed-child omissions set the affected root and
+overall traversal to `complete: false` and retain node/property diagnostics.
 
 Assets can carry optional base64 payloads. Preview/lint extraction omits those
 payloads; compiler/evidence exports include them when an SVG/raster fallback or
