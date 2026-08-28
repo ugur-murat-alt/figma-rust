@@ -17,6 +17,7 @@ permissions:
 
 jobs:
   qualify:
+    if: github.event_name != 'pull_request' || github.head_ref != 'ci/platform-workflow-bootstrap'
     strategy:
       fail-fast: false
       matrix:

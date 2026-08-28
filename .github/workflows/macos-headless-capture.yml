@@ -15,6 +15,7 @@ permissions:
 
 jobs:
   capture:
+    if: github.event_name != 'pull_request' || github.head_ref != 'ci/platform-workflow-bootstrap'
     runs-on: macos-14
     steps:
       - uses: actions/checkout@v4
