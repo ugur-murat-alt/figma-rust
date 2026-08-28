@@ -16,6 +16,7 @@ public static class NativeWindow {
   [StructLayout(LayoutKind.Sequential)] public struct RECT { public int Left, Top, Right, Bottom; }
   [StructLayout(LayoutKind.Sequential)] public struct POINT { public int X, Y; }
   [DllImport("user32.dll")] public static extern uint GetDpiForWindow(IntPtr hwnd);
+  [DllImport("user32.dll")] public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr dpiContext);
   [DllImport("user32.dll")] public static extern int GetSystemMetrics(int index);
   [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)]
   public static extern bool GetClientRect(IntPtr hwnd, out RECT rect);
@@ -48,6 +49,7 @@ function Capture-Probe([int]$Run) {
     $process = Start-Process -FilePath $Executable `
         -ArgumentList @('--dpi-profile', "$DpiPercent") -PassThru `
         -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+    $previousDpiContext = [IntPtr]::Zero
     try {
         $ready = Wait-ForJsonLine $stdout 0
         if ($ready.event -ne 'ready' -or $ready.pid -ne $process.Id -or
@@ -59,6 +61,8 @@ function Capture-Probe([int]$Run) {
         $process.Refresh()
         $hwnd = $process.MainWindowHandle
         if ($hwnd -eq [IntPtr]::Zero) { throw 'Probe has no main window handle' }
+        $previousDpiContext = [NativeWindow]::SetThreadDpiAwarenessContext([IntPtr](-4))
+        if ($previousDpiContext -eq [IntPtr]::Zero) { throw 'Could not enable Per-Monitor V2 DPI awareness' }
         $dpi = [NativeWindow]::GetDpiForWindow($hwnd)
         $expectedDpi = [uint32](96 * $DpiPercent / 100)
         if ($dpi -ne $expectedDpi) { throw "Window DPI $dpi does not match $expectedDpi" }
@@ -95,6 +99,10 @@ function Capture-Probe([int]$Run) {
         return [ordered]@{ pid = $process.Id; dpi = $dpi; width = $width; height = $height; png = $png; input = $true }
     } finally {
         if (-not $process.HasExited) { Stop-Process -Id $process.Id -Force }
+        if ($previousDpiContext -ne [IntPtr]::Zero -and
+            [NativeWindow]::SetThreadDpiAwarenessContext($previousDpiContext) -eq [IntPtr]::Zero) {
+            throw 'Could not restore the PowerShell thread DPI awareness context'
+        }
     }
 }
 
