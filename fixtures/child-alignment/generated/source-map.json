@@ -1,0 +1,64 @@
+{
+  "nodes": {
+    "13:h": {
+      "symbol": "node_0000",
+      "start_line": 10,
+      "end_line": 30
+    },
+    "13:h:center": {
+      "symbol": "node_0003",
+      "start_line": 59,
+      "end_line": 71
+    },
+    "13:h:inherit": {
+      "symbol": "node_0001",
+      "start_line": 32,
+      "end_line": 43
+    },
+    "13:h:max": {
+      "symbol": "node_0004",
+      "start_line": 73,
+      "end_line": 85
+    },
+    "13:h:min": {
+      "symbol": "node_0002",
+      "start_line": 45,
+      "end_line": 57
+    },
+    "13:h:stretch": {
+      "symbol": "node_0005",
+      "start_line": 87,
+      "end_line": 98
+    },
+    "13:v": {
+      "symbol": "node_0006",
+      "start_line": 100,
+      "end_line": 120
+    },
+    "13:v:center": {
+      "symbol": "node_0009",
+      "start_line": 149,
+      "end_line": 161
+    },
+    "13:v:inherit": {
+      "symbol": "node_0007",
+      "start_line": 122,
+      "end_line": 133
+    },
+    "13:v:max": {
+      "symbol": "node_0010",
+      "start_line": 163,
+      "end_line": 175
+    },
+    "13:v:min": {
+      "symbol": "node_0008",
+      "start_line": 135,
+      "end_line": 147
+    },
+    "13:v:stretch": {
+      "symbol": "node_0011",
+      "start_line": 177,
+      "end_line": 188
+    }
+  }
+}

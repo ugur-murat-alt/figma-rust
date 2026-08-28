@@ -43,6 +43,7 @@ export type RawNodeKind =
 
 export type RawLayoutMode = "NONE" | "HORIZONTAL" | "VERTICAL" | "GRID";
 export type RawAlignment = "START" | "CENTER" | "END" | "SPACE_BETWEEN" | "BASELINE" | "STRETCH";
+export type RawChildAlignment = "INHERIT" | "MIN" | "CENTER" | "MAX" | "STRETCH";
 export type RawAxisSizing = "HUG" | "FILL" | "FIXED";
 export type RawPositioning = "AUTO" | "ABSOLUTE";
 export type RawConstraint = "MIN" | "CENTER" | "MAX" | "STRETCH" | "SCALE";
@@ -78,6 +79,7 @@ export interface RawLayout {
   wrap: boolean;
   primary_alignment: RawAlignment;
   counter_alignment: RawAlignment;
+  child_counter_alignment: RawChildAlignment;
   gap: RawBoundValue<number>;
   padding: RawBoundEdges;
   grid: RawGrid;

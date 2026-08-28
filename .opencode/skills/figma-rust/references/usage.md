@@ -88,6 +88,13 @@ dimensions remain readable and normalize to unbound fallbacks. V1
 bundles remain readable only so lint/compile can emit `FR-SCHEMA-001`; re-extract
 or explicitly migrate them instead of relabeling them.
 
+Per-child Auto Layout counter-axis overrides are modeled as
+`layout.child_counter_alignment`. `INHERIT`, `MIN`, `CENTER`, `MAX`, and
+`STRETCH` remain source-distinct; non-inherited overrides outside an
+auto-positioned stack child fail with node/property-scoped `FR-LAYOUT-004`.
+Generated `STRETCH` suppresses the child's fixed cross-axis dimension before
+using GPUI `self_stretch`.
+
 Do not merge roots from different Figma pages into one bundle. Extract them separately so `source.page_id` stays truthful.
 
 ## 3. Inspect and lint an extraction

@@ -3,9 +3,9 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 
 use crate::raw::{
-    RawAction, RawAlignment, RawAsset, RawBlendMode, RawComponent, RawComponentRole,
-    RawComponentValue, RawConstraint, RawGradientKind, RawImageScaleMode, RawLiteral, RawNodeKind,
-    RawOverride, RawReaction, RawSource, RawStrokeAlign, RawTrigger,
+    RawAction, RawAlignment, RawAsset, RawBlendMode, RawChildAlignment, RawComponent,
+    RawComponentRole, RawComponentValue, RawConstraint, RawGradientKind, RawImageScaleMode,
+    RawLiteral, RawNodeKind, RawOverride, RawReaction, RawSource, RawStrokeAlign, RawTrigger,
 };
 
 pub const DESIGN_IR_VERSION: u32 = 2;
@@ -31,6 +31,8 @@ pub struct Node {
     pub size: Size,
     pub layout: Layout,
     pub positioning: Positioning,
+    #[serde(default, skip_serializing_if = "RawChildAlignment::is_inherit")]
+    pub child_counter_alignment: RawChildAlignment,
     pub style: Style,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub text: Option<Text>,

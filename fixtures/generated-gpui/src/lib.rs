@@ -35,6 +35,14 @@ pub mod generated_asset_fallback {
     ));
 }
 
+/// Output compiled from horizontal and vertical child-alignment fixtures.
+pub mod generated_child_alignment {
+    include!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../child-alignment/generated/generated.rs"
+    ));
+}
+
 /// Asset-backed generated output must not borrow its local resolvers.
 pub fn generated_asset_fallback_view() -> impl IntoElement {
     let assets = figma_gpui_runtime::DirectoryAssets::new(concat!(
@@ -112,9 +120,17 @@ mod tests {
 
     struct RealGroupView;
 
+    struct ChildAlignmentView;
+
     impl Render for RealGroupView {
         fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
             super::generated_real_group::generated_view(&FallbackTokens)
+        }
+    }
+
+    impl Render for ChildAlignmentView {
+        fn render(&mut self, _window: &mut Window, _cx: &mut Context<Self>) -> impl IntoElement {
+            super::generated_child_alignment::generated_view(&FallbackTokens)
         }
     }
 
@@ -198,6 +214,74 @@ mod tests {
             "/../asset-fallback/generated"
         ));
         let _view = super::generated_asset_fallback::generated_view(&FallbackTokens, &assets);
+    }
+
+    #[test]
+    fn child_alignment_fixture_constructs_against_pinned_gpui() {
+        let _ =
+            super::generated_child_alignment::generated_view(&FallbackTokens).into_any_element();
+    }
+
+    #[gpui::test]
+    fn child_alignment_geometry_matches_counter_axis_contract(cx: &mut TestAppContext) {
+        let window = cx.open_window(size(px(300.0), px(300.0)), |_, _| ChildAlignmentView);
+        cx.run_until_parked();
+        let mut cx = VisualTestContext::from_window(window.into(), cx);
+        let horizontal_root = required_bounds(&mut cx, "figma-node-0000");
+        let horizontal = [
+            "figma-node-0001",
+            "figma-node-0002",
+            "figma-node-0003",
+            "figma-node-0004",
+            "figma-node-0005",
+        ]
+        .into_iter()
+        .map(|selector| required_bounds(&mut cx, selector))
+        .collect::<Vec<_>>();
+        let vertical_root = required_bounds(&mut cx, "figma-node-0006");
+        let vertical = [
+            "figma-node-0007",
+            "figma-node-0008",
+            "figma-node-0009",
+            "figma-node-0010",
+            "figma-node-0011",
+        ]
+        .into_iter()
+        .map(|selector| required_bounds(&mut cx, selector))
+        .collect::<Vec<_>>();
+
+        assert_eq!(
+            horizontal
+                .iter()
+                .map(|bounds| (
+                    f32::from(bounds.origin.y - horizontal_root.origin.y),
+                    f32::from(bounds.size.height),
+                ))
+                .collect::<Vec<_>>(),
+            vec![
+                (0.0, 10.0),
+                (0.0, 10.0),
+                (35.0, 10.0),
+                (70.0, 10.0),
+                (0.0, 80.0)
+            ],
+        );
+        assert_eq!(
+            vertical
+                .iter()
+                .map(|bounds| (
+                    f32::from(bounds.origin.x - vertical_root.origin.x),
+                    f32::from(bounds.size.width),
+                ))
+                .collect::<Vec<_>>(),
+            vec![
+                (0.0, 20.0),
+                (0.0, 20.0),
+                (30.0, 20.0),
+                (60.0, 20.0),
+                (0.0, 80.0)
+            ],
+        );
     }
 
     #[gpui::test]

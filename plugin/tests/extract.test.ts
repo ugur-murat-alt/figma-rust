@@ -40,6 +40,7 @@ interface TestNode {
   gridRowSpan?: number;
   gridColumnSpan?: number;
   resolvedVariableModes?: Record<string, string>;
+  layoutAlign?: "MIN" | "CENTER" | "MAX" | "STRETCH" | "INHERIT";
   fills?: unknown[];
   children?: TestNode[];
   exportAsync?: (settings: { format: "SVG" | "PNG" }) => Promise<Uint8Array>;
@@ -681,6 +682,25 @@ async function preservesBoundDimensionsAcrossConsumerModes(): Promise<void> {
   testCollections.clear();
 }
 
+async function preservesChildCounterAxisAlignmentOverrides(): Promise<void> {
+  const values = ["INHERIT", "MIN", "CENTER", "MAX", "STRETCH"] as const;
+  const roots = values.map((layoutAlign, index) => {
+    const node = rectangle(`13:${index + 1}`, [[1, 0, 0], [0, 1, 0]]);
+    node.layoutAlign = layoutAlign;
+    return node as unknown as SceneNode;
+  });
+
+  const bundle = await extractNodes(roots);
+  assert.deepEqual(
+    bundle.roots.map((root) => root.layout.child_counter_alignment),
+    values,
+  );
+  assert.equal(bundle.extraction_diagnostics.some((diagnostic) =>
+    diagnostic.code === "FR-EXTRACT-LOSS-001"
+    && diagnostic.property_path === "layout.layout_align"
+  ), false);
+}
+
 function supportsCompactExportAndLargeSelectionFeedback(): void {
   assert.equal(includeRestSnapshotForExport("COMPILER"), false);
   assert.equal(includeRestSnapshotForExport("EVIDENCE"), true);
@@ -1048,6 +1068,7 @@ await keepsAliasCyclesScopedToOneResolution();
 await preservesVariableValuesAcrossConsumerModes();
 await preservesModeledNumericBindings();
 await preservesBoundDimensionsAcrossConsumerModes();
+await preservesChildCounterAxisAlignmentOverrides();
 supportsCompactExportAndLargeSelectionFeedback();
 validatesBridgeExportCompletionBeforeTrustingTheFile();
 cleansOnlyTemporaryTransferNodesAfterExportVerification();

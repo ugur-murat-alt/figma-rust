@@ -12,9 +12,9 @@ use crate::ir::{
     TextRun, TextStyle, TokenRef, Transform, Variable,
 };
 use crate::raw::{
-    ExtractionBundle, RawAxisSizing, RawBoundValue, RawColor, RawComponentMetadata,
-    RawComponentRole, RawEffect, RawGridTrack, RawLayoutMode, RawNode, RawNodeKind, RawPaint,
-    RawPositioning, RawText, RawTextStyle, RawVariable,
+    ExtractionBundle, RawAxisSizing, RawBoundValue, RawChildAlignment, RawColor,
+    RawComponentMetadata, RawComponentRole, RawEffect, RawGridTrack, RawLayoutMode, RawNode,
+    RawNodeKind, RawPaint, RawPositioning, RawText, RawTextStyle, RawVariable,
 };
 
 pub const EXTRACTION_SCHEMA_VERSION: u32 = 2;
@@ -306,6 +306,21 @@ impl Context<'_> {
     fn normalize_node(&mut self, raw: &RawNode, parent: Option<ParentLayout>) -> Node {
         let positioning = self.normalize_positioning(raw, parent);
         let is_absolute = matches!(positioning, Positioning::Absolute { .. });
+        let child_counter_alignment = raw.layout.child_counter_alignment;
+        let valid_child_alignment = match (child_counter_alignment, parent) {
+            (RawChildAlignment::Inherit, _) => true,
+            (_, Some(ParentLayout::Stack)) if !is_absolute => true,
+            _ => false,
+        };
+        if !valid_child_alignment {
+            self.diagnostics.push(Diagnostic::node(
+                Severity::Error,
+                codes::INVALID_CHILD_ALIGNMENT,
+                "child counter-axis alignment requires an auto-positioned stack child",
+                &raw.id,
+                Some("layout.child_counter_alignment"),
+            ));
+        }
         let size = Size {
             horizontal: self.normalize_axis_size(raw, true, parent, is_absolute),
             vertical: self.normalize_axis_size(raw, false, parent, is_absolute),
@@ -360,6 +375,7 @@ impl Context<'_> {
             size,
             layout,
             positioning,
+            child_counter_alignment,
             style,
             text,
             component,

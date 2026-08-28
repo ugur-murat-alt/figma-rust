@@ -49,7 +49,8 @@ do not hide current Linux screenshot or advanced-effect limitations.
 - [x] Implement schema-v2 variable/token binding with full consumer mode context,
   multi-mode values, and literal fallback resolution.
 - [x] Implement UTF-16-safe mixed text normalization.
-- [x] Implement parent-aware HUG/FILL/FIXED and min/max normalization.
+- [x] Implement parent-aware HUG/FILL/FIXED, min/max, and per-child counter-axis
+  alignment normalization.
 - [x] Implement stack, grid, absolute, constraints, clipping, and scroll passes.
 - [x] Implement style/effect normalization and asset-decision diagnostics.
 - [x] Preserve component set, variant, property, instance, and override metadata.
@@ -66,8 +67,9 @@ node-scoped diagnostics.
 
 - [x] Create `figma-rust-codegen` with `proc_macro2`, `quote`, `syn`, and
   `prettyplease`.
-- [x] Lower fixed/HUG/FILL stacks, absolute nodes, text, solid fills, per-edge
-  borders, independent radii, opacity, and shadows to verified GPUI APIs.
+- [x] Lower fixed/HUG/FILL stacks, child counter-axis overrides, absolute nodes,
+  text, solid fills, per-edge borders, independent radii, opacity, and shadows to
+  verified GPUI APIs.
 - [ ] Lower simple grids to verified GPUI APIs.
 - [x] Generate stable per-node functions and required imports.
 - [x] Generate context-aware color and number token access with literal fallback;

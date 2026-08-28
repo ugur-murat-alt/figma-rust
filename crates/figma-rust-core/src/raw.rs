@@ -134,6 +134,8 @@ pub struct RawLayout {
     #[serde(default)]
     pub counter_alignment: RawAlignment,
     #[serde(default)]
+    pub child_counter_alignment: RawChildAlignment,
+    #[serde(default)]
     pub gap: RawBoundValue<f64>,
     #[serde(default)]
     pub padding: RawEdges,
@@ -152,6 +154,7 @@ impl Default for RawLayout {
             wrap: false,
             primary_alignment: RawAlignment::Start,
             counter_alignment: RawAlignment::Start,
+            child_counter_alignment: RawChildAlignment::Inherit,
             gap: RawBoundValue::default(),
             padding: RawEdges::default(),
             grid: RawGrid::default(),
@@ -181,6 +184,24 @@ pub enum RawAlignment {
     SpaceBetween,
     Baseline,
     Stretch,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
+pub enum RawChildAlignment {
+    #[default]
+    Inherit,
+    Min,
+    Center,
+    Max,
+    Stretch,
+}
+
+impl RawChildAlignment {
+    #[must_use]
+    pub fn is_inherit(&self) -> bool {
+        *self == Self::Inherit
+    }
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]

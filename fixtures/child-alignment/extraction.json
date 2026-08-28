@@ -1,0 +1,52 @@
+{
+  "schema_version": 2,
+  "source": {
+    "page_id": "fixture:child-alignment",
+    "selected_node_ids": ["13:h", "13:v"],
+    "plugin_api_version": "1.135.0"
+  },
+  "roots": [
+    {
+      "id": "13:h",
+      "name": "Horizontal child alignment",
+      "kind": "FRAME",
+      "size": {
+        "width": { "literal": 200.0 },
+        "height": { "literal": 80.0 },
+        "horizontal": "FIXED",
+        "vertical": "FIXED"
+      },
+      "layout": { "mode": "HORIZONTAL" },
+      "children": [
+        { "id": "13:h:inherit", "name": "Inherit", "kind": "RECTANGLE", "size": { "width": { "literal": 20.0 }, "height": { "literal": 10.0 }, "horizontal": "FIXED", "vertical": "FIXED" }, "layout": { "child_counter_alignment": "INHERIT" } },
+        { "id": "13:h:min", "name": "Min", "kind": "RECTANGLE", "size": { "width": { "literal": 20.0 }, "height": { "literal": 10.0 }, "horizontal": "FIXED", "vertical": "FIXED" }, "layout": { "child_counter_alignment": "MIN" } },
+        { "id": "13:h:center", "name": "Center", "kind": "RECTANGLE", "size": { "width": { "literal": 20.0 }, "height": { "literal": 10.0 }, "horizontal": "FIXED", "vertical": "FIXED" }, "layout": { "child_counter_alignment": "CENTER" } },
+        { "id": "13:h:max", "name": "Max", "kind": "RECTANGLE", "size": { "width": { "literal": 20.0 }, "height": { "literal": 10.0 }, "horizontal": "FIXED", "vertical": "FIXED" }, "layout": { "child_counter_alignment": "MAX" } },
+        { "id": "13:h:stretch", "name": "Stretch", "kind": "RECTANGLE", "size": { "width": { "literal": 20.0 }, "height": { "literal": 10.0 }, "horizontal": "FIXED", "vertical": "FIXED" }, "layout": { "child_counter_alignment": "STRETCH" } }
+      ]
+    },
+    {
+      "id": "13:v",
+      "name": "Vertical child alignment",
+      "kind": "FRAME",
+      "size": {
+        "width": { "literal": 80.0 },
+        "height": { "literal": 200.0 },
+        "horizontal": "FIXED",
+        "vertical": "FIXED"
+      },
+      "layout": { "mode": "VERTICAL" },
+      "children": [
+        { "id": "13:v:inherit", "name": "Inherit", "kind": "RECTANGLE", "size": { "width": { "literal": 20.0 }, "height": { "literal": 10.0 }, "horizontal": "FIXED", "vertical": "FIXED" }, "layout": { "child_counter_alignment": "INHERIT" } },
+        { "id": "13:v:min", "name": "Min", "kind": "RECTANGLE", "size": { "width": { "literal": 20.0 }, "height": { "literal": 10.0 }, "horizontal": "FIXED", "vertical": "FIXED" }, "layout": { "child_counter_alignment": "MIN" } },
+        { "id": "13:v:center", "name": "Center", "kind": "RECTANGLE", "size": { "width": { "literal": 20.0 }, "height": { "literal": 10.0 }, "horizontal": "FIXED", "vertical": "FIXED" }, "layout": { "child_counter_alignment": "CENTER" } },
+        { "id": "13:v:max", "name": "Max", "kind": "RECTANGLE", "size": { "width": { "literal": 20.0 }, "height": { "literal": 10.0 }, "horizontal": "FIXED", "vertical": "FIXED" }, "layout": { "child_counter_alignment": "MAX" } },
+        { "id": "13:v:stretch", "name": "Stretch", "kind": "RECTANGLE", "size": { "width": { "literal": 20.0 }, "height": { "literal": 10.0 }, "horizontal": "FIXED", "vertical": "FIXED" }, "layout": { "child_counter_alignment": "STRETCH" } }
+      ]
+    }
+  ],
+  "variables": [],
+  "components": [],
+  "assets": [],
+  "extraction_diagnostics": []
+}

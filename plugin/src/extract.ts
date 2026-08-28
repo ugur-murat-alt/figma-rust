@@ -563,6 +563,14 @@ function extractLayout(
     "layout.counter_alignment",
     context,
   );
+  const childCounterAlignment = enumValue(
+    field(record, "layoutAlign"),
+    ["INHERIT", "MIN", "CENTER", "MAX", "STRETCH"],
+    "INHERIT",
+    nodeId,
+    "layout.child_counter_alignment",
+    context,
+  );
 
   const itemSpacing = numberValue(field(record, "itemSpacing"), 0, nodeId, "layout.gap", context);
   const counterAxisSpacing = numberValue(
@@ -607,19 +615,6 @@ function extractLayout(
       extensions,
       "figma_layout_grow",
       layoutGrow,
-    );
-  }
-
-  const layoutAlign = field(record, "layoutAlign");
-  if (layoutAlign !== undefined && layoutAlign !== "INHERIT") {
-    addLossDiagnostic(
-      context,
-      nodeId,
-      "layout.layout_align",
-      "Child counter-axis alignment is not represented independently by the raw model.",
-      extensions,
-      "figma_layout_align",
-      toJson(layoutAlign),
     );
   }
 
@@ -708,6 +703,7 @@ function extractLayout(
     wrap: layoutWrap === "WRAP",
     primary_alignment: primaryAlignment,
     counter_alignment: counterAlignment,
+    child_counter_alignment: childCounterAlignment,
     gap: boundNumberFromRecord(record, "itemSpacing", itemSpacing, nodeId, "layout.gap", context),
     padding: {
       top: boundNumberFromRecord(record, "paddingTop", numberValue(field(record, "paddingTop"), 0, nodeId, "layout.padding.top", context), nodeId, "layout.padding.top", context),

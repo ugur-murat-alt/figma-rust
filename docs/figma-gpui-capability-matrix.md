@@ -20,6 +20,7 @@ diagnostic whenever it leaves the first route.
 | Frame/container | GPUI native | `div()` and Taffy layout. |
 | Horizontal Auto Layout | GPUI native | Flex row; parent-aware sizing/alignment pass. |
 | Vertical Auto Layout | GPUI native | Flex column; parent-aware sizing/alignment pass. |
+| Child counter-axis alignment | GPUI native | `INHERIT`, deprecated `MIN`/`CENTER`/`MAX`, and `STRETCH` are preserved per child; overrides require an auto-positioned stack child, and stretch suppresses the fixed cross-axis dimension before GPUI `self_stretch`. |
 | Auto Layout wrap | GPUI native | Flex wrap; verify counter-axis spacing. |
 | Auto Layout SPACE_BETWEEN | GPUI native | `justify_between`; geometry regression required. |
 | Auto Layout baseline alignment | figma-rust runtime | Text baseline metadata is needed; do not lower to center. |

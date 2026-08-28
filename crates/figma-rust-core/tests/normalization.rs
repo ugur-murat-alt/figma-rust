@@ -5,7 +5,8 @@ use figma_rust_core::ir::{
     AssetRoute, AxisSizing, ComponentResolution, Layout, Paint, Positioning,
 };
 use figma_rust_core::raw::{
-    RawAsset, RawBoundValue, RawColor, RawComponent, RawConstraint, RawLiteral, RawVariable,
+    RawAsset, RawBoundValue, RawChildAlignment, RawColor, RawComponent, RawConstraint, RawLiteral,
+    RawVariable,
 };
 use figma_rust_core::{
     ComponentMapping, ComponentRegistry, normalize_bundle, normalize_bundle_with_registry,
@@ -140,6 +141,56 @@ fn fill_is_parent_aware() {
         .find(|diagnostic| diagnostic.code == codes::AMBIGUOUS_FILL)
         .expect("root FILL must be diagnosed");
     assert_eq!(diagnostic.node_id.as_deref(), Some("2:1"));
+}
+
+#[test]
+fn child_counter_axis_alignment_is_typed_and_parent_validated() {
+    let alignments = ["INHERIT", "MIN", "CENTER", "MAX", "STRETCH"];
+    let stack = |id: &str, mode: &str| {
+        let children = alignments
+            .iter()
+            .enumerate()
+            .map(|(index, alignment)| {
+                let mut child = fixed_node(&format!("{id}:{}", index + 1), "RECTANGLE");
+                child["layout"] = json!({"child_counter_alignment": alignment});
+                child
+            })
+            .collect::<Vec<_>>();
+        let mut parent = fixed_node(id, "FRAME");
+        parent["layout"] = json!({"mode": mode});
+        parent["children"] = json!(children);
+        parent
+    };
+    let output = normalize_bundle(&bundle_with_roots(&json!([
+        stack("13:1", "HORIZONTAL"),
+        stack("13:2", "VERTICAL")
+    ])));
+    assert!(!output.has_errors(), "{:?}", output.diagnostics);
+    let expected = [
+        RawChildAlignment::Inherit,
+        RawChildAlignment::Min,
+        RawChildAlignment::Center,
+        RawChildAlignment::Max,
+        RawChildAlignment::Stretch,
+    ];
+    for root in &output.document.roots {
+        assert_eq!(
+            root.children
+                .iter()
+                .map(|child| child.child_counter_alignment)
+                .collect::<Vec<_>>(),
+            expected,
+        );
+    }
+
+    let mut invalid_root = fixed_node("13:invalid", "RECTANGLE");
+    invalid_root["layout"] = json!({"child_counter_alignment": "CENTER"});
+    let invalid = normalize_bundle(&bundle_with_roots(&json!([invalid_root])));
+    assert!(invalid.diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == "FR-LAYOUT-004"
+            && diagnostic.node_id.as_deref() == Some("13:invalid")
+            && diagnostic.property_path.as_deref() == Some("layout.child_counter_alignment")
+    }));
 }
 
 #[test]

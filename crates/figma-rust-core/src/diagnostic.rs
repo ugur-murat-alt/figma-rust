@@ -63,6 +63,7 @@ pub mod codes {
     pub const AMBIGUOUS_FILL: &str = "FR-LAYOUT-001";
     pub const MISSING_SIZING: &str = "FR-LAYOUT-002";
     pub const INVALID_CONSTRAINT: &str = "FR-LAYOUT-003";
+    pub const INVALID_CHILD_ALIGNMENT: &str = "FR-LAYOUT-004";
     pub const UNRESOLVED_TOKEN: &str = "FR-TOKEN-001";
     pub const UNMAPPED_COMPONENT: &str = "FR-COMPONENT-001";
     pub const COMPONENT_METADATA_MISMATCH: &str = "FR-COMPONENT-002";

@@ -8,7 +8,8 @@ use figma_rust_core::ir::{
     Edges, Effect, Layout, Node, Paint, Positioning, TextStyle, TokenRef,
 };
 use figma_rust_core::raw::{
-    RawAlignment, RawAsset, RawBlendMode, RawConstraint, RawNodeKind, RawStrokeAlign,
+    RawAlignment, RawAsset, RawBlendMode, RawChildAlignment, RawConstraint, RawNodeKind,
+    RawStrokeAlign,
 };
 use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote};
@@ -347,6 +348,7 @@ fn lower_node(
             AssetRoute::Native | AssetRoute::Runtime => unreachable!("validated asset route"),
         };
         element = lower_position(element, node)?;
+        element = lower_child_alignment(element, node);
         element = lower_size(element, node, indexed.parent_stack_axis)?;
         return Ok(element);
     }
@@ -355,6 +357,7 @@ fn lower_node(
     };
 
     element = lower_position(element, node)?;
+    element = lower_child_alignment(element, node);
     element = lower_layout(element, node)?;
     element = lower_size(element, node, indexed.parent_stack_axis)?;
     element = lower_fill(element, node)?;
@@ -664,6 +667,16 @@ fn lower_position(mut element: TokenStream, node: &Node) -> Result<TokenStream, 
     Ok(element)
 }
 
+fn lower_child_alignment(element: TokenStream, node: &Node) -> TokenStream {
+    match node.child_counter_alignment {
+        RawChildAlignment::Inherit => element,
+        RawChildAlignment::Min => quote! { #element.self_start() },
+        RawChildAlignment::Center => quote! { #element.self_center() },
+        RawChildAlignment::Max => quote! { #element.self_end() },
+        RawChildAlignment::Stretch => quote! { #element.self_stretch() },
+    }
+}
+
 fn lower_layout(mut element: TokenStream, node: &Node) -> Result<TokenStream, CodegenError> {
     let (clips_content, scroll) = match &node.layout {
         Layout::Plain {
@@ -789,8 +802,21 @@ fn lower_size(
     node: &Node,
     parent_stack_axis: Option<Axis>,
 ) -> Result<TokenStream, CodegenError> {
-    element = lower_axis_size(element, node, &node.size.horizontal, true)?;
-    element = lower_axis_size(element, node, &node.size.vertical, false)?;
+    let stretches_counter_axis = node.child_counter_alignment == RawChildAlignment::Stretch;
+    element = lower_axis_size(
+        element,
+        node,
+        &node.size.horizontal,
+        true,
+        stretches_counter_axis && parent_stack_axis == Some(Axis::Vertical),
+    )?;
+    element = lower_axis_size(
+        element,
+        node,
+        &node.size.vertical,
+        false,
+        stretches_counter_axis && parent_stack_axis == Some(Axis::Horizontal),
+    )?;
     let fills_main_axis = matches!(
         (parent_stack_axis, &node.size.horizontal.sizing),
         (Some(Axis::Horizontal), AxisSizing::Fill)
@@ -818,10 +844,11 @@ fn lower_axis_size(
     node: &Node,
     axis: &AxisSize,
     horizontal: bool,
+    suppress_dimension: bool,
 ) -> Result<TokenStream, CodegenError> {
     match &axis.sizing {
         AxisSizing::Hug => {
-            if let Some(value) = axis.measured.as_ref() {
+            if let Some(value) = axis.measured.as_ref().filter(|_| !suppress_dimension) {
                 let property = if horizontal {
                     "size.width"
                 } else {
@@ -835,6 +862,7 @@ fn lower_axis_size(
                 };
             }
         }
+        AxisSizing::Fill | AxisSizing::Fixed(_) if suppress_dimension => {}
         AxisSizing::Fill if horizontal => element = quote! { #element.w_full() },
         AxisSizing::Fill => element = quote! { #element.h_full() },
         AxisSizing::Fixed(value) => {
@@ -1323,8 +1351,8 @@ mod tests {
         Text, TextRun, TextStyle, TokenRef,
     };
     use figma_rust_core::raw::{
-        RawAction, RawAlignment, RawAsset, RawBlendMode, RawConstraint, RawNodeKind, RawReaction,
-        RawStrokeAlign, RawTrigger,
+        RawAction, RawAlignment, RawAsset, RawBlendMode, RawChildAlignment, RawConstraint,
+        RawNodeKind, RawReaction, RawStrokeAlign, RawTrigger,
     };
     use serde::Deserialize;
 
@@ -1373,6 +1401,67 @@ mod tests {
         let mut document = basic_document();
         configure_supported_root(&mut document.roots[0]);
         document.roots[0].children = vec![absolute_child(), text_child()];
+        document
+    }
+
+    fn child_alignment_document() -> DesignDocument {
+        let mut document = basic_document();
+        let template = document.roots.remove(0);
+        let alignments = [
+            RawChildAlignment::Inherit,
+            RawChildAlignment::Min,
+            RawChildAlignment::Center,
+            RawChildAlignment::Max,
+            RawChildAlignment::Stretch,
+        ];
+        document.roots = [Axis::Horizontal, Axis::Vertical]
+            .into_iter()
+            .enumerate()
+            .map(|(root_index, axis)| {
+                let mut root = template.clone();
+                root.source_id = format!("13:{}", root_index + 1);
+                root.name = format!("{axis:?} alignment fixture");
+                root.layout = Layout::Stack {
+                    axis,
+                    wrap: false,
+                    primary_alignment: RawAlignment::Start,
+                    counter_alignment: RawAlignment::Start,
+                    gap: number(0.0),
+                    padding: Edges {
+                        top: number(0.0),
+                        right: number(0.0),
+                        bottom: number(0.0),
+                        left: number(0.0),
+                    },
+                    clips_content: false,
+                    scroll: Scroll {
+                        horizontal: false,
+                        vertical: false,
+                    },
+                };
+                root.children = alignments
+                    .into_iter()
+                    .enumerate()
+                    .map(|(child_index, child_counter_alignment)| {
+                        let mut child = template.clone();
+                        child.source_id = format!("13:{}:{}", root_index + 1, child_index + 1);
+                        child.name = format!("{child_counter_alignment:?}");
+                        child.layout = Layout::Plain {
+                            clips_content: false,
+                            scroll: Scroll {
+                                horizontal: false,
+                                vertical: false,
+                            },
+                        };
+                        child.child_counter_alignment = child_counter_alignment;
+                        child.style = empty_style();
+                        child.children.clear();
+                        child
+                    })
+                    .collect();
+                root
+            })
+            .collect();
         document
     }
 
@@ -1692,6 +1781,38 @@ mod tests {
             Err(CodegenError::Unsupported { location, .. })
                 if location.property == "text.runs.style.font_style"
         ));
+    }
+
+    #[test]
+    fn lowers_child_counter_axis_alignment_for_horizontal_and_vertical_stacks() {
+        let document = child_alignment_document();
+        let first = generate(&document).expect("child alignment fixture must generate");
+        let second = generate(&document).expect("child alignment fixture must be deterministic");
+        assert_eq!(first, second);
+        for method in [
+            ".self_start()",
+            ".self_center()",
+            ".self_end()",
+            ".self_stretch()",
+        ] {
+            assert_eq!(first.rust.matches(method).count(), 2, "missing {method}");
+        }
+        for (node_id, suppressed_dimension) in [("13:1:5", ".h("), ("13:2:5", ".w(")] {
+            let entry = first
+                .source_map
+                .nodes
+                .get(node_id)
+                .expect("stretch child must be source mapped");
+            let function = first
+                .rust
+                .lines()
+                .skip(entry.start_line - 1)
+                .take(entry.end_line - entry.start_line + 1)
+                .collect::<Vec<_>>()
+                .join("\n");
+            assert!(function.contains(".self_stretch()"));
+            assert!(!function.contains(suppressed_dimension));
+        }
     }
 
     #[test]
