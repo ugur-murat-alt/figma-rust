@@ -309,7 +309,28 @@ fn lower_node(
                 format!("unsupported fallback media type `{}`", asset.media_type),
             )
         })?;
+        let preserve_authored_colors = match asset
+            .export_settings
+            .get("color_policy")
+            .map(String::as_str)
+        {
+            None | Some("monochrome") => false,
+            Some("authored") => true,
+            Some(policy) => {
+                return Err(unsupported_error(
+                    node,
+                    "asset_decision.route",
+                    format!("unsupported SVG color policy `{policy}`"),
+                ));
+            }
+        };
         let mut element = match node.asset_decision.route {
+            AssetRoute::Svg if preserve_authored_colors => {
+                quote! {
+                    gpui::img(figma_gpui_runtime::AssetResolver::asset_path(assets, #file_name))
+                        .debug_selector(|| figma_gpui_runtime::source_selector(#ordinal))
+                }
+            }
             AssetRoute::Svg => quote! {
                 gpui::svg()
                     .external_path(
@@ -1776,6 +1797,60 @@ mod tests {
         assert!(output.rust.contains("asset-6e6f64653a313a313a737667.svg"));
         assert_eq!(output.source_map.nodes.len(), 1);
         assert!(!output.rust.contains("fn node_0001<"));
+    }
+
+    #[test]
+    fn authored_color_svg_uses_the_color_preserving_image_renderer() {
+        let mut document = supported_document();
+        document.roots[0].kind = RawNodeKind::Vector;
+        document.roots[0].asset_decision.route = AssetRoute::Svg;
+        document.assets = vec![RawAsset {
+            id: "node:1:1:svg".to_owned(),
+            source_node_id: "1:1".to_owned(),
+            media_type: "image/svg+xml".to_owned(),
+            content_hash: None,
+            export_settings: BTreeMap::from([
+                ("format".to_owned(), "SVG".to_owned()),
+                ("color_policy".to_owned(), "authored".to_owned()),
+            ]),
+            payload_base64: Some("PHN2Zy8+".to_owned()),
+        }];
+
+        let output = match generate(&document) {
+            Ok(output) => output,
+            Err(error) => panic!("authored-color SVG fallback must generate: {error}"),
+        };
+
+        assert!(output.rust.contains("gpui::img("));
+        assert!(!output.rust.contains("gpui::svg()"));
+    }
+
+    #[test]
+    fn unknown_svg_color_policy_is_node_scoped() {
+        let mut document = supported_document();
+        document.roots[0].kind = RawNodeKind::Vector;
+        document.roots[0].asset_decision.route = AssetRoute::Svg;
+        document.assets = vec![RawAsset {
+            id: "node:1:1:svg".to_owned(),
+            source_node_id: "1:1".to_owned(),
+            media_type: "image/svg+xml".to_owned(),
+            content_hash: None,
+            export_settings: BTreeMap::from([
+                ("format".to_owned(), "SVG".to_owned()),
+                ("color_policy".to_owned(), "unknown".to_owned()),
+            ]),
+            payload_base64: Some("PHN2Zy8+".to_owned()),
+        }];
+
+        let error = generate(&document).err();
+
+        assert!(matches!(
+            error,
+            Some(CodegenError::Unsupported { location, feature })
+                if location.node_id == "1:1"
+                    && location.property == "asset_decision.route"
+                    && feature.contains("unsupported SVG color policy")
+        ));
     }
 
     #[test]

@@ -364,7 +364,10 @@ function registerNodeFallbackAsset(
       id,
       source_node_id: node.id,
       media_type: format === "SVG" ? "image/svg+xml" : "image/png",
-      export_settings: { format },
+      export_settings: {
+        format,
+        ...(format === "SVG" ? { color_policy: "authored" } : {}),
+      },
     });
     return;
   }
@@ -402,7 +405,10 @@ function registerNodeFallbackAsset(
         id,
         source_node_id: node.id,
         media_type: format === "SVG" ? "image/svg+xml" : "image/png",
-        export_settings: { format },
+        export_settings: {
+          format,
+          ...(format === "SVG" ? { color_policy: "authored" } : {}),
+        },
         payload_base64: payload,
       });
     },

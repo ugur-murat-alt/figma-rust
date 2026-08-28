@@ -714,7 +714,7 @@ async function exportsDeterministicFallbackPayloads(): Promise<void> {
     id: "node:9:1:svg",
     source_node_id: "9:1",
     media_type: "image/svg+xml",
-    export_settings: { format: "SVG" },
+    export_settings: { color_policy: "authored", format: "SVG" },
     payload_base64: "PHN2Zy8+",
   }]);
 
@@ -793,7 +793,7 @@ async function exportsTrackedTextFallbackPayload(): Promise<void> {
     id: "node:9:5:svg",
     source_node_id: "9:5",
     media_type: "image/svg+xml",
-    export_settings: { format: "SVG" },
+    export_settings: { color_policy: "authored", format: "SVG" },
     payload_base64: "PHN2Zy8+",
   }]);
 }

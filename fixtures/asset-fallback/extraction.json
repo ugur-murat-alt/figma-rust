@@ -25,7 +25,7 @@
       "id": "node:13:1:svg",
       "source_node_id": "13:1",
       "media_type": "image/svg+xml",
-      "export_settings": {"format": "SVG"},
+      "export_settings": {"color_policy": "authored", "format": "SVG"},
       "payload_base64": "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI0MCIgaGVpZ2h0PSIyMCIgdmlld0JveD0iMCAwIDQwIDIwIj48cmVjdCB3aWR0aD0iNDAiIGhlaWdodD0iMjAiIHJ4PSI0IiBmaWxsPSIjMjU2M2ViIi8+PC9zdmc+"
     }
   ],

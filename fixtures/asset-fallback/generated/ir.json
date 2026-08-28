@@ -104,6 +104,7 @@
       "source_node_id": "13:1",
       "media_type": "image/svg+xml",
       "export_settings": {
+        "color_policy": "authored",
         "format": "SVG"
       }
     }
