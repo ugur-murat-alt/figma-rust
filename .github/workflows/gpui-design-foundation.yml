@@ -67,16 +67,45 @@ jobs:
           crates/gpui-design-core
           crates/gpui-design-mcp
       - name: Run Clippy
-        run: >-
-          cargo +1.97.1 clippy
-          -p gpui-design-core
-          -p gpui-design-mcp
-          --all-targets -- -D warnings
+        id: clippy
+        shell: bash
+        run: |
+          set +e
+          set -o pipefail
+          cargo +1.97.1 clippy \
+            -p gpui-design-core \
+            -p gpui-design-mcp \
+            --all-targets -- -D warnings 2>&1 | tee clippy.log
+          status=${PIPESTATUS[0]}
+          echo "status=${status}" >> "${GITHUB_OUTPUT}"
+          exit 0
       - name: Run tests
-        run: >-
-          cargo +1.97.1 test
-          -p gpui-design-core
-          -p gpui-design-mcp
+        id: tests
+        shell: bash
+        run: |
+          set +e
+          set -o pipefail
+          cargo +1.97.1 test \
+            -p gpui-design-core \
+            -p gpui-design-mcp 2>&1 | tee tests.log
+          status=${PIPESTATUS[0]}
+          echo "status=${status}" >> "${GITHUB_OUTPUT}"
+          exit 0
+      - name: Publish Rust diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gpui-design-rust-diagnostics
+          path: |
+            clippy.log
+            tests.log
+          if-no-files-found: error
+          retention-days: 1
+      - name: Enforce Rust checks
+        shell: bash
+        run: |
+          test "${{ steps.clippy.outputs.status }}" = "0"
+          test "${{ steps.tests.outputs.status }}" = "0"
 
   opencode2:
     name: OpenCode2 skill package
