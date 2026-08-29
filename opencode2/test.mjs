@@ -24,6 +24,7 @@ await plugin.setup({
 assert.deepEqual(
   allAdded.map((skill) => skill.id),
   [
+    "gpui-design",
     "figma-rust",
     "figma-rust-extract-compile",
     "figma-rust-semantic-gpui",
@@ -46,6 +47,7 @@ await plugin.setup({
 assert.deepEqual(
   added.map((skill) => skill.id),
   [
+    "gpui-design",
     "figma-rust-extract-compile",
     "figma-rust-semantic-gpui",
     "figma-rust-visual-verification",
