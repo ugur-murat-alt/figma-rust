@@ -1,7 +1,7 @@
 use std::io::{self, BufRead as _, BufReader, BufWriter, Write as _};
 
 use gpui_design_core::{
-    AUTHORING_SCHEMA_VERSION, DESIGN_COMMAND_VERSION, AuthoringDocument, DesignTransaction,
+    AUTHORING_SCHEMA_VERSION, AuthoringDocument, DESIGN_COMMAND_VERSION, DesignTransaction,
     DesignWorkspace, TransactionError, WorkspaceError, document_fingerprint, lowering_manifest,
     validate_document,
 };
@@ -89,9 +89,8 @@ impl Server {
             });
         }
         let Some(method) = object.get("method").and_then(Value::as_str) else {
-            return has_id.then(|| {
-                error_response(id, RpcError::invalid_request("method must be a string"))
-            });
+            return has_id
+                .then(|| error_response(id, RpcError::invalid_request("method must be a string")));
         };
         let params = object.get("params").cloned().unwrap_or_else(|| json!({}));
 
@@ -139,7 +138,10 @@ impl Server {
 
     fn call_tool(&mut self, params: &Value) -> Result<Value, RpcError> {
         let name = required_string(params, "name")?;
-        let arguments = params.get("arguments").cloned().unwrap_or_else(|| json!({}));
+        let arguments = params
+            .get("arguments")
+            .cloned()
+            .unwrap_or_else(|| json!({}));
         match name {
             "gpui_design_capabilities" => Ok(tool_success(capability_document())),
             "gpui_design_create_document" => {
@@ -162,14 +164,14 @@ impl Server {
             }
             "gpui_design_open_document" => {
                 let args: OpenDocumentArgs = parse_arguments(arguments)?;
-                Ok(match self.workspace.open_document(args.document, args.replace) {
-                    Ok(receipt) => tool_success(to_value(receipt)?),
-                    Err(error) => workspace_error_result(error),
-                })
+                Ok(
+                    match self.workspace.open_document(args.document, args.replace) {
+                        Ok(receipt) => tool_success(to_value(receipt)?),
+                        Err(error) => workspace_error_result(error),
+                    },
+                )
             }
-            "gpui_design_list_documents" => {
-                Ok(tool_success(to_value(self.workspace.summaries())?))
-            }
+            "gpui_design_list_documents" => Ok(tool_success(to_value(self.workspace.summaries())?)),
             "gpui_design_get_document" => {
                 let args: DocumentIdArgs = parse_arguments(arguments)?;
                 match self.workspace.document(&args.document_id) {
@@ -280,7 +282,9 @@ impl Server {
         };
         match view {
             ResourceView::Document => resource_result(uri, to_value(document)?),
-            ResourceView::Validation => resource_result(uri, to_value(validate_document(document))?),
+            ResourceView::Validation => {
+                resource_result(uri, to_value(validate_document(document))?)
+            }
             ResourceView::Lowering => resource_result(
                 uri,
                 to_value(
@@ -924,8 +928,7 @@ fn decode_uri_component(value: &str) -> Result<String, RpcError> {
             index += 1;
         }
     }
-    String::from_utf8(output)
-        .map_err(|error| RpcError::invalid_params("uri", error.to_string()))
+    String::from_utf8(output).map_err(|error| RpcError::invalid_params("uri", error.to_string()))
 }
 
 fn decode_hex(byte: u8) -> Result<u8, RpcError> {

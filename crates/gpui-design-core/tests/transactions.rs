@@ -43,11 +43,11 @@ fn transaction_is_atomic_when_a_move_creates_a_cycle() {
     };
     let error = gpui_design_core::apply_transaction(&mut document, &cycle)
         .expect_err("cycle must be rejected");
-    assert!(matches!(
-        error,
-        TransactionError::ValidationFailed { .. }
-    ));
-    assert_eq!(document, before, "failed transaction must not mutate source");
+    assert!(matches!(error, TransactionError::ValidationFailed { .. }));
+    assert_eq!(
+        document, before,
+        "failed transaction must not mutate source"
+    );
 }
 
 #[test]

@@ -89,9 +89,7 @@ pub struct TransactionReceipt {
 
 #[derive(Debug, Error)]
 pub enum TransactionError {
-    #[error(
-        "unsupported design command protocol {actual}; expected {expected}"
-    )]
+    #[error("unsupported design command protocol {actual}; expected {expected}")]
     UnsupportedProtocol { actual: u32, expected: u32 },
     #[error("transaction_id must not be empty")]
     EmptyTransactionId,
@@ -143,9 +141,8 @@ pub fn apply_transaction(
     let previous_revision = document.revision;
     let mut candidate = document.clone();
     for (index, command) in transaction.commands.iter().enumerate() {
-        apply_command(&mut candidate, command).map_err(|message| {
-            TransactionError::CommandFailed { index, message }
-        })?;
+        apply_command(&mut candidate, command)
+            .map_err(|message| TransactionError::CommandFailed { index, message })?;
     }
     candidate.revision = candidate
         .revision
@@ -176,10 +173,7 @@ pub fn apply_transaction(
     Ok(receipt)
 }
 
-fn apply_command(
-    document: &mut AuthoringDocument,
-    command: &DesignCommand,
-) -> Result<(), String> {
+fn apply_command(document: &mut AuthoringDocument, command: &DesignCommand) -> Result<(), String> {
     match command {
         DesignCommand::CreateNode {
             node,
@@ -192,9 +186,7 @@ fn apply_command(
             parent,
             index,
         } => move_node(document, node_id, parent.clone(), *index),
-        DesignCommand::DeleteNode { node_id, cascade } => {
-            delete_node(document, node_id, *cascade)
-        }
+        DesignCommand::DeleteNode { node_id, cascade } => delete_node(document, node_id, *cascade),
         DesignCommand::UpsertToken { token } => {
             document.tokens.insert(token.id.clone(), token.clone());
             Ok(())
@@ -268,7 +260,9 @@ fn create_node(
         return Err(format!("node {:?} already exists", node.id));
     }
     if !node.children.is_empty() {
-        return Err("CREATE_NODE accepts one detached node; create descendants explicitly".to_owned());
+        return Err(
+            "CREATE_NODE accepts one detached node; create descendants explicitly".to_owned(),
+        );
     }
     if parent.as_deref() == Some(node.id.as_str()) {
         return Err("node cannot be its own parent".to_owned());
@@ -427,7 +421,9 @@ fn remove_reference(
     let index = children
         .iter()
         .position(|child| child == node_id)
-        .ok_or_else(|| format!("node {node_id:?} is not present in its current parent/root list"))?;
+        .ok_or_else(|| {
+            format!("node {node_id:?} is not present in its current parent/root list")
+        })?;
     children.remove(index);
     Ok(())
 }

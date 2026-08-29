@@ -208,7 +208,10 @@ fn validate_nodes(document: &AuthoringDocument, diagnostics: &mut Vec<DesignDiag
                 "GD-ID-004",
                 Some(key),
                 Some("id"),
-                format!("node map key {key:?} does not match embedded id {:?}", node.id),
+                format!(
+                    "node map key {key:?} does not match embedded id {:?}",
+                    node.id
+                ),
             ));
         }
         if node.name.trim().is_empty() {
@@ -513,7 +516,13 @@ fn validate_node_values(
             validate_bound_value(document, value, &node.id, "text.line_height", diagnostics);
         }
         if let Some(value) = &text.letter_spacing {
-            validate_bound_value(document, value, &node.id, "text.letter_spacing", diagnostics);
+            validate_bound_value(
+                document,
+                value,
+                &node.id,
+                "text.letter_spacing",
+                diagnostics,
+            );
         }
         if let Some(value) = &text.color {
             validate_bound_value(document, value, &node.id, "text.color", diagnostics);
@@ -638,12 +647,7 @@ fn validate_paint(
 }
 
 fn validate_visual_numbers(node: &DesignNode, diagnostics: &mut Vec<DesignDiagnostic>) {
-    validate_unit_interval(
-        node.visual.opacity,
-        &node.id,
-        "visual.opacity",
-        diagnostics,
-    );
+    validate_unit_interval(node.visual.opacity, &node.id, "visual.opacity", diagnostics);
 }
 
 fn validate_unit_interval(
@@ -695,13 +699,7 @@ fn detect_node_cycles(document: &AuthoringDocument, diagnostics: &mut Vec<Design
     let mut visited = BTreeSet::new();
     let mut visiting = BTreeSet::new();
     for node_id in document.nodes.keys() {
-        visit_node(
-            document,
-            node_id,
-            &mut visiting,
-            &mut visited,
-            diagnostics,
-        );
+        visit_node(document, node_id, &mut visiting, &mut visited, diagnostics);
     }
 }
 
@@ -742,7 +740,10 @@ fn validate_tokens(document: &AuthoringDocument, diagnostics: &mut Vec<DesignDia
                 "GD-ID-007",
                 Some(key),
                 Some("id"),
-                format!("token map key {key:?} does not match embedded id {:?}", token.id),
+                format!(
+                    "token map key {key:?} does not match embedded id {:?}",
+                    token.id
+                ),
             ));
         }
         if !token.modes.contains_key(&token.default_mode) {
@@ -750,7 +751,10 @@ fn validate_tokens(document: &AuthoringDocument, diagnostics: &mut Vec<DesignDia
                 "GD-TOKEN-002",
                 Some(key),
                 Some("default_mode"),
-                format!("default mode {:?} is not present in modes", token.default_mode),
+                format!(
+                    "default mode {:?} is not present in modes",
+                    token.default_mode
+                ),
             ));
         }
         if token.modes.is_empty() {
@@ -816,9 +820,7 @@ fn validate_tokens(document: &AuthoringDocument, diagnostics: &mut Vec<DesignDia
                         "numeric token value must be finite",
                     ));
                 }
-                TokenValue::Motion(value)
-                    if value.easing.iter().any(|item| !item.is_finite()) =>
-                {
+                TokenValue::Motion(value) if value.easing.iter().any(|item| !item.is_finite()) => {
                     diagnostics.push(DesignDiagnostic::error(
                         "GD-TOKEN-008",
                         Some(key),
@@ -900,7 +902,10 @@ fn validate_components(document: &AuthoringDocument, diagnostics: &mut Vec<Desig
                     "GD-COMPONENT-003",
                     Some(key),
                     Some(&format!("variants.{axis}.default")),
-                    format!("default {:?} is not a declared variant value", variant.default),
+                    format!(
+                        "default {:?} is not a declared variant value",
+                        variant.default
+                    ),
                 ));
             }
         }
@@ -920,13 +925,16 @@ fn validate_components(document: &AuthoringDocument, diagnostics: &mut Vec<Desig
     }
 }
 
-fn validate_code_bindings(
-    document: &AuthoringDocument,
-    diagnostics: &mut Vec<DesignDiagnostic>,
-) {
+fn validate_code_bindings(document: &AuthoringDocument, diagnostics: &mut Vec<DesignDiagnostic>) {
     for (key, binding) in &document.code_bindings {
         validate_identifier(key, "GD-ID-011", "code_bindings key", key, diagnostics);
-        validate_identifier(&binding.id, "GD-ID-012", "code_binding.id", key, diagnostics);
+        validate_identifier(
+            &binding.id,
+            "GD-ID-012",
+            "code_binding.id",
+            key,
+            diagnostics,
+        );
         if key != &binding.id {
             diagnostics.push(DesignDiagnostic::error(
                 "GD-ID-013",
@@ -942,9 +950,7 @@ fn validate_code_bindings(
             BindingTargetKind::Document => binding.target.id == document.document_id,
             BindingTargetKind::Node => document.nodes.contains_key(&binding.target.id),
             BindingTargetKind::Token => document.tokens.contains_key(&binding.target.id),
-            BindingTargetKind::Component => {
-                document.components.contains_key(&binding.target.id)
-            }
+            BindingTargetKind::Component => document.components.contains_key(&binding.target.id),
         };
         if !target_exists {
             diagnostics.push(DesignDiagnostic::error(
@@ -1020,7 +1026,9 @@ pub fn document_fingerprint(
 pub fn summarize_document(document: &AuthoringDocument) -> DocumentSummary {
     let mut token_scopes = BTreeMap::new();
     for token in document.tokens.values() {
-        *token_scopes.entry(token_scope_name(token.scope)).or_insert(0) += 1;
+        *token_scopes
+            .entry(token_scope_name(token.scope))
+            .or_insert(0) += 1;
     }
     let mut component_roles = BTreeMap::new();
     for component in document.components.values() {

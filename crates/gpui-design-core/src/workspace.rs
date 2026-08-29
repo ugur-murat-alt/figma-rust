@@ -49,9 +49,7 @@ pub enum WorkspaceError {
     DocumentNotFound(String),
     #[error("document failed validation")]
     ValidationFailed { report: Box<ValidationReport> },
-    #[error(
-        "transaction id {transaction_id:?} was already used with different request content"
-    )]
+    #[error("transaction id {transaction_id:?} was already used with different request content")]
     TransactionIdConflict { transaction_id: String },
     #[error(transparent)]
     Transaction(#[from] TransactionError),

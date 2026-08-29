@@ -23,8 +23,8 @@ pub use authoring::{
     TextContent, TokenKind, TokenScope, TokenValue, VariantAxis, VisualStyle,
 };
 pub use command::{
-    DESIGN_COMMAND_VERSION, DesignCommand, DesignTransaction, TransactionError,
-    TransactionReceipt, apply_transaction, transaction_fingerprint,
+    DESIGN_COMMAND_VERSION, DesignCommand, DesignTransaction, TransactionError, TransactionReceipt,
+    apply_transaction, transaction_fingerprint,
 };
 pub use validation::{
     DesignDiagnostic, DiagnosticSeverity, DocumentFingerprint, DocumentSummary, LoweringManifest,
