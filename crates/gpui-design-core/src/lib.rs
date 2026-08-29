@@ -14,10 +14,10 @@ pub use authoring::{
     AUTHORING_SCHEMA_VERSION, Alignment, AuthoringDocument, BindingTarget, BindingTargetKind,
     CodeBinding, CodeOwnership, ColorValue, ComponentContract, ComponentInstance, ComponentRole,
     CrossAlignment, DesignNode, DesignTarget, DesignToken, DesignValue, Distribution, EdgeValues,
-    Effect, EventContract, EventPayloadKind, Fill, FontValue, GridSpec, GridTrack, InstanceValue,
-    LayoutFlow, LayoutSpec, MotionValue, NodeKind, Paint, PositionSpec, RadiusValues, RustSymbol,
-    ScrollSpec, SizingRule, SlotContract, Stroke, SyncPolicy, TextContent, TokenKind, TokenScope,
-    TokenValue, VariantAxis, VisualStyle,
+    Effect, EventContract, EventPayloadKind, Fill, FontValue, GradientStop, GridSpec, GridTrack,
+    ImageFit, InstanceValue, LayoutFlow, LayoutSpec, MotionValue, NodeKind, Paint, PositionSpec,
+    RadiusValues, RustSymbol, ScrollSpec, SizingRule, SlotContract, Stroke, SyncPolicy,
+    TextContent, TokenKind, TokenScope, TokenValue, VariantAxis, VisualStyle,
 };
 pub use command::{
     DESIGN_COMMAND_VERSION, DesignCommand, DesignTransaction, TransactionError,
@@ -29,5 +29,5 @@ pub use validation::{
     validate_document,
 };
 pub use workspace::{
-    DesignWorkspace, WorkspaceError, WorkspaceTransactionReceipt,
+    DesignWorkspace, DocumentOpenReceipt, WorkspaceError, WorkspaceTransactionReceipt,
 };
