@@ -5,8 +5,11 @@
 //! explicit commands, validated atomically, and only then lowered by target
 //! adapters.
 
+use std::cmp::Ordering;
+
 pub mod authoring;
 pub mod command;
+#[allow(unused_imports)]
 pub mod validation;
 pub mod workspace;
 
@@ -31,3 +34,26 @@ pub use validation::{
 pub use workspace::{
     DesignWorkspace, DocumentOpenReceipt, WorkspaceError, WorkspaceTransactionReceipt,
 };
+
+impl PartialOrd for ComponentRole {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for ComponentRole {
+    fn cmp(&self, other: &Self) -> Ordering {
+        component_role_rank(*self).cmp(&component_role_rank(*other))
+    }
+}
+
+const fn component_role_rank(role: ComponentRole) -> u8 {
+    match role {
+        ComponentRole::Primitive => 0,
+        ComponentRole::Control => 1,
+        ComponentRole::Composite => 2,
+        ComponentRole::Module => 3,
+        ComponentRole::Shell => 4,
+        ComponentRole::Overlay => 5,
+    }
+}
