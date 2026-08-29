@@ -1,0 +1,84 @@
+name: GPUI Design foundation
+
+on:
+  pull_request:
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - crates/gpui-design-core/**
+      - crates/gpui-design-mcp/**
+      - .opencode/skills/gpui-design/**
+      - opencode2/**
+      - docs/gpui-design-mcp-architecture.md
+      - README.md
+      - AGENTS.md
+      - .github/workflows/gpui-design-foundation.yml
+  push:
+    branches:
+      - feat/gpui-design-mcp-foundation
+    paths:
+      - Cargo.toml
+      - Cargo.lock
+      - crates/gpui-design-core/**
+      - crates/gpui-design-mcp/**
+      - .opencode/skills/gpui-design/**
+      - opencode2/**
+      - docs/gpui-design-mcp-architecture.md
+      - README.md
+      - AGENTS.md
+      - .github/workflows/gpui-design-foundation.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: gpui-design-foundation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: Rust authoring and MCP
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.97.1 --profile minimal --component clippy,rustfmt
+      - name: Check formatting
+        run: cargo +1.97.1 fmt --all -- --check
+      - name: Check lockfile
+        run: cargo +1.97.1 metadata --locked --no-deps --format-version 1 >/dev/null
+      - name: Run Clippy
+        run: >-
+          cargo +1.97.1 clippy
+          -p gpui-design-core
+          -p gpui-design-mcp
+          --all-targets -- -D warnings
+      - name: Run tests
+        run: >-
+          cargo +1.97.1 test
+          -p gpui-design-core
+          -p gpui-design-mcp
+
+  opencode2:
+    name: OpenCode2 skill package
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: opencode2/package-lock.json
+      - name: Install dependencies
+        run: npm --prefix opencode2 ci
+      - name: Build skill package
+        run: npm --prefix opencode2 run build
+      - name: Check generated plugin
+        run: npm --prefix opencode2 run check
+      - name: Test skill registration
+        run: npm --prefix opencode2 test
