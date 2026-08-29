@@ -103,11 +103,6 @@ impl DesignWorkspace {
     }
 
     #[must_use]
-    pub fn document_mut(&mut self, document_id: &str) -> Option<&mut AuthoringDocument> {
-        self.documents.get_mut(document_id)
-    }
-
-    #[must_use]
     pub fn summaries(&self) -> Vec<DocumentSummary> {
         self.documents.values().map(summarize_document).collect()
     }
