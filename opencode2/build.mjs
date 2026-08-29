@@ -9,6 +9,12 @@ const outputRoot = resolve(packageRoot, "dist");
 
 const skills = [
   {
+    id: "gpui-design",
+    name: "gpui-design",
+    description:
+      "Operate the Figma-independent GPUI Design authoring model and MCP for tokenized components, modules, shells, revisioned design transactions, Rust symbol ownership, lowering readiness, and actual-GPUI visual workflows. Use when designing OrbitLine directly for GPUI without making Figma the authority.",
+  },
+  {
     id: "figma-rust",
     name: "figma-rust",
     description:
