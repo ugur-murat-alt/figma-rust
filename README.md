@@ -7,6 +7,46 @@ render artifacts.
 
 It is not screenshot-to-code and does not infer application business logic.
 
+## GPUI Design direction
+
+The repository is evolving into **GPUI Design**: a Figma-independent authoring
+engine and MCP whose editable source of truth understands tokens, semantic
+components, modules, shells, Rust symbol ownership, and actual GPUI render
+evidence. Figma remains an optional import and historical-evidence adapter; it is
+not the long-term authority for OrbitLine design work.
+
+The migration is incremental. The existing extraction, compiler IR, deterministic
+GPUI code generation, pinned-revision fixtures, and visual verification system
+remain in place while a native authoring layer is added above them.
+
+The first foundation is available in:
+
+- `crates/gpui-design-core`: versioned authoring documents, component-to-shell
+  contracts, token scopes, Rust code bindings, deterministic validation,
+  revisioned commands, and idempotent transactions;
+- `crates/gpui-design-mcp`: process-local MCP tools, resources, and prompts over
+  newline-delimited stdio JSON-RPC;
+- `.opencode/skills/gpui-design`: the OpenCode2 operating workflow;
+- [`docs/gpui-design-mcp-architecture.md`](docs/gpui-design-mcp-architecture.md):
+  target studio, preview, lowering, code-index, security, and migration design.
+
+Run the MCP server from the repository root:
+
+```sh
+cargo run -p gpui-design-mcp
+```
+
+The current MCP foundation validates and revises in-memory authoring documents.
+Native authoring-to-compiler-IR lowering, real GPUI preview/hit testing, durable
+project storage, AST-safe Rust reconciliation, and the web studio are explicit
+subsequent phases; the current lowering manifest is readiness evidence, not a
+claim that code or pixels were produced.
+
+OrbitLine production code should consume approved semantic APIs such as
+`orbit_ui::*`. Raw GPUI primitives and styling belong inside the framework and
+renderer implementation, not in arbitrary product screens or agent-generated
+one-off widgets.
+
 ## Status
 
 The project is under active construction. Current scope and honest capability
@@ -16,6 +56,7 @@ limits are documented in:
 - [`docs/figma-gpui-capability-matrix.md`](docs/figma-gpui-capability-matrix.md)
 - [`docs/architecture.md`](docs/architecture.md)
 - [`docs/plan.md`](docs/plan.md)
+- [`docs/gpui-design-mcp-architecture.md`](docs/gpui-design-mcp-architecture.md)
 
 ## Intended CLI
 
@@ -67,11 +108,11 @@ straight-alpha RGBA, and runs the zero-tolerance verifier. Rust validates and
 atomically publishes every PNG and provenance artifact; Computer Use only owns the
 external compositor screenshot step.
 
-## OpenCode2 Skill
+## OpenCode2 Skills
 
-The repository ships a project-local `figma-rust` skill under
-`.opencode/skills/figma-rust/`. OpenCode2 discovers it automatically when started
-from this repository or a child directory.
+The repository ships project-local skills under `.opencode/skills/`. OpenCode2
+discovers them automatically when started from this repository or a child
+directory.
 
 ```sh
 opencode2
@@ -87,12 +128,13 @@ OpenCode V2 plugin at an exact version:
 ```
 
 The npm package registers only missing skill IDs; repository-local copies remain
-authoritative when they are present. It does not contain the compiler CLI or the
+authoritative when they are present. It does not contain the Rust binaries or the
 Figma development plugin.
 
-Ask OpenCode2 to load `figma-rust` explicitly for extraction, compilation,
-semantic GPUI integration, verification, capture, debugging, or compiler
-development work. It is the umbrella router for three task skills:
+Use `gpui-design` for Figma-independent authoring, token/component/module/shell
+contracts, design transactions, MCP operation, code ownership, and lowering
+readiness. Use `figma-rust` when the task still depends on Figma extraction or the
+compatibility compiler path. The compatibility umbrella routes three task skills:
 
 - `figma-rust-extract-compile`: schema-v2 plugin extraction, diagnostics,
   deterministic compilation, generated artifacts, and the loopback bridge;
@@ -101,10 +143,10 @@ development work. It is the umbrella router for three task skills:
 - `figma-rust-visual-verification`: source-linked geometry and pixels, exact
   fonts, Linux compositor capture, thresholds, hashes, and provenance.
 
-For end-to-end work, agents use them in that order and keep compilation, GPUI
+For end-to-end work, agents keep authoring, lowering, compilation, GPUI
 integration, geometry, and pixel evidence as separate gates. The suite contains:
 
-- the complete plugin, CLI, server, verification, capture, and development workflow;
+- the GPUI-native authoring/MCP workflow and the compatibility plugin/compiler;
 - capability and diagnostic interpretation rules;
 - a mandatory decision gate that creates one GitHub issue per independently
   reproducible non-security root cause or coherent improvement found during use;
