@@ -40,32 +40,17 @@ jobs:
   rust:
     name: Rust authoring and MCP
     runs-on: ubuntu-24.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 1
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.97.1 --profile minimal --component clippy,rustfmt
-      - name: Normalize Rust sources and lockfile
-        run: |
-          cargo +1.97.1 fmt --all
-          cargo +1.97.1 metadata --no-deps --format-version 1 >/dev/null
-      - name: Publish normalized diagnostic snapshot
-        uses: actions/upload-artifact@v4
-        with:
-          name: gpui-design-rust-normalized
-          path: |
-            Cargo.lock
-            crates/gpui-design-core
-            crates/gpui-design-mcp
-          if-no-files-found: error
-          retention-days: 1
-      - name: Check normalized files are committed
-        run: >-
-          git diff --exit-code --
-          Cargo.lock
-          crates/gpui-design-core
-          crates/gpui-design-mcp
+      - name: Check formatting
+        run: cargo +1.97.1 fmt --all -- --check
+      - name: Check locked workspace metadata
+        run: cargo +1.97.1 metadata --locked --no-deps --format-version 1 >/dev/null
       - name: Run Clippy
         id: clippy
         shell: bash
@@ -110,6 +95,7 @@ jobs:
   opencode2:
     name: OpenCode2 skill package
     runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
