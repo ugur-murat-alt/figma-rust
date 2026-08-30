@@ -9,7 +9,6 @@ use std::cmp::Ordering;
 
 pub mod authoring;
 pub mod command;
-#[allow(unused_imports)]
 pub mod validation;
 pub mod workspace;
 

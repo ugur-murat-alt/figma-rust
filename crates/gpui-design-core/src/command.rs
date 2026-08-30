@@ -109,6 +109,13 @@ pub enum TransactionError {
     Serialization(String),
 }
 
+/// Applies a complete design transaction to a cloned candidate and commits it atomically.
+///
+/// # Errors
+///
+/// Returns [`TransactionError`] when the protocol or document identity is invalid, the
+/// expected revision is stale, any command fails, the candidate does not validate, the
+/// revision overflows, or a deterministic fingerprint cannot be serialized.
 pub fn apply_transaction(
     document: &mut AuthoringDocument,
     transaction: &DesignTransaction,
@@ -179,7 +186,7 @@ fn apply_command(document: &mut AuthoringDocument, command: &DesignCommand) -> R
             node,
             parent,
             index,
-        } => create_node(document, node.clone(), parent.clone(), *index),
+        } => create_node(document, node.clone(), parent.as_deref(), *index),
         DesignCommand::ReplaceNode { node } => replace_node(document, node.clone()),
         DesignCommand::MoveNode {
             node_id,
@@ -253,7 +260,7 @@ fn apply_command(document: &mut AuthoringDocument, command: &DesignCommand) -> R
 fn create_node(
     document: &mut AuthoringDocument,
     mut node: DesignNode,
-    parent: Option<String>,
+    parent: Option<&str>,
     index: Option<usize>,
 ) -> Result<(), String> {
     if document.nodes.contains_key(&node.id) {
@@ -264,14 +271,14 @@ fn create_node(
             "CREATE_NODE accepts one detached node; create descendants explicitly".to_owned(),
         );
     }
-    if parent.as_deref() == Some(node.id.as_str()) {
+    if parent == Some(node.id.as_str()) {
         return Err("node cannot be its own parent".to_owned());
     }
-    ensure_parent_exists(document, parent.as_deref())?;
-    node.parent.clone_from(&parent);
+    ensure_parent_exists(document, parent)?;
+    node.parent = parent.map(str::to_owned);
     let node_id = node.id.clone();
     document.nodes.insert(node_id.clone(), node);
-    insert_reference(document, parent.as_deref(), &node_id, index)
+    insert_reference(document, parent, &node_id, index)
 }
 
 fn replace_node(document: &mut AuthoringDocument, node: DesignNode) -> Result<(), String> {
@@ -428,6 +435,11 @@ fn remove_reference(
     Ok(())
 }
 
+/// Computes the deterministic SHA-256 fingerprint of a transaction request.
+///
+/// # Errors
+///
+/// Returns a serialization error when the transaction cannot be encoded as canonical JSON.
 pub fn transaction_fingerprint(
     transaction: &DesignTransaction,
 ) -> Result<String, serde_json::Error> {

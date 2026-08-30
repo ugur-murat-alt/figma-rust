@@ -1,7 +1,10 @@
+use std::collections::BTreeMap;
+
 use gpui_design_core::{
     AUTHORING_SCHEMA_VERSION, BindingTarget, BindingTargetKind, CodeBinding, CodeOwnership,
-    DESIGN_COMMAND_VERSION, DesignCommand, DesignNode, DesignTransaction, DesignWorkspace,
-    RustSymbol, SyncPolicy, TransactionError, document_fingerprint, validate_document,
+    DESIGN_COMMAND_VERSION, DesignCommand, DesignNode, DesignToken, DesignTransaction,
+    DesignWorkspace, RustSymbol, SyncPolicy, TokenKind, TokenScope, TokenValue, TransactionError,
+    document_fingerprint, validate_document,
 };
 
 #[test]
@@ -124,5 +127,49 @@ fn content_fingerprint_ignores_revision_only_changes() {
     assert_eq!(
         document_fingerprint(&document).expect("fingerprint"),
         document_fingerprint(&later_revision).expect("fingerprint")
+    );
+}
+
+#[test]
+fn token_aliases_preserve_the_declared_kind() {
+    let mut document =
+        gpui_design_core::AuthoringDocument::new("orbitline/foundation", "Foundation");
+    document.tokens.insert(
+        "primitive/spacing/8".to_owned(),
+        DesignToken {
+            id: "primitive/spacing/8".to_owned(),
+            name: "Spacing 8".to_owned(),
+            scope: TokenScope::Primitive,
+            kind: TokenKind::Number,
+            default_mode: "default".to_owned(),
+            modes: BTreeMap::from([("default".to_owned(), TokenValue::Number(8.0))]),
+            description: None,
+            metadata: BTreeMap::new(),
+        },
+    );
+    document.tokens.insert(
+        "semantic/surface/default".to_owned(),
+        DesignToken {
+            id: "semantic/surface/default".to_owned(),
+            name: "Default Surface".to_owned(),
+            scope: TokenScope::Semantic,
+            kind: TokenKind::Color,
+            default_mode: "dark".to_owned(),
+            modes: BTreeMap::from([(
+                "dark".to_owned(),
+                TokenValue::Alias("primitive/spacing/8".to_owned()),
+            )]),
+            description: None,
+            metadata: BTreeMap::new(),
+        },
+    );
+
+    let report = validate_document(&document);
+    assert!(!report.valid);
+    assert!(
+        report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "GD-TOKEN-010")
     );
 }

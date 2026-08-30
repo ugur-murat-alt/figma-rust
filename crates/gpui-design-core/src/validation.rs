@@ -6,7 +6,7 @@ use sha2::{Digest as _, Sha256};
 use crate::authoring::{
     AUTHORING_SCHEMA_VERSION, AuthoringDocument, BindingTargetKind, CodeOwnership, ComponentRole,
     DesignNode, DesignToken, DesignValue, Effect, Fill, GridTrack, InstanceValue, LayoutFlow,
-    Paint, PositionSpec, SizingRule, SyncPolicy, TokenKind, TokenScope, TokenValue,
+    Paint, PositionSpec, SizingRule, SyncPolicy, TokenScope, TokenValue,
 };
 
 const LOWERING_MANIFEST_VERSION: u32 = 1;
@@ -173,9 +173,26 @@ pub fn validate_document(document: &AuthoringDocument) -> ValidationReport {
 }
 
 fn validate_nodes(document: &AuthoringDocument, diagnostics: &mut Vec<DesignDiagnostic>) {
+    let roots = validate_roots(document, diagnostics);
+    for (key, node) in &document.nodes {
+        validate_node_identity(key, node, diagnostics);
+        validate_node_parent(document, key, node, &roots, diagnostics);
+        validate_node_children(document, key, node, diagnostics);
+        validate_node_tokens(document, node, diagnostics);
+        validate_node_values(document, node, diagnostics);
+        validate_visual_numbers(node, diagnostics);
+        validate_component_instance(document, key, node, diagnostics);
+    }
+    detect_node_cycles(document, diagnostics);
+}
+
+fn validate_roots(
+    document: &AuthoringDocument,
+    diagnostics: &mut Vec<DesignDiagnostic>,
+) -> BTreeSet<String> {
     let mut roots = BTreeSet::new();
     for root_id in &document.roots {
-        if !roots.insert(root_id) {
+        if !roots.insert(root_id.clone()) {
             diagnostics.push(DesignDiagnostic::error(
                 "GD-TREE-001",
                 Some(root_id),
@@ -199,125 +216,145 @@ fn validate_nodes(document: &AuthoringDocument, diagnostics: &mut Vec<DesignDiag
             )),
         }
     }
+    roots
+}
 
-    for (key, node) in &document.nodes {
-        validate_identifier(key, "GD-ID-002", "nodes key", key, diagnostics);
-        validate_identifier(&node.id, "GD-ID-003", "node.id", key, diagnostics);
-        if key != &node.id {
+fn validate_node_identity(key: &str, node: &DesignNode, diagnostics: &mut Vec<DesignDiagnostic>) {
+    validate_identifier(key, "GD-ID-002", "nodes key", key, diagnostics);
+    validate_identifier(&node.id, "GD-ID-003", "node.id", key, diagnostics);
+    if key != node.id.as_str() {
+        diagnostics.push(DesignDiagnostic::error(
+            "GD-ID-004",
+            Some(key),
+            Some("id"),
+            format!(
+                "node map key {key:?} does not match embedded id {:?}",
+                node.id
+            ),
+        ));
+    }
+    if node.name.trim().is_empty() {
+        diagnostics.push(DesignDiagnostic::warning(
+            "GD-NODE-001",
+            Some(key),
+            Some("name"),
+            "node name is empty; diagnostics and studio navigation will be harder to read",
+        ));
+    }
+}
+
+fn validate_node_parent(
+    document: &AuthoringDocument,
+    key: &str,
+    node: &DesignNode,
+    roots: &BTreeSet<String>,
+    diagnostics: &mut Vec<DesignDiagnostic>,
+) {
+    if node.parent.is_none() && !roots.contains(key) {
+        diagnostics.push(DesignDiagnostic::error(
+            "GD-TREE-004",
+            Some(key),
+            Some("parent"),
+            "parentless node is not listed as a document root",
+        ));
+    }
+    let Some(parent_id) = &node.parent else {
+        return;
+    };
+    match document.nodes.get(parent_id) {
+        Some(parent) if parent.children.iter().any(|child| child == key) => {}
+        Some(_) => diagnostics.push(DesignDiagnostic::error(
+            "GD-TREE-005",
+            Some(key),
+            Some("parent"),
+            format!("parent {parent_id:?} does not list this node as a child"),
+        )),
+        None => diagnostics.push(DesignDiagnostic::error(
+            "GD-TREE-006",
+            Some(key),
+            Some("parent"),
+            format!("parent {parent_id:?} does not exist"),
+        )),
+    }
+}
+
+fn validate_node_children(
+    document: &AuthoringDocument,
+    key: &str,
+    node: &DesignNode,
+    diagnostics: &mut Vec<DesignDiagnostic>,
+) {
+    let mut children = BTreeSet::new();
+    for child_id in &node.children {
+        if !children.insert(child_id.as_str()) {
             diagnostics.push(DesignDiagnostic::error(
-                "GD-ID-004",
+                "GD-TREE-007",
                 Some(key),
-                Some("id"),
-                format!(
-                    "node map key {key:?} does not match embedded id {:?}",
-                    node.id
-                ),
+                Some("children"),
+                format!("child {child_id:?} appears more than once"),
             ));
         }
-        if node.name.trim().is_empty() {
-            diagnostics.push(DesignDiagnostic::warning(
-                "GD-NODE-001",
-                Some(key),
-                Some("name"),
-                "node name is empty; diagnostics and studio navigation will be harder to read",
-            ));
-        }
-        if node.parent.is_none() && !roots.contains(key) {
-            diagnostics.push(DesignDiagnostic::error(
-                "GD-TREE-004",
-                Some(key),
+        match document.nodes.get(child_id) {
+            Some(child) if child.parent.as_deref() == Some(key) => {}
+            Some(child) => diagnostics.push(DesignDiagnostic::error(
+                "GD-TREE-008",
+                Some(child_id),
                 Some("parent"),
-                "parentless node is not listed as a document root",
-            ));
+                format!(
+                    "child parent {:?} does not match containing node {key:?}",
+                    child.parent
+                ),
+            )),
+            None => diagnostics.push(DesignDiagnostic::error(
+                "GD-TREE-009",
+                Some(key),
+                Some("children"),
+                format!("child {child_id:?} does not exist"),
+            )),
         }
-        if let Some(parent_id) = &node.parent {
-            match document.nodes.get(parent_id) {
-                Some(parent) if parent.children.iter().any(|child| child == key) => {}
-                Some(_) => diagnostics.push(DesignDiagnostic::error(
-                    "GD-TREE-005",
-                    Some(key),
-                    Some("parent"),
-                    format!("parent {parent_id:?} does not list this node as a child"),
-                )),
-                None => diagnostics.push(DesignDiagnostic::error(
-                    "GD-TREE-006",
-                    Some(key),
-                    Some("parent"),
-                    format!("parent {parent_id:?} does not exist"),
-                )),
-            }
-        }
+    }
+}
 
-        let mut children = BTreeSet::new();
-        for child_id in &node.children {
-            if !children.insert(child_id) {
+fn validate_component_instance(
+    document: &AuthoringDocument,
+    key: &str,
+    node: &DesignNode,
+    diagnostics: &mut Vec<DesignDiagnostic>,
+) {
+    let Some(instance) = &node.component else {
+        return;
+    };
+    if !document.components.contains_key(&instance.component_id) {
+        diagnostics.push(DesignDiagnostic::error(
+            "GD-COMPONENT-001",
+            Some(key),
+            Some("component.component_id"),
+            format!("component {:?} does not exist", instance.component_id),
+        ));
+    }
+    for (property, value) in &instance.properties {
+        if let InstanceValue::Token(token_id) = value {
+            validate_token_reference(
+                document,
+                token_id,
+                key,
+                &format!("component.properties.{property}"),
+                diagnostics,
+            );
+        }
+    }
+    for (slot, node_ids) in &instance.slots {
+        for node_id in node_ids {
+            if !document.nodes.contains_key(node_id) {
                 diagnostics.push(DesignDiagnostic::error(
-                    "GD-TREE-007",
+                    "GD-COMPONENT-002",
                     Some(key),
-                    Some("children"),
-                    format!("child {child_id:?} appears more than once"),
+                    Some(&format!("component.slots.{slot}")),
+                    format!("slot references missing node {node_id:?}"),
                 ));
-            }
-            match document.nodes.get(child_id) {
-                Some(child) if child.parent.as_deref() == Some(key.as_str()) => {}
-                Some(child) => diagnostics.push(DesignDiagnostic::error(
-                    "GD-TREE-008",
-                    Some(child_id),
-                    Some("parent"),
-                    format!(
-                        "child parent {:?} does not match containing node {key:?}",
-                        child.parent
-                    ),
-                )),
-                None => diagnostics.push(DesignDiagnostic::error(
-                    "GD-TREE-009",
-                    Some(key),
-                    Some("children"),
-                    format!("child {child_id:?} does not exist"),
-                )),
-            }
-        }
-
-        validate_node_tokens(document, node, diagnostics);
-        validate_node_values(document, node, diagnostics);
-        validate_visual_numbers(node, diagnostics);
-
-        if let Some(instance) = &node.component {
-            if !document.components.contains_key(&instance.component_id) {
-                diagnostics.push(DesignDiagnostic::error(
-                    "GD-COMPONENT-001",
-                    Some(key),
-                    Some("component.component_id"),
-                    format!("component {:?} does not exist", instance.component_id),
-                ));
-            }
-            for (property, value) in &instance.properties {
-                if let InstanceValue::Token(token_id) = value {
-                    validate_token_reference(
-                        document,
-                        token_id,
-                        key,
-                        &format!("component.properties.{property}"),
-                        diagnostics,
-                    );
-                }
-            }
-            for (slot, node_ids) in &instance.slots {
-                for node_id in node_ids {
-                    if !document.nodes.contains_key(node_id) {
-                        diagnostics.push(DesignDiagnostic::error(
-                            "GD-COMPONENT-002",
-                            Some(key),
-                            Some(&format!("component.slots.{slot}")),
-                            format!("slot references missing node {node_id:?}"),
-                        ));
-                    }
-                }
             }
         }
     }
-
-    detect_node_cycles(document, diagnostics);
 }
 
 fn validate_node_tokens(
@@ -331,6 +368,16 @@ fn validate_node_tokens(
 }
 
 fn validate_node_values(
+    document: &AuthoringDocument,
+    node: &DesignNode,
+    diagnostics: &mut Vec<DesignDiagnostic>,
+) {
+    validate_node_layout_values(document, node, diagnostics);
+    validate_node_visual_values(document, node, diagnostics);
+    validate_node_text_values(document, node, diagnostics);
+}
+
+fn validate_node_layout_values(
     document: &AuthoringDocument,
     node: &DesignNode,
     diagnostics: &mut Vec<DesignDiagnostic>,
@@ -359,50 +406,8 @@ fn validate_node_values(
         "layout.padding",
         diagnostics,
     );
-    match &node.layout.flow {
-        LayoutFlow::Grid { spec } => {
-            for (index, track) in spec.columns.iter().enumerate() {
-                if let GridTrack::Fixed(value) = track {
-                    validate_bound_value(
-                        document,
-                        value,
-                        &node.id,
-                        &format!("layout.flow.columns[{index}]"),
-                        diagnostics,
-                    );
-                }
-            }
-            for (index, track) in spec.rows.iter().enumerate() {
-                if let GridTrack::Fixed(value) = track {
-                    validate_bound_value(
-                        document,
-                        value,
-                        &node.id,
-                        &format!("layout.flow.rows[{index}]"),
-                        diagnostics,
-                    );
-                }
-            }
-            if let Some(value) = &spec.column_gap {
-                validate_bound_value(
-                    document,
-                    value,
-                    &node.id,
-                    "layout.flow.column_gap",
-                    diagnostics,
-                );
-            }
-            if let Some(value) = &spec.row_gap {
-                validate_bound_value(
-                    document,
-                    value,
-                    &node.id,
-                    "layout.flow.row_gap",
-                    diagnostics,
-                );
-            }
-        }
-        LayoutFlow::None | LayoutFlow::Horizontal { .. } | LayoutFlow::Vertical { .. } => {}
+    if let LayoutFlow::Grid { spec } = &node.layout.flow {
+        validate_grid_values(document, node, spec, diagnostics);
     }
     match &node.layout.position {
         PositionSpec::Absolute { x, y, .. } | PositionSpec::WindowFixed { x, y, .. } => {
@@ -411,7 +416,61 @@ fn validate_node_values(
         }
         PositionSpec::Flow => {}
     }
+}
 
+fn validate_grid_values(
+    document: &AuthoringDocument,
+    node: &DesignNode,
+    spec: &crate::authoring::GridSpec,
+    diagnostics: &mut Vec<DesignDiagnostic>,
+) {
+    for (index, track) in spec.columns.iter().enumerate() {
+        if let GridTrack::Fixed(value) = track {
+            validate_bound_value(
+                document,
+                value,
+                &node.id,
+                &format!("layout.flow.columns[{index}]"),
+                diagnostics,
+            );
+        }
+    }
+    for (index, track) in spec.rows.iter().enumerate() {
+        if let GridTrack::Fixed(value) = track {
+            validate_bound_value(
+                document,
+                value,
+                &node.id,
+                &format!("layout.flow.rows[{index}]"),
+                diagnostics,
+            );
+        }
+    }
+    if let Some(value) = &spec.column_gap {
+        validate_bound_value(
+            document,
+            value,
+            &node.id,
+            "layout.flow.column_gap",
+            diagnostics,
+        );
+    }
+    if let Some(value) = &spec.row_gap {
+        validate_bound_value(
+            document,
+            value,
+            &node.id,
+            "layout.flow.row_gap",
+            diagnostics,
+        );
+    }
+}
+
+fn validate_node_visual_values(
+    document: &AuthoringDocument,
+    node: &DesignNode,
+    diagnostics: &mut Vec<DesignDiagnostic>,
+) {
     for (index, fill) in node.visual.fills.iter().enumerate() {
         validate_fill(
             document,
@@ -437,34 +496,28 @@ fn validate_node_values(
             diagnostics,
         );
     }
-    validate_bound_value(
-        document,
-        &node.visual.radii.top_left,
-        &node.id,
-        "visual.radii.top_left",
-        diagnostics,
-    );
-    validate_bound_value(
-        document,
-        &node.visual.radii.top_right,
-        &node.id,
-        "visual.radii.top_right",
-        diagnostics,
-    );
-    validate_bound_value(
-        document,
-        &node.visual.radii.bottom_right,
-        &node.id,
-        "visual.radii.bottom_right",
-        diagnostics,
-    );
-    validate_bound_value(
-        document,
-        &node.visual.radii.bottom_left,
-        &node.id,
-        "visual.radii.bottom_left",
-        diagnostics,
-    );
+    for (corner, value) in [
+        ("top_left", &node.visual.radii.top_left),
+        ("top_right", &node.visual.radii.top_right),
+        ("bottom_right", &node.visual.radii.bottom_right),
+        ("bottom_left", &node.visual.radii.bottom_left),
+    ] {
+        validate_bound_value(
+            document,
+            value,
+            &node.id,
+            &format!("visual.radii.{corner}"),
+            diagnostics,
+        );
+    }
+    validate_effect_values(document, node, diagnostics);
+}
+
+fn validate_effect_values(
+    document: &AuthoringDocument,
+    node: &DesignNode,
+    diagnostics: &mut Vec<DesignDiagnostic>,
+) {
     for (index, effect) in node.visual.effects.iter().enumerate() {
         match effect {
             Effect::Shadow {
@@ -501,32 +554,39 @@ fn validate_node_values(
             ),
         }
     }
+}
 
-    if let Some(text) = &node.text {
-        if let Some(value) = &text.font_family {
-            validate_bound_value(document, value, &node.id, "text.font_family", diagnostics);
-        }
-        if let Some(value) = &text.font_size {
-            validate_bound_value(document, value, &node.id, "text.font_size", diagnostics);
-        }
-        if let Some(value) = &text.font_weight {
-            validate_bound_value(document, value, &node.id, "text.font_weight", diagnostics);
-        }
-        if let Some(value) = &text.line_height {
-            validate_bound_value(document, value, &node.id, "text.line_height", diagnostics);
-        }
-        if let Some(value) = &text.letter_spacing {
-            validate_bound_value(
-                document,
-                value,
-                &node.id,
-                "text.letter_spacing",
-                diagnostics,
-            );
-        }
-        if let Some(value) = &text.color {
-            validate_bound_value(document, value, &node.id, "text.color", diagnostics);
-        }
+fn validate_node_text_values(
+    document: &AuthoringDocument,
+    node: &DesignNode,
+    diagnostics: &mut Vec<DesignDiagnostic>,
+) {
+    let Some(text) = &node.text else {
+        return;
+    };
+    if let Some(value) = &text.font_family {
+        validate_bound_value(document, value, &node.id, "text.font_family", diagnostics);
+    }
+    if let Some(value) = &text.font_size {
+        validate_bound_value(document, value, &node.id, "text.font_size", diagnostics);
+    }
+    if let Some(value) = &text.font_weight {
+        validate_bound_value(document, value, &node.id, "text.font_weight", diagnostics);
+    }
+    if let Some(value) = &text.line_height {
+        validate_bound_value(document, value, &node.id, "text.line_height", diagnostics);
+    }
+    if let Some(value) = &text.letter_spacing {
+        validate_bound_value(
+            document,
+            value,
+            &node.id,
+            "text.letter_spacing",
+            diagnostics,
+        );
+    }
+    if let Some(value) = &text.color {
+        validate_bound_value(document, value, &node.id, "text.color", diagnostics);
     }
 }
 
@@ -733,110 +793,165 @@ fn visit_node(
 
 fn validate_tokens(document: &AuthoringDocument, diagnostics: &mut Vec<DesignDiagnostic>) {
     for (key, token) in &document.tokens {
-        validate_identifier(key, "GD-ID-005", "tokens key", key, diagnostics);
-        validate_identifier(&token.id, "GD-ID-006", "token.id", key, diagnostics);
-        if key != &token.id {
-            diagnostics.push(DesignDiagnostic::error(
-                "GD-ID-007",
-                Some(key),
-                Some("id"),
-                format!(
-                    "token map key {key:?} does not match embedded id {:?}",
-                    token.id
-                ),
-            ));
-        }
-        if !token.modes.contains_key(&token.default_mode) {
-            diagnostics.push(DesignDiagnostic::error(
-                "GD-TOKEN-002",
-                Some(key),
-                Some("default_mode"),
-                format!(
-                    "default mode {:?} is not present in modes",
-                    token.default_mode
-                ),
-            ));
-        }
-        if token.modes.is_empty() {
-            diagnostics.push(DesignDiagnostic::error(
-                "GD-TOKEN-003",
-                Some(key),
-                Some("modes"),
-                "token must define at least one mode",
-            ));
-        }
-        for (mode, value) in &token.modes {
-            if mode.trim().is_empty() {
-                diagnostics.push(DesignDiagnostic::error(
-                    "GD-TOKEN-004",
-                    Some(key),
-                    Some("modes"),
-                    "token mode name must not be empty",
-                ));
-            }
-            match value {
-                TokenValue::Alias(target) => {
-                    if !document.tokens.contains_key(target) {
-                        diagnostics.push(DesignDiagnostic::error(
-                            "GD-TOKEN-005",
-                            Some(key),
-                            Some(&format!("modes.{mode}")),
-                            format!("alias target {target:?} does not exist"),
-                        ));
-                    }
-                }
-                concrete if concrete.kind() != Some(token.kind) => {
-                    diagnostics.push(DesignDiagnostic::error(
-                        "GD-TOKEN-006",
-                        Some(key),
-                        Some(&format!("modes.{mode}")),
-                        format!(
-                            "token kind {:?} does not match mode value kind {:?}",
-                            token.kind,
-                            concrete.kind()
-                        ),
-                    ));
-                }
-                TokenValue::Color(color) => {
-                    for (channel, value) in [
-                        ("r", color.r),
-                        ("g", color.g),
-                        ("b", color.b),
-                        ("a", color.a),
-                    ] {
-                        validate_unit_interval(
-                            value,
-                            key,
-                            &format!("modes.{mode}.{channel}"),
-                            diagnostics,
-                        );
-                    }
-                }
-                TokenValue::Number(value) if !value.is_finite() => {
-                    diagnostics.push(DesignDiagnostic::error(
-                        "GD-TOKEN-007",
-                        Some(key),
-                        Some(&format!("modes.{mode}")),
-                        "numeric token value must be finite",
-                    ));
-                }
-                TokenValue::Motion(value) if value.easing.iter().any(|item| !item.is_finite()) => {
-                    diagnostics.push(DesignDiagnostic::error(
-                        "GD-TOKEN-008",
-                        Some(key),
-                        Some(&format!("modes.{mode}.easing")),
-                        "motion easing values must be finite",
-                    ));
-                }
-                TokenValue::Number(_)
-                | TokenValue::Text(_)
-                | TokenValue::Boolean(_)
-                | TokenValue::Font(_)
-                | TokenValue::Motion(_) => {}
-            }
-        }
+        validate_token_identity(key, token, diagnostics);
+        validate_token_modes(document, key, token, diagnostics);
     }
     detect_token_alias_cycles(document, diagnostics);
+}
+
+fn validate_token_identity(
+    key: &str,
+    token: &DesignToken,
+    diagnostics: &mut Vec<DesignDiagnostic>,
+) {
+    validate_identifier(key, "GD-ID-005", "tokens key", key, diagnostics);
+    validate_identifier(&token.id, "GD-ID-006", "token.id", key, diagnostics);
+    if key != token.id.as_str() {
+        diagnostics.push(DesignDiagnostic::error(
+            "GD-ID-007",
+            Some(key),
+            Some("id"),
+            format!(
+                "token map key {key:?} does not match embedded id {:?}",
+                token.id
+            ),
+        ));
+    }
+}
+
+fn validate_token_modes(
+    document: &AuthoringDocument,
+    key: &str,
+    token: &DesignToken,
+    diagnostics: &mut Vec<DesignDiagnostic>,
+) {
+    if !token.modes.contains_key(&token.default_mode) {
+        diagnostics.push(DesignDiagnostic::error(
+            "GD-TOKEN-002",
+            Some(key),
+            Some("default_mode"),
+            format!(
+                "default mode {:?} is not present in modes",
+                token.default_mode
+            ),
+        ));
+    }
+    if token.modes.is_empty() {
+        diagnostics.push(DesignDiagnostic::error(
+            "GD-TOKEN-003",
+            Some(key),
+            Some("modes"),
+            "token must define at least one mode",
+        ));
+    }
+    for (mode, value) in &token.modes {
+        validate_token_mode(document, key, token, mode, value, diagnostics);
+    }
+}
+
+fn validate_token_mode(
+    document: &AuthoringDocument,
+    key: &str,
+    token: &DesignToken,
+    mode: &str,
+    value: &TokenValue,
+    diagnostics: &mut Vec<DesignDiagnostic>,
+) {
+    if mode.trim().is_empty() {
+        diagnostics.push(DesignDiagnostic::error(
+            "GD-TOKEN-004",
+            Some(key),
+            Some("modes"),
+            "token mode name must not be empty",
+        ));
+    }
+    if let Some(value_kind) = value.kind()
+        && value_kind != token.kind
+    {
+        diagnostics.push(DesignDiagnostic::error(
+            "GD-TOKEN-006",
+            Some(key),
+            Some(&format!("modes.{mode}")),
+            format!(
+                "token kind {:?} does not match mode value kind {value_kind:?}",
+                token.kind
+            ),
+        ));
+        return;
+    }
+    match value {
+        TokenValue::Alias(target) => {
+            validate_token_alias_target(document, key, token, mode, target, diagnostics);
+        }
+        TokenValue::Color(color) => validate_token_color(key, mode, color, diagnostics),
+        TokenValue::Number(value) if !value.is_finite() => {
+            diagnostics.push(DesignDiagnostic::error(
+                "GD-TOKEN-007",
+                Some(key),
+                Some(&format!("modes.{mode}")),
+                "numeric token value must be finite",
+            ));
+        }
+        TokenValue::Motion(value) if value.easing.iter().any(|item| !item.is_finite()) => {
+            diagnostics.push(DesignDiagnostic::error(
+                "GD-TOKEN-008",
+                Some(key),
+                Some(&format!("modes.{mode}.easing")),
+                "motion easing values must be finite",
+            ));
+        }
+        TokenValue::Number(_)
+        | TokenValue::Text(_)
+        | TokenValue::Boolean(_)
+        | TokenValue::Font(_)
+        | TokenValue::Motion(_) => {}
+    }
+}
+
+fn validate_token_alias_target(
+    document: &AuthoringDocument,
+    key: &str,
+    token: &DesignToken,
+    mode: &str,
+    target: &str,
+    diagnostics: &mut Vec<DesignDiagnostic>,
+) {
+    match document.tokens.get(target) {
+        None => diagnostics.push(DesignDiagnostic::error(
+            "GD-TOKEN-005",
+            Some(key),
+            Some(&format!("modes.{mode}")),
+            format!("alias target {target:?} does not exist"),
+        )),
+        Some(target_token) if target_token.kind != token.kind => {
+            diagnostics.push(DesignDiagnostic::error(
+                "GD-TOKEN-010",
+                Some(key),
+                Some(&format!("modes.{mode}")),
+                format!(
+                    "alias target {target:?} has kind {:?}, expected {:?}",
+                    target_token.kind, token.kind
+                ),
+            ));
+        }
+        Some(_) => {}
+    }
+}
+
+fn validate_token_color(
+    key: &str,
+    mode: &str,
+    color: &crate::authoring::ColorValue,
+    diagnostics: &mut Vec<DesignDiagnostic>,
+) {
+    for (channel, value) in [
+        ("r", color.r),
+        ("g", color.g),
+        ("b", color.b),
+        ("a", color.a),
+    ] {
+        validate_unit_interval(value, key, &format!("modes.{mode}.{channel}"), diagnostics);
+    }
 }
 
 fn detect_token_alias_cycles(
@@ -1008,6 +1123,11 @@ fn validate_identifier(
     }
 }
 
+/// Computes a revision-independent deterministic fingerprint of an authoring document.
+///
+/// # Errors
+///
+/// Returns a serialization error when the canonical authoring document cannot be encoded.
 pub fn document_fingerprint(
     document: &AuthoringDocument,
 ) -> Result<DocumentFingerprint, serde_json::Error> {
@@ -1049,6 +1169,11 @@ pub fn summarize_document(document: &AuthoringDocument) -> DocumentSummary {
     }
 }
 
+/// Builds a deterministic readiness manifest for authoring-to-compiler-IR lowering.
+///
+/// # Errors
+///
+/// Returns a serialization error when the document fingerprint cannot be produced.
 pub fn lowering_manifest(
     document: &AuthoringDocument,
 ) -> Result<LoweringManifest, serde_json::Error> {

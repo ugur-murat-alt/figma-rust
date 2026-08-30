@@ -58,6 +58,12 @@ pub enum WorkspaceError {
 }
 
 impl DesignWorkspace {
+    /// Validates and opens a complete authoring document in this workspace.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WorkspaceError`] when validation fails, a document with the same ID is already
+    /// open without explicit replacement, or the document fingerprint cannot be serialized.
     pub fn open_document(
         &mut self,
         document: AuthoringDocument,
@@ -87,6 +93,11 @@ impl DesignWorkspace {
         })
     }
 
+    /// Removes an open document and its transaction replay history.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WorkspaceError::DocumentNotFound`] when the document is not open.
     pub fn remove_document(&mut self, document_id: &str) -> Result<(), WorkspaceError> {
         self.documents
             .remove(document_id)
@@ -110,6 +121,12 @@ impl DesignWorkspace {
         self.documents.keys().cloned().collect()
     }
 
+    /// Applies a transaction once or replays its previously committed receipt idempotently.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`WorkspaceError`] when the target document is missing, the transaction ID was
+    /// reused with different content, fingerprinting fails, or the transaction itself is invalid.
     pub fn apply(
         &mut self,
         transaction: &DesignTransaction,
