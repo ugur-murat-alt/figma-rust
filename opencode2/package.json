@@ -1,7 +1,7 @@
 {
   "name": "@vaur94/figma-rust",
   "version": "0.4.0",
-  "description": "OpenCode V2 skills for the deterministic figma-rust GPUI compiler workflow.",
+  "description": "OpenCode V2 skills for GPUI-native design authoring/MCP and the deterministic Figma-to-GPUI compatibility compiler.",
   "type": "module",
   "license": "UNLICENSED",
   "main": "./dist/plugin.js",
@@ -17,7 +17,7 @@
     "url": "git+https://github.com/ugur-murat-alt/figma-rust.git",
     "directory": "opencode2"
   },
-  "homepage": "https://github.com/ugur-murat-alt/figma-rust#opencode2-skill",
+  "homepage": "https://github.com/ugur-murat-alt/figma-rust#opencode2-skills",
   "bugs": {
     "url": "https://github.com/ugur-murat-alt/figma-rust/issues"
   },
@@ -34,6 +34,8 @@
   "keywords": [
     "opencode",
     "opencode-plugin",
+    "mcp",
+    "gpui-design",
     "figma",
     "rust",
     "gpui",

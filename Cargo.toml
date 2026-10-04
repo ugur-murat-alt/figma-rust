@@ -4,6 +4,8 @@ members = [
     "crates/figma-rust-codegen",
     "crates/figma-gpui-runtime",
     "crates/figma-rust-cli",
+    "crates/gpui-design-core",
+    "crates/gpui-design-mcp",
     "fixtures/generated-gpui",
 ]
 resolver = "3"
